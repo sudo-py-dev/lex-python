@@ -115,10 +115,10 @@ async def ai_message_handler(client: Client, message: Message):
                 .strip()
             )
 
-            logger.info(f"AI [{chat_id}] response: {clean_response[:20]}... (Token: {token_match})")
+            logger.debug(f"AI [{chat_id}] response: {clean_response[:20]}... (Token: {token_match})")
 
             if "IGNORE" in token_match and len(token_match) < 10:
-                logger.info(f"AI [{chat_id}] decision: IGNORE")
+                logger.debug(f"AI [{chat_id}] decision: IGNORE")
                 return
 
             if token_match == "CLOSE" or clean_response.upper().startswith("[CLOSE]"):

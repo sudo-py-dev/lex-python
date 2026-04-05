@@ -18,7 +18,7 @@
   "ai.context_too_large": "📦 **הקשר גדול מדי**: היסטוריית השיחות גדולה מדי עבור הדגם הזה. נסה את /clear_context.",
   "ai.error_prefix": "❌ **שגיאת AI**: {error}",
   "ai.rate_limit": "🐢 **הגעת למגבלת השיעור**: המתן מספר שניות לפני שתנסה שוב.",
-  "ai.session_closed": "💤 סשן הצ'אט נסגר וההקשר נוקה. ציין אותי אם אתה צריך אותי שוב!",
+  "ai.session_closed": "💤 סשן הצ'אט נסגר וההקשר נוקה. אזכר אותי אם תצטרך אותי שוב!",
   "approval.approved": "✅ {mention} אושר.",
   "approval.is_approved": "✅ {mention} מאושר בקבוצה זו.",
   "approval.list_empty": "אין משתמשים מאושרים בקבוצה הזו.",

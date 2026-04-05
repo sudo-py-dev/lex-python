@@ -2,6 +2,8 @@
 
 # 🌐 lex-tg: The Ultimate Telegram Guardian
 
+[English](#) | [עברית](README.he.md)
+
 **lex-tg** is a state-of-the-art, modular Telegram group management system built for high-performance and absolute reliability. Leveraging the **MTProto** protocol and a modern asynchronous stack, lex-tg provides unparalleled control over group dynamics with a focus on speed, localization, and robust type safety.
 
 ---
