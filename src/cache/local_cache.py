@@ -60,7 +60,7 @@ class AsyncSnapshotCache:
             return True
 
     async def setex(self, key: str, ttl: int, value: Any) -> bool:
-        """Compatibility wrapper for Redis setex."""
+        """Compatibility wrapper for standard cache setex."""
         return await self.set(key, value, ttl=ttl)
 
     async def incr(self, key: str) -> int:
@@ -108,6 +108,17 @@ class AsyncSnapshotCache:
 
             self._data.move_to_end(key)
             return True
+
+    async def get_ttl(self, key: str) -> int:
+        """Returns remaining TTL in seconds, or -1 if no TTL, -2 if not exists."""
+        async with self._lock:
+            if key not in self._data:
+                return -2
+            expiry = self._expiries.get(key)
+            if not expiry:
+                return -1
+            remaining = int(expiry - time.time())
+            return max(0, remaining)
 
     async def delete(self, key: str) -> bool:
         """Removes a key from cache."""

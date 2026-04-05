@@ -1,19 +1,20 @@
 import pytest
-from fakeredis.aioredis import FakeRedis
 
+from src.cache.local_cache import AsyncSnapshotCache
+from src.core.constants import CacheKeys
 from src.core.context import AppContext
 from src.plugins.flood.service import increment_flood
 
 
 @pytest.fixture
-def test_redis():
-    return FakeRedis(decode_responses=True)
+def test_cache():
+    return AsyncSnapshotCache()
 
 
 @pytest.fixture
-def mock_ctx(test_redis, mocker):
+def mock_ctx(test_cache, mocker):
     ctx = mocker.Mock(spec=AppContext)
-    ctx.redis = test_redis
+    ctx.cache = test_cache
     return ctx
 
 
@@ -26,7 +27,7 @@ async def test_flood_threshold_reached(mock_ctx):
     for _ in range(4):
         counts.append(await increment_flood(mock_ctx, chat_id, user_id, window))
     assert counts == [1, 2, 3, 4]
-    ttl = await mock_ctx.redis.ttl(f"flood:{chat_id}:{user_id}")
+    ttl = await mock_ctx.cache.get_ttl(CacheKeys.flood(chat_id, user_id))
     assert 0 < ttl <= window
 
 

@@ -52,7 +52,7 @@ class Permission(Enum):
 
 
 async def is_admin(client: Client, chat_id: int | None, user_id: int | None) -> bool:
-    """Check if user is admin. Now uses Redis cache by default."""
+    """Check if user is admin. Now uses local cache by default."""
     if chat_id is None or user_id is None:
         return False
     return await cached_is_admin(client, chat_id, user_id)

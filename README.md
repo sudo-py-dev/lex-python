@@ -23,7 +23,7 @@
 | :--- | :--- |
 | **Core Client** | [Pyrogram](https://docs.pyrogram.org/) (Async MTProto) |
 | **Database** | [SQLModel](https://sqlmodel.tiangolo.com/) + PostgreSQL/SQLite |
-| **Caching** | [Redis](https://redis.io/) (High-speed admin & setting cache) |
+| **Caching** | [Pure Python](src/cache/local_cache.py) (High-speed Async Snapshot Cache) |
 | **Package Manager** | [uv](https://astral.sh/uv/) (Extreme performance & isolation) |
 | **Type Safety** | [Mypy](https://mypy-lang.org/) (Strict null-safety & guard patterns) |
 

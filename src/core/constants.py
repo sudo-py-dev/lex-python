@@ -1,8 +1,8 @@
 """Centralised string constants — no magic strings in handlers."""
 
 
-class RedisKeys:
-    """Redis key templates for all features."""
+class CacheKeys:
+    """Cache key templates for all features."""
 
     @staticmethod
     def flood(chat_id: int, user_id: int) -> str:

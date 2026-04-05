@@ -6,7 +6,7 @@ from pyrogram.types import Message
 
 from src.cache.local_cache import get_cache
 from src.core.bot import bot
-from src.core.constants import RedisKeys
+from src.core.constants import CacheKeys
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
 
@@ -20,7 +20,7 @@ async def afk_handler(client: Client, message: Message) -> None:
     r = get_cache()
     afk_data = {"time": time.time(), "reason": reason, "name": message.from_user.first_name}
 
-    await r.set(RedisKeys.afk(user_id), json.dumps(afk_data), ttl=604800)
+    await r.set(CacheKeys.afk(user_id), json.dumps(afk_data), ttl=604800)
     await message.reply(
         await at(
             message.chat.id,
@@ -40,7 +40,7 @@ async def afk_interceptor(client: Client, message: Message) -> None:
     r = get_cache()
     user_id = message.from_user.id
 
-    afk_key = RedisKeys.afk(user_id)
+    afk_key = CacheKeys.afk(user_id)
     afk_raw = await r.get(afk_key)
     if afk_raw:
         afk_data = json.loads(afk_raw)
@@ -61,7 +61,7 @@ async def afk_interceptor(client: Client, message: Message) -> None:
                 user_id = ent.user.id
 
             if user_id:
-                afk_raw = await r.get(RedisKeys.afk(user_id))
+                afk_raw = await r.get(CacheKeys.afk(user_id))
                 if afk_raw:
                     afk_data = json.loads(afk_raw)
                     await message.reply(
