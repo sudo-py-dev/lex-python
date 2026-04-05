@@ -94,7 +94,6 @@ async def get_user_admin_groups(
                     title = chat.title or await at(user_id, "panel.unknown_chat", id=chat_id)
                     results.append((chat_id, title))
                 except Exception:
-                    # Fallback for chats bot is in but can't fetch (e.g. restricted)
                     title = await at(user_id, "panel.unknown_chat", id=chat_id)
                     results.append((chat_id, title))
 

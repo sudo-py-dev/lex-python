@@ -4,7 +4,7 @@ import time
 from pyrogram import Client, enums, filters
 from pyrogram.types import Message
 
-from src.cache.redis import get_redis
+from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.core.constants import RedisKeys
 from src.utils.decorators import safe_handler
@@ -17,10 +17,10 @@ async def afk_handler(client: Client, message: Message) -> None:
     reason = " ".join(message.command[1:]) if len(message.command) > 1 else ""
     user_id = message.from_user.id
 
-    r = get_redis()
+    r = get_cache()
     afk_data = {"time": time.time(), "reason": reason, "name": message.from_user.first_name}
 
-    await r.set(RedisKeys.afk(user_id), json.dumps(afk_data), ex=604800)
+    await r.set(RedisKeys.afk(user_id), json.dumps(afk_data), ttl=604800)
     await message.reply(
         await at(
             message.chat.id,
@@ -37,7 +37,7 @@ async def afk_interceptor(client: Client, message: Message) -> None:
     if not message.from_user or message.command:
         return
 
-    r = get_redis()
+    r = get_cache()
     user_id = message.from_user.id
 
     afk_key = RedisKeys.afk(user_id)

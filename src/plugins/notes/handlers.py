@@ -83,7 +83,7 @@ async def clear_note_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.group & filters.regex(r"^#(\w+)$"), group=2)
 @safe_handler
 async def hash_note_handler(client: Client, message: Message) -> None:
-    # Rose #note shortcut
+
     name = message.matches[0].group(1).lower()
     note = await get_note(get_ctx(), message.chat.id, name)
     if not note:

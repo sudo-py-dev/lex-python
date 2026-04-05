@@ -78,10 +78,10 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
                 )
                 answer = str(correct_index)
 
-                await ctx.redis.set(
+                await ctx.cache.set(
                     f"captcha_poll:{captcha_msg.poll.id}",
                     json.dumps({"chat_id": message.chat.id, "user_id": new_member.id}),
-                    ex=settings.captchaTimeout,
+                    ttl=settings.captchaTimeout,
                 )
             elif mode == "math":
                 problem, answer = generate_math_captcha()
@@ -152,7 +152,7 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
                 if mode == "image":
                     data["id_map"] = id_map
 
-                await ctx.redis.set(key, json.dumps(data), ex=settings.captchaTimeout)
+                await ctx.cache.set(key, json.dumps(data), ttl=settings.captchaTimeout)
 
                 asyncio.create_task(
                     _enforce_captcha_timeout(
@@ -177,8 +177,8 @@ async def _enforce_captcha_timeout(
 ) -> None:
     await asyncio.sleep(timeout)
     key = f"captcha:{chat_id}:{user_id}"
-    if await ctx.redis.exists(key):
-        await ctx.redis.delete(key)
+    if await ctx.cache.exists(key):
+        await ctx.cache.delete(key)
         try:
             await client.ban_chat_member(
                 chat_id, user_id, until_date=datetime.now() + timedelta(hours=7)
@@ -199,7 +199,7 @@ async def captcha_verify_handler(client: Client, callback: CallbackQuery) -> Non
         await callback.answer(await at(chat_id, "captcha.not_for_you"), show_alert=True)
         return
     key = f"captcha:{callback.message.chat.id}:{target_user_id}"
-    raw_data = await ctx.redis.get(key)
+    raw_data = await ctx.cache.get(key)
     if not raw_data:
         await callback.answer(await at(chat_id, "captcha.expired"), show_alert=True)
         return
@@ -222,7 +222,7 @@ async def captcha_message_handler(client: Client, message: Message) -> None:
         return
     ctx = get_ctx()
     key = f"captcha:{message.chat.id}:{message.from_user.id}"
-    raw_data = await ctx.redis.get(key)
+    raw_data = await ctx.cache.get(key)
     if not raw_data:
         return
 
@@ -244,7 +244,6 @@ async def captcha_message_handler(client: Client, message: Message) -> None:
             data.get("chat_title", ""),
         )
     else:
-        # Optionally notify wrong answer, but usually just wait for timeout or retry
         pass
 
 
@@ -265,7 +264,7 @@ async def captcha_img_choice_handler(client: Client, callback: CallbackQuery) ->
         return
 
     key = f"captcha:{chat_id}:{target_user_id}"
-    raw_data = await ctx.redis.get(key)
+    raw_data = await ctx.cache.get(key)
     if not raw_data:
         await callback.answer(await at(chat_id, "captcha.expired"), show_alert=True)
         return
@@ -296,7 +295,7 @@ async def captcha_poll_handler(
     ctx = get_ctx()
     poll_id = str(update.poll_id)
     key_poll = f"captcha_poll:{poll_id}"
-    raw_poll_info = await ctx.redis.get(key_poll)
+    raw_poll_info = await ctx.cache.get(key_poll)
     if not raw_poll_info:
         return
 
@@ -309,14 +308,13 @@ async def captcha_poll_handler(
     if isinstance(update.peer, raw_types.PeerUser):
         current_user_id = update.peer.user_id
     else:
-        # Fallback if peer is something else
         return
 
     if current_user_id != user_id:
         return
 
     key_user = f"captcha:{chat_id}:{user_id}"
-    raw_user_data = await ctx.redis.get(key_user)
+    raw_user_data = await ctx.cache.get(key_user)
     if not raw_user_data:
         return
 
@@ -340,14 +338,14 @@ async def captcha_poll_handler(
         await _handle_captcha_success(
             client, ctx, chat_id, user, user_data["msg_id"], user_data.get("chat_title", "")
         )
-        await ctx.redis.delete(key_poll)
+        await ctx.cache.delete(key_poll)
 
 
 async def _handle_captcha_success(
     client: Client, ctx, chat_id: int, user, msg_id: int, chat_title: str
 ) -> None:
     key = f"captcha:{chat_id}:{user.id}"
-    await ctx.redis.delete(key)
+    await ctx.cache.delete(key)
     try:
         await client.restrict_chat_member(chat_id, user.id, UNRESTRICTED_PERMISSIONS)
         await client.delete_messages(chat_id, msg_id)

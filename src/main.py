@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from loguru import logger
 
-from src.cache.redis import get_redis
+from src.cache.local_cache import get_cache
 from src.config import config
 from src.core.context import AppContext, set_context
 from src.core.plugin import autodiscover, get_plugins
@@ -28,11 +28,15 @@ async def main() -> None:
 
     logger.info(f"Starting {config.BOT_NAME}...")
 
-    redis = get_redis()
+    cache = get_cache()
+    await cache.load_snapshot()
+
     scheduler = AsyncIOScheduler()
     scheduler.start()
 
-    ctx = AppContext(session_factory=AsyncSessionLocal, redis=redis, scheduler=scheduler)
+    scheduler.add_job(cache.save_snapshot, "interval", minutes=10, id="cache_snapshot")
+
+    ctx = AppContext(session_factory=AsyncSessionLocal, cache=cache, scheduler=scheduler)
     set_context(ctx)
 
     autodiscover("src.plugins")
@@ -58,8 +62,8 @@ async def main() -> None:
             except Exception as e:
                 logger.error(f"Failed to teardown plugin {plugin.name}: {e}")
 
-        # 2. Shutdown scheduler and DB
         scheduler.shutdown(wait=False)
+        await cache.save_snapshot()
         await disconnect_db()
 
         if bot.is_connected:

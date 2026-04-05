@@ -8,7 +8,6 @@ class Config(BaseSettings):
     API_HASH: str
     BOT_TOKEN: str
     DATABASE_URL: str
-    REDIS_URL: str
     OWNER_ID: int
     LOG_LEVEL: str = "INFO"
     RATE_LIMIT_DELAY: float = 2.0
@@ -20,7 +19,8 @@ config = Config()
 
 TECH_STACK = {
     "engine": "[Kurigram](https://github.com/KurimuzonAkuma/kurigram) (Pyrogram Fork)",
-    "database": "PostgreSQL (Async) & Redis",
+    "database": "PostgreSQL (Async)",
+    "cache": "Pure Python (Local Snapshot)",
     "framework": "SQLAlchemy 2.0 & Alembic",
     "performance": "Uvloop & Loguru",
 }

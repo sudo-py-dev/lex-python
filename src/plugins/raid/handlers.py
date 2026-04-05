@@ -1,7 +1,7 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
-from src.cache.redis import get_redis
+from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.plugins.admin_panel.repository import get_chat_settings
 from src.utils.decorators import admin_only, safe_handler
@@ -30,7 +30,7 @@ async def raid_interceptor(client: Client, message: Message) -> None:
     if not settings.raidEnabled:
         return
 
-    r = get_redis()
+    r = get_cache()
     key = f"raid_joins:{message.chat.id}"
 
     count = await r.incr(key)
@@ -38,7 +38,6 @@ async def raid_interceptor(client: Client, message: Message) -> None:
         await r.expire(key, settings.raidWindow)
 
     if count >= settings.raidThreshold:
-        # Execute raid action (default: lock chat or ban new members)
         if settings.raidAction == "lock":
             await client.set_chat_permissions(message.chat.id, RESTRICTED_PERMISSIONS)
 

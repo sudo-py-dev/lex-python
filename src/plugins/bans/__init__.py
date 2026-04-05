@@ -19,7 +19,7 @@ class BansPlugin(Plugin):
     async def setup(self, client: Client, ctx: AppContext) -> None:
         global _ctx
         _ctx = ctx
-        from . import handlers  # noqa: F401
+        from . import handlers
 
 
 register(BansPlugin())

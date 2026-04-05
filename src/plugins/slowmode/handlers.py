@@ -3,7 +3,7 @@ import contextlib
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
-from src.cache.redis import get_redis
+from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.core.constants import RedisKeys
 from src.utils.decorators import admin_only, safe_handler
@@ -52,11 +52,11 @@ async def slowmode_interceptor(client: Client, message: Message) -> None:
     if await is_admin(client, message.chat.id, message.from_user.id):
         return
 
-    r = get_redis()
+    r = get_cache()
     key = RedisKeys.slowmode(message.chat.id, message.from_user.id)
 
     if await r.get(key):
         with contextlib.suppress(Exception):
             await message.delete()
     else:
-        await r.set(key, "1", ex=interval)
+        await r.set(key, "1", ttl=interval)

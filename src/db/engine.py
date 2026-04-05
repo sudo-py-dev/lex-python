@@ -17,7 +17,6 @@ def make_engine(url: str | None = None, *, echo: bool = False):
     if not url:
         raise RuntimeError("DATABASE_URL environment variable is not set")
 
-    # Ensure correctly formatted async URL for Postgres
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
 

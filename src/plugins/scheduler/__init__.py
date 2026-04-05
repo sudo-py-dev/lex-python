@@ -39,19 +39,16 @@ class SchedulerPlugin(Plugin):
             async with ctx.db() as session:
                 now = datetime.now(UTC).replace(tzinfo=None)
 
-                # Load group settings for timezone mapping
                 stmt = select(GroupSettings.id, GroupSettings.timezone)
                 result = await session.execute(stmt)
                 tz_map = {row[0]: row[1] for row in result.all()}
 
-                # 1. Existing Timed Actions (Bans/Mutes) - Always UTC
                 stmt = select(TimedAction).where(TimedAction.expiresAt > now)
                 result = await session.execute(stmt)
                 for action in result.scalars().all():
                     delay = (action.expiresAt - now).total_seconds()
                     schedule_timed_action(ctx, action.chatId, action.userId, action.action, delay)
 
-                # 2. Reminders
                 stmt = select(Reminder).where(Reminder.isActive)
                 result = await session.execute(stmt)
                 for rem in result.scalars().all():
@@ -73,12 +70,11 @@ class SchedulerPlugin(Plugin):
                             f"Invalid sendTime for reminder {rem.id}: {rem.sendTime} - {e}"
                         )
 
-                # 3. Night Lock
                 stmt = select(NightLock).where(NightLock.isEnabled)
                 result = await session.execute(stmt)
                 for lock in result.scalars().all():
                     tz = tz_map.get(lock.chatId, "UTC")
-                    # Apply job
+
                     ctx.scheduler.add_job(
                         apply_night_lock,
                         trigger="cron",
@@ -89,7 +85,7 @@ class SchedulerPlugin(Plugin):
                         replace_existing=True,
                         timezone=tz,
                     )
-                    # Lift job
+
                     ctx.scheduler.add_job(
                         lift_night_lock,
                         trigger="cron",
@@ -101,7 +97,6 @@ class SchedulerPlugin(Plugin):
                         timezone=tz,
                     )
 
-                # 4. Group Cleaner (Daily at 04:00 AM local time)
                 stmt = select(GroupCleaner)
                 result = await session.execute(stmt)
                 for cleaner in result.scalars().all():

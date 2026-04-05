@@ -77,7 +77,6 @@ def generate_image_captcha():
         if emoji_font:
             draw.text(final_pos, emoji, font=emoji_font, embedded_color=True)
         else:
-            # Fallback to text if font missing
             draw.text(final_pos, name.upper(), fill=(0, 0, 0))
 
         if name == target_name:

@@ -12,8 +12,7 @@ REDIS_KEY_PREFIX = "lex:entity_block:"
 async def get_blocked_entities(ctx: AppContext, chat_id: int) -> list[BlockedEntity]:
     key = f"{REDIS_KEY_PREFIX}{chat_id}"
 
-    # Try Redis cache first
-    cached = await ctx.redis.get(key)
+    cached = await ctx.cache.get(key)
     if cached:
         try:
             data = json.loads(cached)
@@ -28,9 +27,8 @@ async def get_blocked_entities(ctx: AppContext, chat_id: int) -> list[BlockedEnt
             ]
         except Exception as e:
             logger.error(f"Failed to parse EntityBlock cache for {chat_id}: {e}")
-            await ctx.redis.delete(key)
+            await ctx.cache.delete(key)
 
-    # Cache miss: fetch from DB
     async with ctx.db() as session:
         stmt = select(BlockedEntity).where(BlockedEntity.chatId == chat_id)
         result = await session.execute(stmt)
@@ -46,7 +44,7 @@ async def get_blocked_entities(ctx: AppContext, chat_id: int) -> list[BlockedEnt
             }
             for b in blocks
         ]
-        await ctx.redis.setex(key, 86400, json.dumps(data))
+        await ctx.cache.setex(key, 86400, json.dumps(data))
     except Exception as e:
         logger.error(f"Failed to cache EntityBlocks for {chat_id}: {e}")
 
@@ -79,7 +77,7 @@ async def add_blocked_entity(
         await session.commit()
         await session.refresh(res)
 
-        await ctx.redis.delete(f"{REDIS_KEY_PREFIX}{chat_id}")
+        await ctx.cache.delete(f"{REDIS_KEY_PREFIX}{chat_id}")
         return res
 
 
@@ -94,4 +92,4 @@ async def remove_blocked_entity(ctx: AppContext, chat_id: int, entity_type: str)
             await session.delete(obj)
         await session.commit()
 
-    await ctx.redis.delete(f"{REDIS_KEY_PREFIX}{chat_id}")
+    await ctx.cache.delete(f"{REDIS_KEY_PREFIX}{chat_id}")

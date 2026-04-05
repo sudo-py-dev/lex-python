@@ -50,7 +50,6 @@ async def list_approved_handler(client: Client, message: Message) -> None:
 
     text = await at(message.chat.id, "approval.list_header")
     for a in approved:
-        # Here we only have IDs in DB for now.
         text += f"\n• `{a.userId}`"
     await message.reply(text)
 

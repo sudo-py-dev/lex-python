@@ -59,7 +59,7 @@ async def list_disabled_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.group & filters.command(list(NON_DISABLEABLE)), group=-2)
 @safe_handler
 async def disable_interceptor(client: Client, message: Message) -> None:
-    # In Pyrogram, we'd need to use `message.stop_propagation()`.
+
     if not message.command:
         return
     command = message.command[0].lower()

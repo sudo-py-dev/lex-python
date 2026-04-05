@@ -22,7 +22,7 @@ class Plugin(ABC):
     async def setup(self, client: Client, ctx: AppContext) -> None:
         pass
 
-    async def teardown(self) -> None:  # noqa: B027
+    async def teardown(self) -> None:
         pass
 
 

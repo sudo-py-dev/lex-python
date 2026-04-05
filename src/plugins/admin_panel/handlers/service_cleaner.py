@@ -50,7 +50,6 @@ async def service_cleaner_types_kb(
     except (json.JSONDecodeError, TypeError):
         enabled_types = set()
 
-    # Extract all service types from Pyrogram
     all_types = [e.name for e in pyrogram.enums.MessageServiceType if e.name != "UNSUPPORTED"]
 
     items_per_page = 10

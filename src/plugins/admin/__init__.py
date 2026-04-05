@@ -9,7 +9,7 @@ class AdminPlugin(Plugin):
     priority = 100
 
     async def setup(self, client: Client, ctx: AppContext) -> None:
-        from . import handlers  # noqa: F401
+        from . import handlers
 
 
 register(AdminPlugin())

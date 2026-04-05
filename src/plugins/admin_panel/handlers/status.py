@@ -28,7 +28,10 @@ async def on_my_status_update(client: Client, update: ChatMemberUpdated):
         await invalidate_cache(chat_id)
 
     elif new_status == ChatMemberStatus.MEMBER:
-        if old_status in {ChatMemberStatus.LEFT, ChatMemberStatus.KICKED, None} or old_status == ChatMemberStatus.ADMINISTRATOR:
+        if (
+            old_status in {ChatMemberStatus.LEFT, ChatMemberStatus.KICKED, None}
+            or old_status == ChatMemberStatus.ADMINISTRATOR
+        ):
             await set_chat_active_status(ctx, chat_id, False)
             await invalidate_cache(chat_id)
 

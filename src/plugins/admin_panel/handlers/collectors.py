@@ -2,7 +2,7 @@ from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from src.cache.redis import get_redis
+from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.db.models import GroupCleaner, NightLock, Reminder
 from src.utils.i18n import at
@@ -14,7 +14,7 @@ from .. import get_ctx
 @bot.on_message(filters.private & filters.text & ~filters.regex(r"^/.*"))
 async def admin_panel_input_collector(client: Client, message: Message) -> None:
     user_id = message.from_user.id
-    r = get_redis()
+    r = get_cache()
     state = await r.get(f"panel_input:{user_id}")
     if not state:
         return
@@ -152,7 +152,6 @@ async def admin_panel_input_collector(client: Client, message: Message) -> None:
     elif field == "purgeMessagesCount":
         count = int(value)
 
-        # We delete in the background to not block the collector
         async def do_purge():
             import contextlib
 
@@ -181,9 +180,9 @@ async def admin_panel_input_collector(client: Client, message: Message) -> None:
 
         await set_rules(ctx, chat_id, str(value))
     elif field == "reminderText":
-        await r.set(f"temp_rem_text:{user_id}", str(value), ex=300)
+        await r.set(f"temp_rem_text:{user_id}", str(value), ttl=300)
         await r.set(
-            f"panel_input:{user_id}", f"{chat_id}:reminderTime:{prompt_msg_id}:{page}", ex=300
+            f"panel_input:{user_id}", f"{chat_id}:reminderTime:{prompt_msg_id}:{page}", ttl=300
         )
         prompt_text = await at(user_id, "panel.input_prompt_reminderTime")
         kb = InlineKeyboardMarkup(
@@ -434,7 +433,7 @@ async def admin_panel_input_collector(client: Client, message: Message) -> None:
 async def start_collector(
     user_id: int, chat_id: int, field: str, prompt_msg_id: int | None = None, page: int = 0
 ) -> None:
-    """Sets the state for the input collector in Redis."""
-    r = get_redis()
+    """Sets the state for the input collector in Local Cache."""
+    r = get_cache()
     msg_id = prompt_msg_id or 0
-    await r.set(f"panel_input:{user_id}", f"{chat_id}:{field}:{msg_id}:{page}", ex=300)
+    await r.set(f"panel_input:{user_id}", f"{chat_id}:{field}:{msg_id}:{page}", ttl=300)

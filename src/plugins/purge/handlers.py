@@ -21,7 +21,6 @@ async def purge_handler(client: Client, message: Message) -> None:
     start_id = message.reply_to_message.id
     end_id = message.id
 
-    # Pyrogram doesn't have a direct "range" delete easily with just IDs if many are missing,
     for msg_id in range(start_id, end_id + 1):
         message_ids.append(msg_id)
         if len(message_ids) >= 100:

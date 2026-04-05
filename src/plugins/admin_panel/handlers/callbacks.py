@@ -6,7 +6,7 @@ from pyrogram.enums import ChatType
 from pyrogram.errors import MessageNotModified
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
-from src.cache.redis import get_redis
+from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.db.models import GroupCleaner, NightLock, Reminder
 from src.plugins.connections.repository import set_active_chat
@@ -44,7 +44,6 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
     ctx = get_ctx()
     user_id = callback.from_user.id
 
-    # 🏙️ Handle Switcher/Safe Actions First
     if action == "close":
         await callback.message.delete()
         await callback.answer()
@@ -107,7 +106,6 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
             await callback.answer(f"Language set to {new_lang.upper()}!")
             return
 
-    # 🔒 Dispatch to Protected Actions
     await protected_panel_callback_handler(client, callback)
 
 
@@ -935,9 +933,9 @@ async def protected_panel_callback_handler(
         if len(data) >= 3:
             field = data[2]
             page = data[3] if len(data) > 3 else 0
-            r = get_redis()
+            r = get_cache()
             await r.set(
-                f"panel_input:{user_id}", f"{chat_id}:{field}:{callback.message.id}:{page}", ex=300
+                f"panel_input:{user_id}", f"{chat_id}:{field}:{callback.message.id}:{page}", ttl=300
             )
 
             prompt_key = f"panel.input_prompt_{field}"
@@ -956,7 +954,7 @@ async def protected_panel_callback_handler(
             await callback.message.edit_text(prompt_text, reply_markup=kb)
             await callback.answer()
     elif action == "cancel_input":
-        r = get_redis()
+        r = get_cache()
         await r.delete(f"panel_input:{user_id}")
         await callback.answer(await at(user_id, "panel.input_cancelled"), show_alert=True)
         await callback.message.edit_text(

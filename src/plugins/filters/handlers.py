@@ -86,7 +86,6 @@ async def filter_interceptor(client: Client, message: Message) -> None:
     if not message.text or message.command:
         return
 
-    # We should probably cache these in Redis or local memory for performance
     all_filters = await get_all_filters(get_ctx(), message.chat.id)
     if not all_filters:
         return

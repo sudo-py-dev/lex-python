@@ -161,7 +161,6 @@ async def entityblock_kb(
 
     blocks = await get_blocked_entities(ctx, chat_id)
 
-    # Combine Telegram entities with custom pseudo-entities for a unified blocking menu
     ALL_ENTITIES = sorted(
         [
             e.name.lower()

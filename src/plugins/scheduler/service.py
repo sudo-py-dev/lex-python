@@ -58,9 +58,6 @@ async def _execute_lift_action(chat_id: int, user_id: int, action: str) -> None:
         logger.error(f"Failed to lift {action}: {e}")
 
 
-# --- Reminders ---
-
-
 async def execute_reminder(chat_id: int, reminder_id: int) -> None:
     from . import get_ctx
 
@@ -74,9 +71,6 @@ async def execute_reminder(chat_id: int, reminder_id: int) -> None:
             await bot.send_message(chat_id, reminder.text)
         except Exception as e:
             logger.error(f"Failed to send reminder {reminder_id} in {chat_id}: {e}")
-
-
-# --- Night Lock ---
 
 
 async def apply_night_lock(chat_id: int) -> None:
@@ -122,9 +116,6 @@ async def lift_night_lock(chat_id: int) -> None:
             await bot.send_message(chat_id, "☀️ **Night Lock Lifted.** The group is now open.")
         except Exception as e:
             logger.error(f"Failed to lift night lock in {chat_id}: {e}")
-
-
-# --- Group Cleaner ---
 
 
 async def run_group_cleaner(chat_id: int) -> None:

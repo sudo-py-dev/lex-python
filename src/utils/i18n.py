@@ -36,11 +36,9 @@ def t(lang: str, key: str, /, **kwargs: Any) -> str:
     template = locale.get(key)
 
     if not template and lang != "en":
-        # Try fallback to English
         template = _load_locale("en").get(key)
 
     if not template:
-        # Final fallback to raw key
         template = key
 
     try:

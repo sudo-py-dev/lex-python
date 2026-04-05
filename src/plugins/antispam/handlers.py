@@ -4,7 +4,7 @@ import hashlib
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
-from src.cache.redis import get_redis
+from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.utils.decorators import safe_handler
 from src.utils.permissions import is_admin
@@ -19,7 +19,7 @@ async def antispam_handler(client: Client, message: Message) -> None:
     if await is_admin(client, message.chat.id, message.from_user.id):
         return
 
-    r = get_redis()
+    r = get_cache()
     text_hash = hashlib.md5(message.text.encode()).hexdigest()
     key = f"antispam:{message.chat.id}:{message.from_user.id}"
 
@@ -28,4 +28,4 @@ async def antispam_handler(client: Client, message: Message) -> None:
         with contextlib.suppress(Exception):
             await message.delete()
     else:
-        await r.set(key, text_hash, ex=60)
+        await r.set(key, text_hash, ttl=60)

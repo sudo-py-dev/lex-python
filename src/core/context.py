@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from src.cache.local_cache import AsyncSnapshotCache
 
 _global_ctx: Optional["AppContext"] = None
 
@@ -11,7 +12,7 @@ _global_ctx: Optional["AppContext"] = None
 @dataclass
 class AppContext:
     session_factory: async_sessionmaker[AsyncSession]
-    redis: Redis
+    cache: AsyncSnapshotCache
     scheduler: AsyncIOScheduler
 
     @property

@@ -22,7 +22,6 @@ async def start_handler(client: Client, message: Message) -> None:
 
                 chat_id = int(chat_id_str)
 
-                # Note: open_settings_panel internally calls is_admin
                 from src.plugins.admin_panel.handlers import open_settings_panel
 
                 await open_settings_panel(client, message, chat_id)

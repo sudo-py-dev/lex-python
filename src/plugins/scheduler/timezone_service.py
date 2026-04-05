@@ -30,7 +30,6 @@ async def reschedule_group_jobs(ctx: AppContext, chat_id: int) -> None:
                 timezone=tz,
             )
 
-        # 2. Night Lock
         lock = await session.get(NightLock, chat_id)
         if lock and lock.isEnabled:
             on_id = f"nightlock_on:{chat_id}"
