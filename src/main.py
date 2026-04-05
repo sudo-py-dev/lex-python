@@ -34,7 +34,7 @@ async def main() -> None:
     scheduler = AsyncIOScheduler()
     scheduler.start()
 
-    scheduler.add_job(cache.save_snapshot, "interval", minutes=10, id="cache_snapshot")
+    scheduler.add_job(cache.save_snapshot, "interval", minutes=4, id="cache_snapshot")
 
     ctx = AppContext(session_factory=AsyncSessionLocal, cache=cache, scheduler=scheduler)
     set_context(ctx)
