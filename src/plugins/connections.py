@@ -104,6 +104,7 @@ async def pm_settings_handler(client: Client, message: Message) -> None:
         await message.reply(await at(message.chat.id, "connection.none"))
         return
     from src.plugins.admin_panel.handlers import open_settings_panel
+
     await open_settings_panel(client, message, chat_id)
 
 

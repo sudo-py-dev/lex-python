@@ -106,7 +106,6 @@ async def _handle_reminder_text_capture(
 
 async def _handle_reminder_time_save(ctx, user_id, chat_id, time_value):
     r = get_cache()
-    from loguru import logger
 
     text = await r.get(f"temp_rem_text:{user_id}")
     if not text:
@@ -115,19 +114,7 @@ async def _handle_reminder_time_save(ctx, user_id, chat_id, time_value):
         rem = Reminder(chatId=chat_id, text=text, sendTime=time_value)
         session.add(rem)
         await session.commit()
-        from src.plugins.scheduler.service import execute_reminder
+        from src.plugins.scheduler.manager import SchedulerManager
 
-        try:
-            hour, minute = rem.sendTime.split(":")
-            ctx.scheduler.add_job(
-                execute_reminder,
-                trigger="cron",
-                hour=hour,
-                minute=minute,
-                args=[chat_id, rem.id],
-                id=f"reminder:{rem.id}",
-                replace_existing=True,
-            )
-        except (ValueError, AttributeError) as e:
-            logger.error(f"Invalid sendTime for reminder {rem.id}: {rem.sendTime} - {e}")
+        await SchedulerManager.sync_group(ctx, chat_id)
     await r.delete(f"temp_rem_text:{user_id}")

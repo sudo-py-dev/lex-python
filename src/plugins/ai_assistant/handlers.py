@@ -88,11 +88,12 @@ async def ai_message_handler(client: Client, message: Message):
         await client.send_chat_action(chat_id, ChatAction.TYPING)
 
         sys_prompt = settings.systemPrompt if settings.systemPrompt else BASE_PROMPT
-        sys_prompt = f"IDENTITY: You are @{client.me.username} ({client.me.first_name})\n\n{sys_prompt}"
+        sys_prompt = (
+            f"IDENTITY: You are @{client.me.username} ({client.me.first_name})\n\n{sys_prompt}"
+        )
 
         if settings.systemPrompt:
             sys_prompt += OPERATIONAL_RULES
-
 
         response_text = await AIService.call_ai(
             provider=settings.provider,
@@ -106,14 +107,19 @@ async def ai_message_handler(client: Client, message: Message):
         if response_text:
             clean_response = response_text.strip()
             # Extremely robust check for control tokens
-            token_match = clean_response.upper().replace("[", "").replace("]", "").replace("IGNORE", "IGNORE").strip()
-            
+            token_match = (
+                clean_response.upper()
+                .replace("[", "")
+                .replace("]", "")
+                .replace("IGNORE", "IGNORE")
+                .strip()
+            )
+
             logger.info(f"AI [{chat_id}] response: {clean_response[:20]}... (Token: {token_match})")
 
             if "IGNORE" in token_match and len(token_match) < 10:
                 logger.info(f"AI [{chat_id}] decision: IGNORE")
                 return
-
 
             if token_match == "CLOSE" or clean_response.upper().startswith("[CLOSE]"):
                 await AIRepository.clear_context(ctx, chat_id)
@@ -122,7 +128,6 @@ async def ai_message_handler(client: Client, message: Message):
                 return
 
             sent_msg = await message.reply_text(response_text)
-
 
             await AIRepository.add_message(
                 ctx, chat_id, sent_msg.id, client.me.id, client.me.first_name, response_text

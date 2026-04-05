@@ -1,6 +1,5 @@
 import contextlib
 
-from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.enums import ChatType
 from pyrogram.errors import MessageNotModified
@@ -60,6 +59,7 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
 
     if action == "select_chat":
         from src.plugins.connections import set_active_chat
+
         if len(data) >= 3:
             new_chat_id = int(data[2])
             await set_active_chat(ctx, user_id, new_chat_id)
@@ -795,7 +795,7 @@ async def protected_panel_callback_handler(
         if len(data) >= 3:
             new_tz = data[2]
             from src.db.models import GroupSettings
-            from src.plugins.scheduler.timezone_service import reschedule_group_jobs
+            from src.plugins.scheduler.manager import SchedulerManager
 
             async with ctx.db() as session:
                 gs = await session.get(GroupSettings, chat_id)
@@ -803,7 +803,7 @@ async def protected_panel_callback_handler(
                     gs.timezone = new_tz
                     session.add(gs)
                     await session.commit()
-                    await reschedule_group_jobs(ctx, chat_id)
+                    await SchedulerManager.sync_group(ctx, chat_id)
 
             await callback.answer(await at(at_id, "panel.timezone_set_success", tz=new_tz))
             kb = await scheduler_menu_kb(chat_id, user_id=user_id if is_pm else None)
@@ -927,31 +927,9 @@ async def protected_panel_callback_handler(
                     session.add(rem)
                     await session.commit()
 
-                    from src.plugins.scheduler.service import execute_reminder
+                    from src.plugins.scheduler.manager import SchedulerManager
 
-                    gs = await get_chat_settings(ctx, chat_id)
-
-                    job_id = f"reminder:{rid}"
-                    if rem.isActive:
-                        try:
-                            hour, minute = rem.sendTime.split(":")
-                            ctx.scheduler.add_job(
-                                execute_reminder,
-                                trigger="cron",
-                                hour=hour,
-                                minute=minute,
-                                args=[chat_id, rid],
-                                id=job_id,
-                                replace_existing=True,
-                                timezone=gs.timezone,
-                            )
-                        except (ValueError, AttributeError) as e:
-                            logger.error(
-                                f"Invalid sendTime for reminder {rem.id}: {rem.sendTime} - {e}"
-                            )
-                    else:
-                        if ctx.scheduler.get_job(job_id):
-                            ctx.scheduler.remove_job(job_id)
+                    await SchedulerManager.sync_group(ctx, chat_id)
 
                     await callback.answer(await at(at_id, "panel.setting_updated"))
                     kb = await reminders_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
@@ -965,9 +943,9 @@ async def protected_panel_callback_handler(
                 if rem:
                     await session.delete(rem)
                     await session.commit()
-                    job_id = f"reminder:{rid}"
-                    if ctx.scheduler.get_job(job_id):
-                        ctx.scheduler.remove_job(job_id)
+                    from src.plugins.scheduler.manager import SchedulerManager
+
+                    await SchedulerManager.sync_group(ctx, chat_id)
                     await callback.answer(await at(at_id, "panel.setting_updated"))
                     kb = await reminders_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
                     await callback.message.edit_reply_markup(reply_markup=kb)
@@ -980,39 +958,9 @@ async def protected_panel_callback_handler(
                 session.add(lock)
                 await session.commit()
 
-                from src.plugins.scheduler.service import apply_night_lock, lift_night_lock
+                from src.plugins.scheduler.manager import SchedulerManager
 
-                gs = await get_chat_settings(ctx, chat_id)
-
-                on_id = f"nightlock_on:{chat_id}"
-                off_id = f"nightlock_off:{chat_id}"
-
-                if lock.isEnabled:
-                    ctx.scheduler.add_job(
-                        apply_night_lock,
-                        trigger="cron",
-                        hour=lock.startTime.split(":")[0],
-                        minute=lock.startTime.split(":")[1],
-                        args=[chat_id],
-                        id=on_id,
-                        replace_existing=True,
-                        timezone=gs.timezone,
-                    )
-                    ctx.scheduler.add_job(
-                        lift_night_lock,
-                        trigger="cron",
-                        hour=lock.endTime.split(":")[0],
-                        minute=lock.endTime.split(":")[1],
-                        args=[chat_id],
-                        id=off_id,
-                        replace_existing=True,
-                        timezone=gs.timezone,
-                    )
-                else:
-                    if ctx.scheduler.get_job(on_id):
-                        ctx.scheduler.remove_job(on_id)
-                    if ctx.scheduler.get_job(off_id):
-                        ctx.scheduler.remove_job(off_id)
+                await SchedulerManager.sync_group(ctx, chat_id)
 
                 await callback.answer(await at(at_id, "panel.setting_updated"))
                 kb = await nightlock_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
@@ -1031,9 +979,9 @@ async def protected_panel_callback_handler(
                     session.add(cleaner)
                     await session.commit()
 
-                    from src.plugins.scheduler.timezone_service import reschedule_group_jobs
+                    from src.plugins.scheduler.manager import SchedulerManager
 
-                    await reschedule_group_jobs(ctx, chat_id)
+                    await SchedulerManager.sync_group(ctx, chat_id)
 
                     await callback.answer(await at(at_id, "panel.setting_updated"))
                     kb = await cleaner_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)

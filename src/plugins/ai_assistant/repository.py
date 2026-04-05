@@ -75,7 +75,7 @@ class AIRepository:
             for m in msgs:
                 role = "assistant" if m.userId == bot_id else "user"
                 content = m.text if role == "assistant" else f"[{m.userName}]: {m.text}"
-                
+
                 if current_chars + len(content) > budget:
                     remaining = budget - current_chars
                     if remaining > 100:
@@ -87,7 +87,6 @@ class AIRepository:
                 current_chars += len(content)
 
             return ai_messages[::-1]
-
 
     @staticmethod
     async def clear_context(ctx: AppContext, chat_id: int) -> None:

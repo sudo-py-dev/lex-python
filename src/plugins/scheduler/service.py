@@ -1,33 +1,18 @@
 from datetime import UTC, datetime, timedelta
 
 from loguru import logger
+from pyrogram.enums import ChatMemberStatus
 from sqlalchemy import select
 
 from src.core.bot import bot
-from src.core.context import AppContext
 from src.db.models import GroupCleaner, NightLock, Reminder, TimedAction
+from src.utils.i18n import at
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
     UNRESTRICTED_PERMISSIONS,
     deserialize_permissions,
     serialize_permissions,
 )
-
-
-def schedule_timed_action(
-    ctx: AppContext, chat_id: int, user_id: int, action: str, delay_seconds: float
-) -> None:
-    if delay_seconds <= 0:
-        return
-    run_at = datetime.now(UTC) + timedelta(seconds=delay_seconds)
-    ctx.scheduler.add_job(
-        _execute_lift_action,
-        trigger="date",
-        run_date=run_at,
-        args=[chat_id, user_id, action],
-        id=f"lift_{action}:{chat_id}:{user_id}",
-        replace_existing=True,
-    )
 
 
 async def _execute_lift_action(chat_id: int, user_id: int, action: str) -> None:
@@ -55,7 +40,7 @@ async def _execute_lift_action(chat_id: int, user_id: int, action: str) -> None:
                 await session.delete(obj)
             await session.commit()
     except Exception as e:
-        logger.error(f"Failed to lift {action}: {e}")
+        logger.error("Failed to lift {}: {}", action, e)
 
 
 async def execute_reminder(chat_id: int, reminder_id: int) -> None:
@@ -70,7 +55,7 @@ async def execute_reminder(chat_id: int, reminder_id: int) -> None:
         try:
             await bot.send_message(chat_id, reminder.text)
         except Exception as e:
-            logger.error(f"Failed to send reminder {reminder_id} in {chat_id}: {e}")
+            logger.error("Failed to send reminder {} in {}: {}", reminder_id, chat_id, e)
 
 
 async def apply_night_lock(chat_id: int) -> None:
@@ -90,11 +75,9 @@ async def apply_night_lock(chat_id: int) -> None:
                 await session.commit()
 
             await bot.set_chat_permissions(chat_id, RESTRICTED_PERMISSIONS)
-            await bot.send_message(
-                chat_id, "🌑 **Night Lock Engaged.** The group is now muted until morning."
-            )
+            await bot.send_message(chat_id, await at(chat_id, "scheduler.nightlock_engaged"))
         except Exception as e:
-            logger.error(f"Failed to apply night lock in {chat_id}: {e}")
+            logger.error("Failed to apply night lock in {}: {}", chat_id, e)
 
 
 async def lift_night_lock(chat_id: int) -> None:
@@ -113,9 +96,9 @@ async def lift_night_lock(chat_id: int) -> None:
                 perms = UNRESTRICTED_PERMISSIONS
 
             await bot.set_chat_permissions(chat_id, perms)
-            await bot.send_message(chat_id, "☀️ **Night Lock Lifted.** The group is now open.")
+            await bot.send_message(chat_id, await at(chat_id, "scheduler.nightlock_lifted"))
         except Exception as e:
-            logger.error(f"Failed to lift night lock in {chat_id}: {e}")
+            logger.error("Failed to lift night lock in {}: {}", chat_id, e)
 
 
 async def run_group_cleaner(chat_id: int) -> None:
@@ -134,8 +117,18 @@ async def run_group_cleaner(chat_id: int) -> None:
 
             async for member in bot.get_chat_members(chat_id):
                 user = member.user
-                if user.is_self or user.is_bot:
+                if (
+                    user.is_self
+                    or user.is_bot
+                    or member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
+                ):
                     continue
+
+                # Skip if joined very recently (safety margin: 7 days)
+                if member.joined_date:
+                    join_delta = datetime.now(UTC) - member.joined_date.replace(tzinfo=UTC)
+                    if join_delta.days < 7:
+                        continue
 
                 should_kick = False
 
@@ -159,14 +152,20 @@ async def run_group_cleaner(chat_id: int) -> None:
                             chat_id, user.id, until_date=datetime.now(UTC) + timedelta(hours=1)
                         )
                     except Exception as e:
-                        logger.debug(f"Failed to kick user {user.id} in {chat_id}: {e}")
+                        logger.debug("Failed to kick user {} in {}: {}", user.id, chat_id, e)
 
             if any([kicked_deleted, kicked_fake, kicked_inactive]):
-                summary = f"🧹 **Daily Cleanup Complete!**\n\n- Deleted: {kicked_deleted}\n- Fakes: {kicked_fake}\n- Inactive: {kicked_inactive}"
+                summary = await at(
+                    chat_id,
+                    "scheduler.cleanup_summary",
+                    deleted=kicked_deleted,
+                    fakes=kicked_fake,
+                    inactive=kicked_inactive,
+                )
                 await bot.send_message(chat_id, summary)
 
             cleaner.lastRunDate = datetime.now(UTC)
             session.add(cleaner)
             await session.commit()
         except Exception as e:
-            logger.error(f"Group cleaner error in {chat_id}: {e}")
+            logger.error("Group cleaner error in {}: {}", chat_id, e)

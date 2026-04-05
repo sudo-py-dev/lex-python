@@ -110,23 +110,6 @@ async def _handle_nightlock_save(ctx, chat_id, field, time_value):
         await session.commit()
 
         if lock.isEnabled:
-            from src.plugins.scheduler.service import apply_night_lock, lift_night_lock
+            from src.plugins.scheduler.manager import SchedulerManager
 
-            ctx.scheduler.add_job(
-                apply_night_lock,
-                trigger="cron",
-                hour=lock.startTime.split(":")[0],
-                minute=lock.startTime.split(":")[1],
-                args=[chat_id],
-                id=f"nightlock_on:{chat_id}",
-                replace_existing=True,
-            )
-            ctx.scheduler.add_job(
-                lift_night_lock,
-                trigger="cron",
-                hour=lock.endTime.split(":")[0],
-                minute=lock.endTime.split(":")[1],
-                args=[chat_id],
-                id=f"nightlock_off:{chat_id}",
-                replace_existing=True,
-            )
+            await SchedulerManager.sync_group(ctx, chat_id)

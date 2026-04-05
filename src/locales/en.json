@@ -421,5 +421,8 @@
   "welcome.enabled": "✅ Welcome messages are now enabled.",
   "welcome.reset": "✅ Welcome message reset to default.",
   "welcome.test": "🧪 **Welcome Test**\n\n{text}",
-  "welcome.updated": "✅ Welcome message updated and enabled."
+  "welcome.updated": "✅ Welcome message updated and enabled.",
+  "scheduler.nightlock_engaged": "🌑 **Night Lock Engaged.** The group is now muted until morning.",
+  "scheduler.nightlock_lifted": "☀️ **Night Lock Lifted.** The group is now open.",
+  "scheduler.cleanup_summary": "🧹 **Daily Cleanup Complete!**\n\n- Deleted: {deleted}\n- Fakes: {fakes}\n- Inactive: {inactive}"
 }

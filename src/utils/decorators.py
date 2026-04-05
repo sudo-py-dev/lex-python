@@ -35,7 +35,6 @@ def admin_only(func: Handler) -> Handler:
     return wrapper
 
 
-
 def require_permission(permission: Permission) -> Callable[[Handler], Handler]:
     """Reply with specific error if bot lacks the required permission."""
 
@@ -52,7 +51,6 @@ def require_permission(permission: Permission) -> Callable[[Handler], Handler]:
     return decorator
 
 
-
 def safe_handler(func: Handler) -> Handler:
     """Catch all unhandled exceptions inside a handler — never crash the bot."""
 
@@ -66,7 +64,6 @@ def safe_handler(func: Handler) -> Handler:
             logger.exception(f"Unhandled error in {func.__name__}: {e}")
 
     return wrapper
-
 
 
 def resolve_target(func: Handler) -> Handler:

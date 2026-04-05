@@ -9,11 +9,12 @@
 ## ✨ Core Features
 
 - 🛡️ **Advanced Moderation**: Granular control over bans, kicks, and mutes with customizable expiry.
-- 🔒 **Dynamic Locks**: Lock down text, media, stickers, URLs, or even "/" commands instantly.
-- 🌊 **Flood Control**: Intelligent rate-limiting to prevent group spam and raids.
-- 🌍 **Deep Localization**: Full multi-lingual support powered by a smart, centralized translation engine.
+- 🔒 **Dynamic Locks**: Lock down text, media, stickers, URLs, or even bot commands instantly.
+- ⚡ **AI Assistant**: Native integration with Google Gemini and OpenAI for intelligent group assistance and automated responses.
+- 🌊 **Flood & Raid Control**: Intelligent rate-limiting and lockdown mechanisms to prevent group spam and malicious raids.
+- 🌍 **Deep Localization**: Full multi-lingual support powered by a smart, centralized translation engine (20+ languages).
 - 🎛️ **Premium Admin Panel**: Intuitive, callback-driven UI for effortless group configuration.
-- 🧩 **Modular Architecture**: Easy-to-extend plugin system for adding custom logic.
+- 🧩 **Flattened Architecture**: Highly optimized, single-file plugin system for maximum maintainability.
 
 ---
 
@@ -22,8 +23,8 @@
 | Layer | Technology |
 | :--- | :--- |
 | **Core Client** | [Pyrogram](https://docs.pyrogram.org/) (Async MTProto) |
-| **Database** | [SQLModel](https://sqlmodel.tiangolo.com/) + PostgreSQL/SQLite |
-| **Caching** | [Pure Python](src/cache/local_cache.py) (High-speed Async Snapshot Cache) |
+| **Database** | [SQLAlchemy 2.0](https://www.sqlalchemy.org/) (Modern ORM with strict typing) |
+| **Caching** | [AsyncSnapshotCache](src/cache/local_cache.py) (High-speed, Redis-less local cache) |
 | **Package Manager** | [uv](https://astral.sh/uv/) (Extreme performance & isolation) |
 | **Type Safety** | [Mypy](https://mypy-lang.org/) (Strict null-safety & guard patterns) |
 
@@ -72,7 +73,7 @@ uv run translate    # Sync all locales from en.json
 
 ### 🧪 Automated Testing
 ```bash
-uv run test
+uv run test         # Comprehensive pytest-asyncio suite
 ```
 
 ---
@@ -82,8 +83,12 @@ uv run test
 ```text
 ├── src/
 │   ├── core/           # Bot initialization and core client
-│   ├── plugins/        # Modular feature sets (Admin, Locks, Flood, etc.)
-│   ├── repository/     # Data access layer (SQLModel)
+│   ├── plugins/        # Flattened modular feature sets
+│   │   ├── admin_panel/ # UI-driven configuration engine
+│   │   ├── ai_assistant/ # LLM integration layer
+│   │   ├── scheduler/   # Background task management
+│   │   └── ...         # 30+ flattened plugin files
+│   ├── repository/     # Data access layer (SQLAlchemy Models)
 │   ├── locales/        # Internationalization schemas (.json)
 │   └── utils/          # Hardened helpers (Permissions, Cache, i18n)
 ├── scripts/            # DevOps and localization automation
@@ -93,7 +98,7 @@ uv run test
 ---
 
 ## 💎 Project Status: High-Performance Hardening
-Lex is currently undergoing a massive type-safety initiative. We have successfully resolved **1,100+** type-checking errors, implementing a strictly null-safe architecture that ensures stability in large-scale group environments.
+Lex has been fully migrated to a **pure Python caching layer**, removing standard external dependencies like Redis to minimize latency and simplify deployment. We maintain **100% type-coverage** for all core modules.
 
 > [!NOTE]
 > Contributions are welcome! Please ensure all pull requests pass `uv run lint` and `uv run typecheck` before submission.

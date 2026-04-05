@@ -8,7 +8,7 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.actions import create_timed_action, log_action
-from src.plugins.scheduler.service import schedule_timed_action
+from src.plugins.scheduler.manager import SchedulerManager
 from src.utils.decorators import admin_only, resolve_target, safe_handler
 from src.utils.i18n import at
 from src.utils.permissions import (
@@ -175,7 +175,7 @@ async def tban_handler(client: Client, message: Message, target_user: User) -> N
             msg_link=message.link,
         )
         await create_timed_action(ctx, message.chat.id, target_user.id, "tban", expires_at)
-        schedule_timed_action(ctx, message.chat.id, target_user.id, "tban", delay_seconds)
+        SchedulerManager.schedule_timed_action(ctx, message.chat.id, target_user.id, "tban", delay_seconds)
         await message.reply(
             await at(
                 message.chat.id, "tban.success", mention=target_user.mention, duration=delay_str
@@ -219,7 +219,7 @@ async def tmute_handler(client: Client, message: Message, target_user: User) -> 
             msg_link=message.link,
         )
         await create_timed_action(ctx, message.chat.id, target_user.id, "tmute", expires_at)
-        schedule_timed_action(ctx, message.chat.id, target_user.id, "tmute", delay_seconds)
+        SchedulerManager.schedule_timed_action(ctx, message.chat.id, target_user.id, "tmute", delay_seconds)
         await message.reply(
             await at(
                 message.chat.id, "tmute.success", mention=target_user.mention, duration=delay_str
