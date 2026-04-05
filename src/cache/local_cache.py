@@ -193,7 +193,7 @@ class AsyncSnapshotCache:
                     self._data.pop(k, None)
                     self._expiries.pop(k, None)
 
-                logger.info(f"Loaded cache snapshot: {len(self._data)} items.")
+                logger.debug(f"Loaded cache snapshot: {len(self._data)} items.")
                 return True
             except Exception as e:
                 logger.error(f"Failed to load cache snapshot: {e}")

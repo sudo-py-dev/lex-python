@@ -1,0 +1,94 @@
+from datetime import UTC, datetime
+
+from sqlalchemy import delete, select
+
+from src.core.context import AppContext
+from src.db.models.ai import AIChatContext, AISettings
+
+
+class AIRepository:
+    @staticmethod
+    async def get_settings(ctx: AppContext, chat_id: int) -> AISettings | None:
+        async with ctx.db() as session:
+            return await session.get(AISettings, chat_id)
+
+    @staticmethod
+    async def update_settings(ctx: AppContext, chat_id: int, **kwargs) -> AISettings:
+        async with ctx.db() as session:
+            settings = await session.get(AISettings, chat_id)
+            if not settings:
+                settings = AISettings(chatId=chat_id)
+                session.add(settings)
+
+            for key, value in kwargs.items():
+                if hasattr(settings, key):
+                    setattr(settings, key, value)
+
+            await session.commit()
+            await session.refresh(settings)
+            return settings
+
+    @staticmethod
+    async def add_message(
+        ctx: AppContext, chat_id: int, message_id: int, user_id: int, user_name: str, text: str
+    ) -> None:
+        async with ctx.db() as session:
+            new_msg = AIChatContext(
+                chatId=chat_id,
+                messageId=message_id,
+                userId=user_id,
+                userName=user_name,
+                text=text,
+                timestamp=datetime.now(UTC),
+            )
+            session.add(new_msg)
+
+            stmt = (
+                select(AIChatContext)
+                .where(AIChatContext.chatId == chat_id)
+                .order_by(AIChatContext.timestamp.desc())
+                .offset(50)
+            )
+            result = await session.execute(stmt)
+            to_delete = result.scalars().all()
+            for msg in to_delete:
+                await session.delete(msg)
+
+            await session.commit()
+
+    @staticmethod
+    async def get_context(ctx: AppContext, chat_id: int) -> list[dict[str, str]]:
+        async with ctx.db() as session:
+            stmt = (
+                select(AIChatContext)
+                .where(AIChatContext.chatId == chat_id)
+                .order_by(AIChatContext.timestamp.desc())
+                .limit(50)
+            )
+            result = await session.execute(stmt)
+            msgs = result.scalars().all()
+
+            ai_messages = []
+            budget = 30000
+            current_chars = 0
+
+            for m in msgs:
+                content = f"[{m.userName}]: {m.text}"
+                if current_chars + len(content) > budget:
+                    remaining = budget - current_chars
+                    if remaining > 100:
+                        content = content[:remaining] + "..."
+                        ai_messages.append({"role": "user", "content": content})
+                    break
+
+                ai_messages.append({"role": "user", "content": content})
+                current_chars += len(content)
+
+            return ai_messages[::-1]
+
+    @staticmethod
+    async def clear_context(ctx: AppContext, chat_id: int) -> None:
+        async with ctx.db() as session:
+            stmt = delete(AIChatContext).where(AIChatContext.chatId == chat_id)
+            await session.execute(stmt)
+            await session.commit()

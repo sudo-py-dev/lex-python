@@ -47,8 +47,17 @@ PATTERNS = {
 
 def get_pats_for_file(filepath: Path):
     ext = filepath.suffix.lower()
-    active_pats = []
 
+    group_found = False
+    for group in LANG_MAP.values():
+        if ext in group:
+            group_found = True
+            break
+
+    if not group_found:
+        return ""
+
+    active_pats = []
     active_pats.extend([PATTERNS["string_double"], PATTERNS["string_single"]])
 
     if ext in LANG_MAP["hash_line"]:

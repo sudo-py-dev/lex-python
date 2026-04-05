@@ -9,12 +9,14 @@ from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMa
 from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.db.models import GroupCleaner, NightLock, Reminder
+from src.plugins.ai_assistant.repository import AIRepository
 from src.plugins.connections.repository import set_active_chat
 from src.utils.i18n import at
 
 from .. import get_ctx
 from ..decorators import AdminPanelContext, admin_panel_context
 from ..repository import get_chat_settings, toggle_service_type, toggle_setting
+from .ai_kbs import ai_menu_kb, model_selection_kb
 from .keyboards import (
     cleaner_menu_kb,
     flood_kb,
@@ -86,7 +88,7 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
             from src.plugins.language.handlers import language_picker_kb
 
             await callback.message.edit_text(
-                await at(user_id, "language.picker_header"),
+                await at(user_id, "language.user_picker_header"),
                 reply_markup=await language_picker_kb(ctx, user_id, is_pm=True),
             )
             await callback.answer()
@@ -103,7 +105,7 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
             await callback.message.edit_text(
                 await at(user_id, "panel.my_groups_title"), reply_markup=kb
             )
-            await callback.answer(f"Language set to {new_lang.upper()}!")
+            await callback.answer(await at(user_id, "panel.user_lang_set", lang=new_lang.upper()))
             return
 
     await protected_panel_callback_handler(client, callback)
@@ -149,6 +151,21 @@ async def protected_panel_callback_handler(
                 kb = await scheduler_menu_kb(chat_id, user_id=user_id if is_pm else None)
                 await callback.message.edit_text(
                     await at(at_id, "panel.scheduler_text"), reply_markup=kb
+                )
+            elif cat == "ai":
+                kb = await ai_menu_kb(chat_id, user_id=user_id if is_pm else None)
+                s = await AIRepository.get_settings(ctx, chat_id)
+                provider = s.provider.upper() if s else "OPENAI"
+                is_enabled = s.isEnabled if s else False
+                model = (s.modelId if s else "N/A") or "N/A"
+                status_text = await at(
+                    at_id, f"panel.status_{'enabled' if is_enabled else 'disabled'}"
+                )
+                await callback.message.edit_text(
+                    await at(
+                        at_id, "panel.ai_text", status=status_text, provider=provider, model=model
+                    ),
+                    reply_markup=kb,
                 )
             await callback.answer()
 
@@ -272,7 +289,7 @@ async def protected_panel_callback_handler(
         from src.plugins.language.handlers import language_picker_kb
 
         await callback.message.edit_text(
-            await at(at_id, "language.picker_header"),
+            await at(at_id, "language.group_picker_header"),
             reply_markup=await language_picker_kb(ctx, chat_id, is_pm=False),
         )
         await callback.answer()
@@ -289,7 +306,7 @@ async def protected_panel_callback_handler(
                 await callback.message.edit_text(
                     await at(at_id, "panel.main_text"), reply_markup=kb
                 )
-                await callback.answer(await at(at_id, "panel.lang_set", lang=new_lang.upper()))
+                await callback.answer(await at(at_id, "panel.group_lang_set", lang=new_lang.upper()))
 
     elif action == "flood":
         kb = await flood_kb(ctx, chat_id, user_id=user_id if is_pm else None)
@@ -766,9 +783,9 @@ async def protected_panel_callback_handler(
         await callback.answer()
 
     elif action == "timezone_search":
-        from .collectors import start_collector
+        from .input_handlers import capture_next_input
 
-        await start_collector(user_id, chat_id, "timezoneSearch")
+        await capture_next_input(user_id, chat_id, "timezoneSearch")
         await callback.message.edit_text(await at(at_id, "panel.timezone_search_prompt"))
         await callback.answer()
 
@@ -796,6 +813,97 @@ async def protected_panel_callback_handler(
         kb = await reminders_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
         await callback.message.edit_text(await at(at_id, "panel.reminder_text"), reply_markup=kb)
         await callback.answer()
+
+    elif action == "ai":
+        if len(data) >= 3:
+            sub = data[2]
+            if sub == "toggle":
+                s = await AIRepository.get_settings(ctx, chat_id)
+                cur = s.isEnabled if s else False
+                await AIRepository.update_settings(ctx, chat_id, isEnabled=not cur)
+                kb = await ai_menu_kb(chat_id, user_id=user_id if is_pm else None)
+                s = await AIRepository.get_settings(ctx, chat_id)
+                status_text = await at(
+                    at_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}"
+                )
+                await callback.message.edit_text(
+                    await at(
+                        at_id,
+                        "panel.ai_text",
+                        status=status_text,
+                        provider=s.provider.upper(),
+                        model=s.modelId or "N/A",
+                    ),
+                    reply_markup=kb,
+                )
+            elif sub == "cycle_provider":
+                s = await AIRepository.get_settings(ctx, chat_id)
+                providers = ["openai", "gemini", "deepseek", "groq", "qwen", "anthropic"]
+                defaults = {
+                    "openai": "gpt-4o-mini",
+                    "gemini": "gemini-1.5-flash",
+                    "deepseek": "deepseek-chat",
+                    "groq": "llama3-8b-8192",
+                    "qwen": "qwen-plus",
+                    "anthropic": "claude-3-haiku-20240307",
+                }
+                cur = s.provider if s else "openai"
+                try:
+                    nxt = providers[(providers.index(cur) + 1) % len(providers)]
+                except ValueError:
+                    nxt = "openai"
+
+                await AIRepository.update_settings(
+                    ctx, chat_id, provider=nxt, modelId=defaults[nxt]
+                )
+                kb = await ai_menu_kb(chat_id, user_id=user_id if is_pm else None)
+                s = await AIRepository.get_settings(ctx, chat_id)
+                status_text = await at(
+                    at_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}"
+                )
+                await callback.message.edit_text(
+                    await at(
+                        at_id,
+                        "panel.ai_text",
+                        status=status_text,
+                        provider=s.provider.upper(),
+                        model=s.modelId or "N/A",
+                    ),
+                    reply_markup=kb,
+                )
+            elif sub == "model_list":
+                s = await AIRepository.get_settings(ctx, chat_id)
+                provider = s.provider if s else "openai"
+                kb = await model_selection_kb(provider, chat_id, user_id=user_id if is_pm else None)
+                await callback.message.edit_text(
+                    await at(at_id, "panel.ai_select_model_text", provider=provider.upper()),
+                    reply_markup=kb,
+                )
+            elif sub == "set_model":
+                if len(data) >= 4:
+                    model_id = data[3]
+                    await AIRepository.update_settings(ctx, chat_id, modelId=model_id)
+                    await callback.answer(await at(at_id, "panel.ai_model_set", model=model_id))
+
+                    kb = await ai_menu_kb(chat_id, user_id=user_id if is_pm else None)
+                    s = await AIRepository.get_settings(ctx, chat_id)
+                    status_text = await at(
+                        at_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}"
+                    )
+                    await callback.message.edit_text(
+                        await at(
+                            at_id,
+                            "panel.ai_text",
+                            status=status_text,
+                            provider=s.provider.upper(),
+                            model=s.modelId or "N/A",
+                        ),
+                        reply_markup=kb,
+                    )
+            elif sub == "clear_ctx":
+                await AIRepository.clear_context(ctx, chat_id)
+                await callback.answer(await at(at_id, "panel.ai_ctx_cleared"))
+        return
 
     elif action == "nightlock":
         kb = await nightlock_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
@@ -933,10 +1041,8 @@ async def protected_panel_callback_handler(
         if len(data) >= 3:
             field = data[2]
             page = data[3] if len(data) > 3 else 0
-            r = get_cache()
-            await r.set(
-                f"panel_input:{user_id}", f"{chat_id}:{field}:{callback.message.id}:{page}", ttl=300
-            )
+            from .input_handlers import capture_next_input
+            await capture_next_input(user_id, chat_id, field, callback.message.id, page)
 
             prompt_key = f"panel.input_prompt_{field}"
             prompt_text = await at(user_id, prompt_key)

@@ -27,6 +27,11 @@ async def main_menu_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboa
                 callback_data="panel:category:scheduler",
             ),
         ],
+        [
+            InlineKeyboardButton(
+                await at(chat_id, "panel.btn_cat_ai"), callback_data="panel:category:ai"
+            ),
+        ],
     ]
 
     last_row = []

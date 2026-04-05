@@ -1,3 +1,4 @@
+from .ai import AIChatContext, AISettings
 from .core import ActionLog, SudoUser, TimedAction, TimestampMixin, UserConnection
 from .federation import FedAdmin, FedBan, FedChat, Federation, FedSubscription
 from .groups import (
@@ -54,4 +55,6 @@ __all__ = [
     "Reminder",
     "NightLock",
     "GroupCleaner",
+    "AISettings",
+    "AIChatContext",
 ]

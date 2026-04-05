@@ -20,6 +20,7 @@ dependencies = [
     "colorama>=0.4.6",
     "emoji>=2.15.0",
     "Pillow",
+    "httpx>=0.28.1",
 ]
 
 [project.scripts]
