@@ -21,6 +21,9 @@ async def afk_handler(client: Client, message: Message) -> None:
     afk_data = {"time": time.time(), "reason": reason, "name": message.from_user.first_name}
 
     await r.set(CacheKeys.afk(user_id), json.dumps(afk_data), ttl=604800)
+    if message.from_user.username:
+        await r.set(CacheKeys.afk_username(message.from_user.username), user_id, ttl=604800)
+
     await message.reply(
         await at(
             message.chat.id,
@@ -34,7 +37,7 @@ async def afk_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.group, group=7)
 @safe_handler
 async def afk_interceptor(client: Client, message: Message) -> None:
-    if not message.from_user or message.command:
+    if not message.from_user or getattr(message, "command", None):
         return
 
     r = get_cache()
@@ -48,6 +51,9 @@ async def afk_interceptor(client: Client, message: Message) -> None:
         d_str = f"{duration // 60}m" if duration >= 60 else f"{duration}s"
 
         await r.delete(afk_key)
+        if message.from_user.username:
+            await r.delete(CacheKeys.afk_username(message.from_user.username))
+
         await message.reply(
             await at(
                 message.chat.id, "afk.returned", name=message.from_user.first_name, duration=d_str
@@ -56,12 +62,16 @@ async def afk_interceptor(client: Client, message: Message) -> None:
 
     if message.entities:
         for ent in message.entities:
-            user_id = None
+            target_id = None
             if ent.type == enums.MessageEntityType.TEXT_MENTION:
-                user_id = ent.user.id
+                target_id = ent.user.id
+            elif ent.type == enums.MessageEntityType.MENTION:
+                # Resolve username to ID from cache mapping
+                username = message.text[ent.offset : ent.offset + ent.length].lstrip("@")
+                target_id = await r.get(CacheKeys.afk_username(username))
 
-            if user_id:
-                afk_raw = await r.get(CacheKeys.afk(user_id))
+            if target_id:
+                afk_raw = await r.get(CacheKeys.afk(target_id))
                 if afk_raw:
                     afk_data = json.loads(afk_raw)
                     await message.reply(

@@ -29,6 +29,10 @@ class CacheKeys:
         return f"afk:{user_id}"
 
     @staticmethod
+    def afk_username(username: str) -> str:
+        return f"afk_un:{username.lower()}"
+
+    @staticmethod
     def slowmode(chat_id: int, user_id: int) -> str:
         return f"slowmode:{chat_id}:{user_id}"
 
