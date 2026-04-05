@@ -60,7 +60,9 @@ async def dispatch_admin_input(client: Client, message: Message) -> None:
     if not handled:
         logger.warning(f"No input processor registered for field: {field}")
         from src.plugins.admin_panel.handlers.keyboards import main_menu_kb
+
         kb = await main_menu_kb(chat_id, True)
         await message.reply(await at(user_id, "panel.error_generic"), reply_markup=kb)
+
 
 __all__ = ["input_registry", "dispatch_admin_input", "capture_next_input"]

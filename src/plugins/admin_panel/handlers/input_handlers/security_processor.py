@@ -46,7 +46,7 @@ async def numeric_security_processor(
         num_value = 1
 
     if field == "slowmode":
-        from src.plugins.slowmode.repository import clear_slowmode, set_slowmode
+        from src.db.repositories.slowmode import clear_slowmode, set_slowmode
 
         if num_value > 0:
             await set_slowmode(ctx, chat_id, num_value)

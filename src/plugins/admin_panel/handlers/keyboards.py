@@ -216,11 +216,10 @@ async def welcome_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKey
 
 async def rules_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
     at_id = user_id if user_id else chat_id
-    from src.plugins.rules.repository import get_rules
+    from src.core.context import get_context
+    from src.db.repositories.rules import get_rules
 
-    from .. import get_ctx
-
-    ctx = get_ctx()
+    ctx = get_context()
     rules = await get_rules(ctx, chat_id)
     private_mode = rules.privateMode if rules else False
 

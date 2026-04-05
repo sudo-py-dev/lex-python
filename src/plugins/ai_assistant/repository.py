@@ -57,7 +57,7 @@ class AIRepository:
             await session.commit()
 
     @staticmethod
-    async def get_context(ctx: AppContext, chat_id: int) -> list[dict[str, str]]:
+    async def get_context(ctx: AppContext, chat_id: int, bot_id: int) -> list[dict[str, str]]:
         async with ctx.db() as session:
             stmt = (
                 select(AIChatContext)
@@ -73,18 +73,21 @@ class AIRepository:
             current_chars = 0
 
             for m in msgs:
-                content = f"[{m.userName}]: {m.text}"
+                role = "assistant" if m.userId == bot_id else "user"
+                content = m.text if role == "assistant" else f"[{m.userName}]: {m.text}"
+                
                 if current_chars + len(content) > budget:
                     remaining = budget - current_chars
                     if remaining > 100:
                         content = content[:remaining] + "..."
-                        ai_messages.append({"role": "user", "content": content})
+                        ai_messages.append({"role": role, "content": content})
                     break
 
-                ai_messages.append({"role": "user", "content": content})
+                ai_messages.append({"role": role, "content": content})
                 current_chars += len(content)
 
             return ai_messages[::-1]
+
 
     @staticmethod
     async def clear_context(ctx: AppContext, chat_id: int) -> None:

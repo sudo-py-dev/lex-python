@@ -10,7 +10,6 @@ from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.db.models import GroupCleaner, NightLock, Reminder
 from src.plugins.ai_assistant.repository import AIRepository
-from src.plugins.connections.repository import set_active_chat
 from src.utils.i18n import at
 
 from .. import get_ctx
@@ -60,6 +59,7 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
         return
 
     if action == "select_chat":
+        from src.plugins.connections import set_active_chat
         if len(data) >= 3:
             new_chat_id = int(data[2])
             await set_active_chat(ctx, user_id, new_chat_id)
@@ -85,7 +85,7 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
     if action == "language":
         target = data[2] if len(data) > 2 else None
         if target == "pm":
-            from src.plugins.language.handlers import language_picker_kb
+            from src.plugins.language import language_picker_kb
 
             await callback.message.edit_text(
                 await at(user_id, "language.user_picker_header"),
@@ -98,7 +98,7 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
         target_id = int(data[3]) if len(data) > 3 and data[3] != "None" else None
         if target_id is None:
             new_lang = data[2]
-            from src.plugins.language.repository import set_chat_lang
+            from src.plugins.language import set_chat_lang
 
             await set_chat_lang(ctx, user_id, new_lang)
             kb = await my_groups_kb(ctx, client, user_id)
@@ -286,7 +286,7 @@ async def protected_panel_callback_handler(
             kb = await langblock_kb(ctx, chat_id, page, user_id=user_id if is_pm else None)
             await callback.message.edit_reply_markup(reply_markup=kb)
     elif action == "language":
-        from src.plugins.language.handlers import language_picker_kb
+        from src.plugins.language import language_picker_kb
 
         await callback.message.edit_text(
             await at(at_id, "language.group_picker_header"),
@@ -299,14 +299,16 @@ async def protected_panel_callback_handler(
             target_id = int(data[3]) if len(data) > 3 and data[3] != "None" else None
 
             if target_id is not None:
-                from src.plugins.language.repository import set_chat_lang
+                from src.plugins.language import set_chat_lang
 
                 await set_chat_lang(ctx, target_id, new_lang)
                 kb = await main_menu_kb(target_id, user_id=user_id if is_pm else None)
                 await callback.message.edit_text(
                     await at(at_id, "panel.main_text"), reply_markup=kb
                 )
-                await callback.answer(await at(at_id, "panel.group_lang_set", lang=new_lang.upper()))
+                await callback.answer(
+                    await at(at_id, "panel.group_lang_set", lang=new_lang.upper())
+                )
 
     elif action == "flood":
         kb = await flood_kb(ctx, chat_id, user_id=user_id if is_pm else None)
@@ -369,7 +371,7 @@ async def protected_panel_callback_handler(
         )
         await callback.answer()
     elif action == "slowmode":
-        from src.plugins.slowmode.repository import get_slowmode
+        from src.db.repositories.slowmode import get_slowmode
 
         i = await get_slowmode(ctx, chat_id)
         kb = await slowmode_kb(ctx, chat_id, user_id=user_id if is_pm else None)
@@ -398,7 +400,7 @@ async def protected_panel_callback_handler(
     elif action == "rem_langblock":
         if len(data) >= 3:
             code = data[2]
-            from src.plugins.lang_block.repository import remove_lang_block
+            from src.plugins.lang_block import remove_lang_block
 
             await remove_lang_block(ctx, chat_id, code)
 
@@ -411,7 +413,7 @@ async def protected_panel_callback_handler(
         if len(data) >= 3:
             code = data[2]
             page = int(data[3]) if len(data) > 3 else 0
-            from src.plugins.lang_block.repository import add_lang_block, get_lang_blocks
+            from src.plugins.lang_block import add_lang_block, get_lang_blocks
 
             blocks = {b.langCode: b for b in await get_lang_blocks(ctx, chat_id)}
             if code in blocks:
@@ -525,7 +527,7 @@ async def protected_panel_callback_handler(
             await callback.message.edit_reply_markup(reply_markup=kb)
             await callback.answer(await at(at_id, "panel.setting_updated"))
     elif action == "toggle_private_rules":
-        from src.plugins.rules.repository import get_rules, toggle_private_rules
+        from src.db.repositories.rules import get_rules, toggle_private_rules
 
         rules = await get_rules(ctx, chat_id)
         new_state = not (rules.privateMode if rules else False)
@@ -619,7 +621,7 @@ async def protected_panel_callback_handler(
     elif action == "lang_cycle_action":
         if len(data) >= 3:
             lang_code = data[2]
-            from src.plugins.lang_block.repository import add_lang_block, get_lang_blocks
+            from src.plugins.lang_block import add_lang_block, get_lang_blocks
 
             blocks = await get_lang_blocks(ctx, chat_id)
             block = next((b for b in blocks if b.langCode == lang_code), None)
@@ -641,7 +643,7 @@ async def protected_panel_callback_handler(
         if len(data) >= 3:
             etype = data[2]
             page = int(data[3]) if len(data) > 3 else 0
-            from src.plugins.entity_block.repository import (
+            from src.plugins.entity_block import (
                 add_blocked_entity,
                 get_blocked_entities,
                 remove_blocked_entity,
@@ -680,7 +682,7 @@ async def protected_panel_callback_handler(
     elif action == "lang_remove":
         if len(data) >= 3:
             lang_code = data[2]
-            from src.plugins.lang_block.repository import remove_lang_block
+            from src.plugins.lang_block import remove_lang_block
 
             await remove_lang_block(ctx, chat_id, lang_code)
             from .moderation_kbs import langblock_kb
@@ -691,7 +693,7 @@ async def protected_panel_callback_handler(
                 await at(at_id, "panel.langblock_removed_item", lang=lang_code.upper())
             )
     elif action == "reset_warns":
-        from src.plugins.warns.repository import reset_all_chat_warns
+        from src.db.repositories.warns import reset_all_chat_warns
 
         await reset_all_chat_warns(ctx, chat_id)
         await callback.answer(await at(at_id, "panel.warns_reset_success"), show_alert=True)
@@ -723,7 +725,7 @@ async def protected_panel_callback_handler(
         if len(data) >= 3:
             target_uid = int(data[2])
             page = int(data[3]) if len(data) > 3 else 0
-            from src.plugins.warns.repository import reset_warns
+            from src.db.repositories.warns import reset_warns
 
             await reset_warns(ctx, chat_id, target_uid)
             kb = await user_warns_kb(ctx, chat_id, page, user_id=user_id if is_pm else None)
@@ -733,7 +735,7 @@ async def protected_panel_callback_handler(
         if len(data) >= 3:
             target_uid = int(data[2])
             page = int(data[3]) if len(data) > 3 else 0
-            from src.plugins.warns.repository import get_warns
+            from src.db.repositories.warns import get_warns
 
             warns = await get_warns(ctx, chat_id, target_uid)
 
@@ -1042,6 +1044,7 @@ async def protected_panel_callback_handler(
             field = data[2]
             page = data[3] if len(data) > 3 else 0
             from .input_handlers import capture_next_input
+
             await capture_next_input(user_id, chat_id, field, callback.message.id, page)
 
             prompt_key = f"panel.input_prompt_{field}"

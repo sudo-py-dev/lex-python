@@ -11,7 +11,7 @@ from pyrogram.enums import ChatType
 from pyrogram.types import CallbackQuery, Message
 
 from src.core.context import AppContext
-from src.plugins.connections.repository import get_active_chat
+from src.plugins.connections import get_active_chat
 from src.utils.i18n import at
 from src.utils.permissions import is_admin
 

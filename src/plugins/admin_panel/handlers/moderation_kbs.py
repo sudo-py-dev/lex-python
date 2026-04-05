@@ -57,7 +57,7 @@ async def warns_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeybo
 
 
 async def slowmode_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    from src.plugins.slowmode.repository import get_slowmode
+    from src.db.repositories.slowmode import get_slowmode
 
     interval = await get_slowmode(ctx, chat_id)
     return InlineKeyboardMarkup(
@@ -157,7 +157,7 @@ async def langblock_kb(
 async def entityblock_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    from src.plugins.entity_block.repository import get_blocked_entities
+    from src.plugins.entity_block import get_blocked_entities
 
     blocks = await get_blocked_entities(ctx, chat_id)
 
@@ -221,7 +221,7 @@ async def entityblock_kb(
 async def blacklist_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    from src.plugins.blacklist.repository import get_all_blacklist
+    from src.db.repositories.blacklist import get_all_blacklist
 
     settings = await get_chat_settings(ctx, chat_id)
     blocks = await get_all_blacklist(ctx, chat_id)
@@ -302,7 +302,7 @@ async def blacklist_kb(
 async def user_warns_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    from src.plugins.warns.repository import get_users_with_warns, get_warn_count
+    from src.db.repositories.warns import get_users_with_warns, get_warn_count
 
     user_ids = await get_users_with_warns(ctx, chat_id)
     kb = []

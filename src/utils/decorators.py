@@ -22,17 +22,18 @@ def admin_only(func: Handler) -> Handler:
     """Silently ignore the command if the sender is not a group admin."""
 
     @functools.wraps(func)
-    async def wrapper(client: Client, message: Message, **kwargs: Any) -> None:
+    async def wrapper(client: Client, message: Message, *args: Any, **kwargs: Any) -> None:
         if not message.from_user:
             return
         if message.chat.type == ChatType.PRIVATE:
-            await func(client, message, **kwargs)
+            await func(client, message, *args, **kwargs)
             return
         if not await is_admin(client, message.chat.id, message.from_user.id):
             return
-        await func(client, message, **kwargs)
+        await func(client, message, *args, **kwargs)
 
     return wrapper
+
 
 
 def require_permission(permission: Permission) -> Callable[[Handler], Handler]:
@@ -40,30 +41,32 @@ def require_permission(permission: Permission) -> Callable[[Handler], Handler]:
 
     def decorator(func: Handler) -> Handler:
         @functools.wraps(func)
-        async def wrapper(client: Client, message: Message, **kwargs: Any) -> None:
+        async def wrapper(client: Client, message: Message, *args: Any, **kwargs: Any) -> None:
             if not await has_permission(client, message.chat.id, permission):
                 await message.reply(await at(message.chat.id, "error.no_permission"))
                 return
-            await func(client, message, **kwargs)
+            await func(client, message, *args, **kwargs)
 
         return wrapper
 
     return decorator
 
 
+
 def safe_handler(func: Handler) -> Handler:
     """Catch all unhandled exceptions inside a handler — never crash the bot."""
 
     @functools.wraps(func)
-    async def wrapper(client: Client, message: Message, **kwargs: Any) -> None:
+    async def wrapper(*args: Any, **kwargs: Any) -> None:
         try:
-            await func(client, message, **kwargs)
+            await func(*args, **kwargs)
         except (StopPropagation, ContinuePropagation):
             raise
         except Exception as e:
             logger.exception(f"Unhandled error in {func.__name__}: {e}")
 
     return wrapper
+
 
 
 def resolve_target(func: Handler) -> Handler:

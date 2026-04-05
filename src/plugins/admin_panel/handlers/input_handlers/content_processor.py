@@ -27,15 +27,15 @@ async def content_settings_processor(
     user_id = message.from_user.id
 
     if field == "rulesText":
-        from src.plugins.rules.repository import set_rules
+        from src.db.repositories.rules import set_rules
 
         await set_rules(ctx, chat_id, str(value))
         kb = await rules_kb(chat_id)
         text_id = "panel.rules_text"
 
     elif field == "blacklistInput":
-        from src.plugins.blacklist.handlers import detect_pattern_type
-        from src.plugins.blacklist.repository import add_blacklist, get_blacklist_count
+        from src.db.repositories.blacklist import add_blacklist, get_blacklist_count
+        from src.plugins.blacklist import detect_pattern_type
 
         pattern_raw = str(value).lower()
         is_regex, is_wildcard, pattern = detect_pattern_type(pattern_raw)

@@ -49,10 +49,9 @@ async def system_settings_processor(
         text_id = "panel.logging_text"
 
     elif field == "langblockInput":
-        from src.plugins.lang_block.repository import add_lang_block
-        from src.plugins.lang_block.service import is_supported, parse_iso_code
+        from src.plugins.lang_block import add_lang_block, is_supported
 
-        parsed_iso = parse_iso_code(str(value))
+        parsed_iso = str(value).lower().strip()
         if not parsed_iso or not is_supported(parsed_iso):
             await message.reply(await at(user_id, "panel.langblock_invalid_input"))
             return

@@ -4,7 +4,7 @@ from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.core.bot import bot
-from src.plugins.connections.repository import set_active_chat
+from src.plugins.connections import set_active_chat
 from src.utils.i18n import at
 from src.utils.permissions import is_admin
 

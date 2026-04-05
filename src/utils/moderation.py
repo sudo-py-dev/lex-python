@@ -75,8 +75,8 @@ async def execute_moderation_action(
         ctx = get_context()
 
         if action == "warn":
-            from src.plugins.warns.repository import add_warn, reset_warns
-            from src.plugins.warns.repository import get_settings as get_warn_settings
+            from src.db.repositories.group_settings import get_settings as get_warn_settings
+            from src.db.repositories.warns import add_warn, reset_warns
 
             count = await add_warn(ctx, message.chat.id, user_id, client.me.id, reason=reason)
             s = await get_warn_settings(ctx, message.chat.id)

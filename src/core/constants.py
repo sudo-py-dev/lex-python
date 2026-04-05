@@ -21,6 +21,10 @@ class CacheKeys:
         return f"captcha:{chat_id}:{user_id}"
 
     @staticmethod
+    def captcha_poll(poll_id: str) -> str:
+        return f"captcha_poll:{poll_id}"
+
+    @staticmethod
     def dupes(chat_id: int, user_id: int) -> str:
         return f"dupes:{chat_id}:{user_id}"
 
@@ -43,6 +47,14 @@ class CacheKeys:
     @staticmethod
     def fsub_grace(chat_id: int, user_id: int) -> str:
         return f"fsub_grace:{chat_id}:{user_id}"
+
+    @staticmethod
+    def approval(chat_id: int, message_id: int) -> str:
+        return f"approval:{chat_id}:{message_id}"
+
+    @staticmethod
+    def antispam(chat_id: int, user_id: int) -> str:
+        return f"antispam:{chat_id}:{user_id}"
 
 
 class Actions:

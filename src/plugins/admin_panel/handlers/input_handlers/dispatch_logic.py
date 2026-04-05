@@ -7,7 +7,10 @@ from pyrogram.types import InlineKeyboardMarkup, Message
 
 from src.core.context import AppContext
 
-InputHandler = Callable[[Client, Message, AppContext, int, str, Any, int | None, int], Coroutine[Any, Any, None]]
+InputHandler = Callable[
+    [Client, Message, AppContext, int, str, Any, int | None, int], Coroutine[Any, Any, None]
+]
+
 
 class InputRegistry:
     def __init__(self):
@@ -18,6 +21,7 @@ class InputRegistry:
             for f in fields:
                 self.handlers[f] = handler
             return handler
+
         return decorator
 
     async def dispatch(
@@ -41,7 +45,9 @@ class InputRegistry:
                 return False
         return False
 
+
 input_registry = InputRegistry()
+
 
 async def finalize_input_capture(
     client: Client,
@@ -53,6 +59,7 @@ async def finalize_input_capture(
 ) -> None:
     """Helper to finalize the input capture UI."""
     import contextlib
+
     with contextlib.suppress(Exception):
         await message.delete()
 
@@ -66,11 +73,13 @@ async def finalize_input_capture(
     else:
         await message.reply(combined_text, reply_markup=kb)
 
+
 async def capture_next_input(
     user_id: int, chat_id: int, field: str, prompt_msg_id: int | None = None, page: int = 0
 ) -> None:
     """Stores the capture state in Local Cache to intercept the next message."""
     from src.cache.local_cache import get_cache
+
     r = get_cache()
     msg_id = prompt_msg_id or 0
     await r.set(f"panel_input:{user_id}", f"{chat_id}:{field}:{msg_id}:{page}", ttl=300)
