@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Project
+logs/
+sessions/*.session
+sessions/*.session-journal
+dist/
+build/
+*.egg-info/
+
+# Environments
+.env
+.env.local
+
+# Docker
+docker-compose.override.yml
+Dockerfile
+.dockerignore

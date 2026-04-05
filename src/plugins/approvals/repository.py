@@ -1,0 +1,61 @@
+from sqlalchemy import select
+
+from src.core.context import AppContext
+from src.db.models import Approval
+
+
+async def add_approval(ctx: AppContext, chat_id: int, user_id: int, granted_by: int) -> Approval:
+    async with ctx.db() as session:
+        stmt = select(Approval).where(Approval.chatId == chat_id, Approval.userId == user_id)
+        result = await session.execute(stmt)
+        approval = result.scalars().first()
+
+        if approval:
+            approval.grantedBy = granted_by
+            session.add(approval)
+        else:
+            approval = Approval(chatId=chat_id, userId=user_id, grantedBy=granted_by)
+            session.add(approval)
+
+        await session.commit()
+        await session.refresh(approval)
+        return approval
+
+
+async def remove_approval(ctx: AppContext, chat_id: int, user_id: int) -> bool:
+    async with ctx.db() as session:
+        stmt = select(Approval).where(Approval.chatId == chat_id, Approval.userId == user_id)
+        result = await session.execute(stmt)
+        approval = result.scalars().first()
+        if approval:
+            await session.delete(approval)
+            await session.commit()
+            return True
+        return False
+
+
+async def is_user_approved(ctx: AppContext, chat_id: int, user_id: int) -> bool:
+    async with ctx.db() as session:
+        stmt = select(Approval).where(Approval.chatId == chat_id, Approval.userId == user_id)
+        result = await session.execute(stmt)
+        approval = result.scalars().first()
+        return approval is not None
+
+
+async def get_all_approved(ctx: AppContext, chat_id: int) -> list[Approval]:
+    async with ctx.db() as session:
+        stmt = select(Approval).where(Approval.chatId == chat_id)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+
+async def clear_all_approvals(ctx: AppContext, chat_id: int) -> int:
+    async with ctx.db() as session:
+        stmt = select(Approval).where(Approval.chatId == chat_id)
+        result = await session.execute(stmt)
+        approvals = result.scalars().all()
+        count = len(approvals)
+        for approval in approvals:
+            await session.delete(approval)
+        await session.commit()
+        return count
