@@ -36,7 +36,7 @@ async def ai_message_handler(client: Client, message: Message):
     ctx = get_ctx()
     cache = get_cache()
 
-    logger.info(f"AI [{chat_id}] Handler triggered. User: {user_name} ({user_id})")
+    logger.debug(f"AI [{chat_id}] Handler triggered. User: {user_name} ({user_id})")
 
     await AIRepository.add_message(ctx, chat_id, message.id, user_id, user_name, text)
 
@@ -72,7 +72,7 @@ async def ai_message_handler(client: Client, message: Message):
     session_key = f"ai_session:{chat_id}"
     is_session_active = await cache.exists(session_key)
 
-    logger.info(f"AI [{chat_id}] Mentioned: {is_mentioned}, Active: {is_session_active}")
+    logger.debug(f"AI [{chat_id}] Mentioned: {is_mentioned}, Active: {is_session_active}")
 
     if not is_mentioned and not is_session_active:
         return
@@ -80,7 +80,7 @@ async def ai_message_handler(client: Client, message: Message):
     await cache.set(session_key, True, ttl=180)
 
     history = await AIRepository.get_context(ctx, chat_id, client.me.id)
-    logger.info(f"AI [{chat_id}] History: {len(history)} messages. Calling LLM...")
+    logger.debug(f"AI [{chat_id}] History: {len(history)} messages. Calling LLM...")
 
     from .prompts import BASE_PROMPT, OPERATIONAL_RULES
 
