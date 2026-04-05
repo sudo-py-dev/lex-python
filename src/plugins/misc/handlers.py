@@ -73,7 +73,7 @@ async def about_handler(client: Client, message: Message) -> None:
             "misc.about_text",
             version=config.VERSION,
             dev_name="sudopydev",
-            dev_url="https://github.com/sudopydev/lex-python",
+            dev_url="https://github.com/sudopydev/lex-tg",
             tech_stack=tech_stack,
         ),
         link_preview_options=LinkPreviewOptions(is_disabled=True),
