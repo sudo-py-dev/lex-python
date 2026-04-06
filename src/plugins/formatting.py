@@ -4,6 +4,7 @@ from pyrogram.types import Message
 from src.core.bot import bot
 from src.core.plugin import Plugin, register
 from src.utils.decorators import safe_handler
+from src.utils.i18n import at
 
 
 class FormattingPlugin(Plugin):
@@ -22,7 +23,11 @@ async def stickerid_handler(client: Client, message: Message) -> None:
     """Return the unique file_id of a replied sticker."""
     if not message.reply_to_message or not message.reply_to_message.sticker:
         return
-    await message.reply(f"Sticker ID: `{message.reply_to_message.sticker.file_id}`")
+    await message.reply(
+        await at(
+            message.chat.id, "formatting.sticker_id", id=message.reply_to_message.sticker.file_id
+        )
+    )
 
 
 @bot.on_message(filters.command("fileid"))
@@ -46,7 +51,7 @@ async def fileid_handler(client: Client, message: Message) -> None:
     elif r.animation:
         file_id = r.animation.file_id
     if file_id:
-        await message.reply(f"File ID: `{file_id}`")
+        await message.reply(await at(message.chat.id, "formatting.file_id", id=file_id))
 
 
 register(FormattingPlugin())

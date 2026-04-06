@@ -96,7 +96,11 @@ async def flood_interceptor(client: Client, message: Message) -> None:
             if action == "ban":
                 await client.ban_chat_member(message.chat.id, message.from_user.id)
             elif action == "kick":
-                await client.ban_chat_member(message.chat.id, message.from_user.id, until_date=datetime.now() + timedelta(minutes=1))
+                await client.ban_chat_member(
+                    message.chat.id,
+                    message.from_user.id,
+                    until_date=datetime.now() + timedelta(minutes=1),
+                )
             else:
                 await client.restrict_chat_member(
                     message.chat.id, message.from_user.id, RESTRICTED_PERMISSIONS

@@ -74,27 +74,6 @@ SUPPORTED_LANGS = {
     "zh-tw",
 }
 
-_LANG_NAMES = {
-    "en": "English",
-    "he": "Hebrew",
-    "ru": "Russian",
-    "id": "Indonesian",
-    "ar": "Arabic",
-    "es": "Spanish",
-    "fr": "French",
-    "de": "German",
-    "pt": "Portuguese",
-    "it": "Italian",
-    "hi": "Hindi",
-    "tr": "Turkish",
-    "fa": "Persian",
-    "uk": "Ukrainian",
-    "uz": "Uzbek",
-    "zh": "Chinese",
-    "zh-cn": "Chinese (Simplified)",
-    "zh-tw": "Chinese (Traditional)",
-}
-
 
 class LangBlockPlugin(Plugin):
     """Plugin to restrict and moderate messages based on detected language."""

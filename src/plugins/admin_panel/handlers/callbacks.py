@@ -576,7 +576,8 @@ async def protected_panel_callback_handler(
                 kb = await url_scanner_kb(ctx, chat_id, user_id=user_id if is_pm else None)
                 s = await get_chat_settings(ctx, chat_id)
                 status = await at(
-                    at_id, "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled"
+                    at_id,
+                    "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled",
                 )
                 await callback.message.edit_text(
                     await at(
@@ -807,11 +808,16 @@ async def protected_panel_callback_handler(
             warns = await get_warns(ctx, chat_id, target_uid)
 
             if not warns:
-                await callback.answer("No warns found.", show_alert=True)
+                await callback.answer(await at(at_id, "warns.no_warns"), show_alert=True)
                 return
 
-            reasons = "\n".join([f"- {w.reason or 'No reason'}" for w in warns])
-            await callback.answer(f"User ID: {target_uid}\nWarns:\n{reasons}", show_alert=True)
+            reasons = "\n".join(
+                [f"- {w.reason or await at(at_id, 'common.no_reason')}" for w in warns]
+            )
+            await callback.answer(
+                f"{await at(at_id, 'common.user_id_label')} {target_uid}\n{await at(at_id, 'panel.user_warns_header')}\n{reasons}",
+                show_alert=True,
+            )
 
     elif action == "timezone":
         page = int(data[2]) if len(data) > 2 else 0

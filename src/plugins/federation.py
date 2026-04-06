@@ -120,7 +120,7 @@ async def fban_handler(client: Client, message: Message, target_user: User) -> N
     if not fed:
         await message.reply(await at(message.chat.id, "federation.not_joined"))
         return
-    reason = "No reason provided"
+    reason = await at(message.chat.id, "common.no_reason")
     if len(message.command) > 2:
         reason = " ".join(message.command[2:])
     await fban_user(ctx, fed.id, target_user.id, reason, message.from_user.id)

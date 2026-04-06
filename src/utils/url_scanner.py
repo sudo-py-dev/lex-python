@@ -22,7 +22,8 @@ async def is_url_malicious(urls: list[str], api_key: str, lang: str = "en") -> s
     filtered_urls = [
         {"url": url}
         for url in urls
-        if urlparse(url).netloc.lower() not in exclude_tg_urls and urlparse(url).scheme in ("http", "https")
+        if urlparse(url).netloc.lower() not in exclude_tg_urls
+        and urlparse(url).scheme in ("http", "https")
     ]
 
     if not filtered_urls:

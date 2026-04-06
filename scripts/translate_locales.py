@@ -1,4 +1,5 @@
 import argparse
+import ast
 import json
 import os
 import re
@@ -28,7 +29,6 @@ DEFAULT_LANGS = {
     "pt": "pt",
     "tr": "tr",
     "id": "id",
-    "fa": "fa",
     "hi": "hi",
     "uk": "uk",
     "pl": "pl",
@@ -155,6 +155,148 @@ def render_progress_bar(
     sys.stdout.flush()
 
 
+class ScanVisitor(ast.NodeVisitor):
+    def __init__(self, mgr: LocaleManager, content: str, rel_path: str):
+        self.mgr = mgr
+        self.content = content
+        self.rel_path = rel_path
+        self.en_keys = set(mgr.en_data.keys())
+        self.en_values = set(mgr.en_data.values())
+        self.found_count = 0
+        self.in_logger = False
+        self.lines = content.splitlines()
+
+    def is_logger_call(self, node: ast.Call) -> bool:
+        # Handle logger.info(...), log.debug(...), etc.
+        if isinstance(node.func, ast.Attribute) and \
+           isinstance(node.func.value, ast.Name) and node.func.value.id in ["logger", "log"]:
+            if node.func.attr in ["debug", "info", "warning", "error", "exception", "critical", "trace", "success"]:
+                return True
+        # Handle info(...), debug(...) if imported directly
+        elif isinstance(node.func, ast.Name) and node.func.id in ["debug", "info", "warning", "error", "exception", "trace", "success"]:
+            return True
+        return False
+
+    def visit_Call(self, node: ast.Call):
+        old_in_logger = self.in_logger
+        if self.is_logger_call(node):
+            self.in_logger = True
+        
+        self.generic_visit(node)
+        self.in_logger = old_in_logger
+
+    def visit_Constant(self, node: ast.Constant):
+        if not isinstance(node.value, str) or self.in_logger:
+            return
+
+        val = node.value.strip()
+        if len(val) < 5 or " " not in val:
+            return
+
+        if val in self.en_keys or val in self.en_values:
+            return
+
+        # Skip likely internal constants (UPPER_CASE_WITH_UNDERSCORES)
+        if val.isupper() and "_" in val:
+            return
+
+        # Skip common technical patterns (regex, paths, log formats, AI prompts)
+        technical_patterns = [
+            r"^[A-Z_]+$", # Constants
+            r"<.*?>",     # Loguru coloring / tags
+            r"^IDENTITY:", # AI Identity prompt
+            r"^\d+ (MB|GB|KB|week|day|month|year)s?$", # Config values
+            r"\{time:.*?\}", # Loguru time format
+            r"^https?://", # URLs
+            r"^[a-z0-9_\-\.]+\.[a-z]{2,4}(/.*)?$", # Domains
+        ]
+        if any(re.search(p, val) for p in technical_patterns):
+            return
+
+        line_no = getattr(node, "lineno", 0)
+        line_content = self.lines[line_no - 1].strip() if 0 < line_no <= len(self.lines) else ""
+
+        # Secondary check for print and other calls that might not be caught by AST alone
+        if any(x in line_content.lower() for x in ["print(", "raise ", "filters.command"]):
+            return
+
+        # Skip imports and docstrings
+        if line_content.startswith(("import ", "from ", '"""', "'''")):
+            return
+
+        print(f"  {Fore.YELLOW}[{self.rel_path}:{line_no}] {Fore.WHITE}'{val[:60]}{'...' if len(val) > 60 else ''}'")
+        self.found_count += 1
+
+
+def scan_unlocalized(mgr: LocaleManager):
+    """Scan src/ for hardcoded strings that should be in en.json."""
+    print(f"\n{Fore.CYAN}{Style.BRIGHT}Scanning for unlocalized strings in src/...")
+    
+    total_found = 0
+    excluded_files = {"__init__.py", "i18n.py", "config.py", "prompts.py"}
+
+    for root, _, files in os.walk(os.path.join(BASE_DIR, "src")):
+        for file in files:
+            if not file.endswith(".py") or file in excluded_files:
+                continue
+
+            path = os.path.join(root, file)
+            rel_path = os.path.relpath(path, BASE_DIR)
+
+            try:
+                with open(path, encoding="utf-8") as f:
+                    content = f.read()
+                    tree = ast.parse(content)
+            except Exception as e:
+                if mgr.verbose:
+                    print(f"{Fore.RED}Error parsing {rel_path}: {e}")
+                continue
+
+            visitor = ScanVisitor(mgr, content, rel_path)
+            visitor.visit(tree)
+            total_found += visitor.found_count
+
+    if total_found == 0:
+        print(f"{Fore.GREEN}✓ No unlocalized strings found.")
+    else:
+        print(f"\n{Fore.MAGENTA}Found {total_found} potential unlocalized strings.")
+
+
+def find_unused_keys(mgr: LocaleManager):
+    """Find keys in en.json that are not used in src/."""
+    print(f"\n{Fore.CYAN}{Style.BRIGHT}Scanning for unused localization keys...")
+    en_keys = sorted(mgr.en_data.keys())
+    unused_keys = []
+
+    # Pre-load all src content to search efficiently
+    all_content = ""
+    for root, _, files in os.walk(os.path.join(BASE_DIR, "src")):
+        for file in files:
+            if file.endswith(".py"):
+                try:
+                    with open(os.path.join(root, file), encoding="utf-8") as f:
+                        all_content += f.read() + "\n"
+                except Exception:
+                    continue
+
+    for key in en_keys:
+        # Search for key as a literal string in any file
+        # Pattern ensures we find "key" or 'key' exactly
+        pattern = rf"(['\"]){re.escape(key)}\1"
+        if not re.search(pattern, all_content):
+            # Also check for dynamic construction if key contains dots
+            # e.g. at(..., f"prefix.{action}") -> this is hard to catch,
+            # but we can check if the key's suffix exists.
+            unused_keys.append(key)
+
+    if not unused_keys:
+        print(f"{Fore.GREEN}✓ All keys are in use.")
+    else:
+        print(f"{Fore.RED}Found {len(unused_keys)} potentially unused keys:")
+        for key in sorted(unused_keys):
+            print(f"  {Fore.YELLOW}- {key}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Advanced Locale Translation Tool")
     parser.add_argument("--langs", help="Target languages (he,ru,etc.)", type=str)
@@ -169,9 +311,20 @@ def main():
         "--keys", help="Specific keys to force translate (comma-separated)", type=str
     )
     parser.add_argument("--verbose", action="store_true", help="Detailed logging")
+    parser.add_argument("--scan", action="store_true", help="Scan for unlocalized strings in src/")
+    parser.add_argument("--unused", action="store_true", help="Detect unused localization keys")
     args = parser.parse_args()
 
     mgr = LocaleManager(args.verbose)
+
+    if args.scan:
+        scan_unlocalized(mgr)
+        return
+
+    if args.unused:
+        find_unused_keys(mgr)
+        return
+
     target_langs = args.langs.split(",") if args.langs else DEFAULT_LANGS.keys()
 
     print(f"{Fore.CYAN}{Style.BRIGHT}Locale Manager v2.0")

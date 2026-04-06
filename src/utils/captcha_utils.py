@@ -5,6 +5,8 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+from src.utils.i18n import at
+
 
 def generate_math_captcha():
     """Generates a simple math problem and its answer."""
@@ -16,7 +18,7 @@ def generate_math_captcha():
     return problem, str(result)
 
 
-def generate_poll_captcha(chat_id: int):
+async def generate_poll_captcha(chat_id: int):
     """Generates a simple poll question for captcha."""
     a = random.randint(1, 10)
     b = random.randint(1, 10)
@@ -28,7 +30,7 @@ def generate_poll_captcha(chat_id: int):
     ]
     random.shuffle(options)
     correct_index = options.index(str(correct))
-    question = f"What is {a} + {b}?"
+    question = await at(chat_id, "captcha.what_is", a=a, b=b)
     return question, options, correct_index
 
 

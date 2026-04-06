@@ -71,7 +71,7 @@ async def log_event(
         chat=chat.title,
         target=target.mention,
         actor=actor.mention,
-        reason=f"\n📝 Reason: {reason}" if reason else "",
+        reason=f"\n{await at(chat_id, 'logging.reason_label')} {reason}" if reason else "",
     )
     try:
         await client.send_message(settings.logChannelId, text)

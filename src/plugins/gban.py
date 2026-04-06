@@ -34,7 +34,7 @@ async def gban_handler(client: Client, message: Message, target_user: User) -> N
     if not await is_sudo(ctx, message.from_user.id):
         return
 
-    reason = "No reason provided"
+    reason = await at(message.chat.id, "common.no_reason")
     if len(message.command) > 2:
         reason = " ".join(message.command[2:])
 

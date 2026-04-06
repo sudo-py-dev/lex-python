@@ -8,7 +8,6 @@ if TYPE_CHECKING:
 from sqlalchemy import (
     BigInteger,
     DateTime,
-    Float,
     ForeignKey,
     String,
     Text,
@@ -104,32 +103,6 @@ class ChannelProtect(Base):
     chatId: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     antiChannel: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     antiAnon: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    updatedAt: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
-        nullable=False,
-    )
-
-
-class MediaFilter(Base):
-    __tablename__ = "mediafilter"
-
-    chatId: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    blockPhoto: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    blockVideo: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    blockDocument: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    blockAudio: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    blockVoice: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    blockVideoNote: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    blockSticker: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    blockGif: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    antiNsfw: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    nsfwThreshold: Mapped[float] = mapped_column(Float, default=0.8, server_default=sa_text("0.8"))
-    nsfwAction: Mapped[str] = mapped_column(
-        String(50), default="delete", server_default=sa_text("'delete'")
-    )
     updatedAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

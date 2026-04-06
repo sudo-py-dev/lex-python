@@ -80,9 +80,7 @@ async def slowmode_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKe
 async def logging_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
     settings = await get_chat_settings(ctx, chat_id)
     channel_display = (
-        settings.logChannelId
-        if settings.logChannelId
-        else await at(chat_id, "panel.not_set")
+        settings.logChannelId if settings.logChannelId else await at(chat_id, "panel.not_set")
     )
     return InlineKeyboardMarkup(
         [
@@ -343,7 +341,7 @@ async def log_channel_picker_kb(
     from pyrogram.enums import ChatType
 
     at_id = user_id if user_id else chat_id
-    
+
     # Get dialogs (limited to avoid performance issues)
     dialogs = []
     async for dialog in client.get_dialogs(limit=100):
@@ -360,9 +358,7 @@ async def log_channel_picker_kb(
 
     buttons = []
     for cid, title in chunk:
-        buttons.append(
-            [InlineKeyboardButton(title, callback_data=f"panel:logging_set:{cid}")]
-        )
+        buttons.append([InlineKeyboardButton(title, callback_data=f"panel:logging_set:{cid}")])
 
     nav = await get_pager(page, total_count, PAGE_SIZE, "panel:logging_picker")
     if nav:

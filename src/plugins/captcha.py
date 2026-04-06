@@ -79,7 +79,7 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
             answer = None
 
             if mode == "poll":
-                question, options, correct_index = generate_poll_captcha(message.chat.id)
+                question, options, correct_index = await generate_poll_captcha(message.chat.id)
                 captcha_msg = await client.send_poll(
                     message.chat.id,
                     question,

@@ -24,7 +24,6 @@ LANG_METADATA = {
     "pt": ("Português", ":Portugal:"),
     "tr": ("Türkçe", ":Turkey:"),
     "id": ("Indonesia", ":Indonesia:"),
-    "fa": ("فارسی", ":sun: :lion: :crossed_swords:"),
     "hi": ("हिन्दी", ":India:"),
     "uk": ("Українська", ":Ukraine:"),
     "pl": ("Polski", ":Poland:"),

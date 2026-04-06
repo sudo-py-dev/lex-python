@@ -24,14 +24,8 @@ class MiscPlugin(Plugin):
 @safe_handler
 async def runs_handler(client: Client, message: Message) -> None:
     """Reply with a random 'running away' action string."""
-    runs = [
-        "runs to the other side of the room.",
-        "runs away from the group.",
-        "runs to hide under the bed.",
-        "runs to the store.",
-        "runs out of the door.",
-    ]
-    await message.reply(random.choice(runs))
+    index = random.randint(1, 5)
+    await message.reply(await at(message.chat.id, f"misc.run_{index}"))
 
 
 @bot.on_message(filters.command("slap") & filters.group)
@@ -40,18 +34,13 @@ async def slap_handler(client: Client, message: Message) -> None:
     """Slap the replied-to user with a random object."""
     if not message.reply_to_message:
         return
-    slaps = [
-        "slaps {target} with a large trout.",
-        "slaps {target} across the face.",
-        "slaps {target} into the next room.",
-        "slaps {target} with a wet noodle.",
-    ]
     target = (
         message.reply_to_message.from_user.first_name
         if message.reply_to_message.from_user
-        else "someone"
+        else await at(message.chat.id, "common.unknown")
     )
-    await message.reply(random.choice(slaps).format(target=target))
+    index = random.randint(1, 4)
+    await message.reply(await at(message.chat.id, f"misc.slap_{index}", target=target))
 
 
 @bot.on_message(filters.command("shrug") & filters.group)

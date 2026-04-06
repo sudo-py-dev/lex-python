@@ -35,76 +35,101 @@ async def extract_message_data(message: Message) -> dict:
             data.update({"type": "video_note", "file_id": message.video_note.file_id})
 
     elif message.poll:
-        data.update({
-            "type": "poll",
-            "additional_data": json.dumps({
-                "question": message.poll.question,
-                "options": [opt.text for opt in message.poll.options],
-                "is_anonymous": message.poll.is_anonymous,
-                "type": message.poll.type,
-                "allows_multiple_answers": message.poll.allows_multiple_answers,
-            })
-        })
+        data.update(
+            {
+                "type": "poll",
+                "additional_data": json.dumps(
+                    {
+                        "question": message.poll.question,
+                        "options": [opt.text for opt in message.poll.options],
+                        "is_anonymous": message.poll.is_anonymous,
+                        "type": message.poll.type,
+                        "allows_multiple_answers": message.poll.allows_multiple_answers,
+                    }
+                ),
+            }
+        )
     elif message.location:
-        data.update({
-            "type": "location",
-            "additional_data": json.dumps({
-                "latitude": message.location.latitude,
-                "longitude": message.location.longitude,
-            })
-        })
+        data.update(
+            {
+                "type": "location",
+                "additional_data": json.dumps(
+                    {
+                        "latitude": message.location.latitude,
+                        "longitude": message.location.longitude,
+                    }
+                ),
+            }
+        )
     elif message.venue:
-        data.update({
-            "type": "venue",
-            "additional_data": json.dumps({
-                "latitude": message.venue.location.latitude,
-                "longitude": message.venue.location.longitude,
-                "title": message.venue.title,
-                "address": message.venue.address,
-                "foursquare_id": message.venue.foursquare_id,
-            })
-        })
+        data.update(
+            {
+                "type": "venue",
+                "additional_data": json.dumps(
+                    {
+                        "latitude": message.venue.location.latitude,
+                        "longitude": message.venue.location.longitude,
+                        "title": message.venue.title,
+                        "address": message.venue.address,
+                        "foursquare_id": message.venue.foursquare_id,
+                    }
+                ),
+            }
+        )
     elif message.contact:
-        data.update({
-            "type": "contact",
-            "additional_data": json.dumps({
-                "phone_number": message.contact.phone_number,
-                "first_name": message.contact.first_name,
-                "last_name": message.contact.last_name,
-                "vcard": message.contact.vcard,
-            })
-        })
+        data.update(
+            {
+                "type": "contact",
+                "additional_data": json.dumps(
+                    {
+                        "phone_number": message.contact.phone_number,
+                        "first_name": message.contact.first_name,
+                        "last_name": message.contact.last_name,
+                        "vcard": message.contact.vcard,
+                    }
+                ),
+            }
+        )
 
     return data
 
-async def send_stored_message(client: Client, chat_id: int, message_type: str, text: str | None, file_id: str | None, additional_data: str | None, **kwargs) -> Message:
+
+async def send_stored_message(
+    client: Client,
+    chat_id: int,
+    message_type: str,
+    text: str | None,
+    file_id: str | None,
+    additional_data: str | None,
+    **kwargs,
+) -> Message:
     """
     Sends a message based on stored data.
     """
     if message_type == "text":
         return await client.send_message(chat_id, text, **kwargs)
-    
+
     if message_type == "photo":
         return await client.send_photo(chat_id, file_id, caption=text, **kwargs)
-    
+
     if message_type == "video":
         return await client.send_video(chat_id, file_id, caption=text, **kwargs)
-    
+
     if message_type == "animation":
         return await client.send_animation(chat_id, file_id, caption=text, **kwargs)
-    
+
     if message_type == "audio":
         return await client.send_audio(chat_id, file_id, caption=text, **kwargs)
-    
+
     if message_type == "document":
         return await client.send_document(chat_id, file_id, caption=text, **kwargs)
-    
+
     if message_type == "sticker":
         return await client.send_sticker(chat_id, file_id, **kwargs)
-    
+
     if message_type == "voice":
         return await client.send_voice(chat_id, file_id, caption=text, **kwargs)
-    
+
     if message_type == "video_note":
         return await client.send_video_note(chat_id, file_id, **kwargs)
 
@@ -118,10 +143,12 @@ async def send_stored_message(client: Client, chat_id: int, message_type: str, t
                 is_anonymous=extra.get("is_anonymous", True),
                 type=extra.get("type", "regular"),
                 allows_multiple_answers=extra.get("allows_multiple_answers", False),
-                **kwargs
+                **kwargs,
             )
         if message_type == "location":
-            return await client.send_location(chat_id, extra["latitude"], extra["longitude"], **kwargs)
+            return await client.send_location(
+                chat_id, extra["latitude"], extra["longitude"], **kwargs
+            )
         if message_type == "venue":
             return await client.send_venue(
                 chat_id,
@@ -130,7 +157,7 @@ async def send_stored_message(client: Client, chat_id: int, message_type: str, t
                 extra["title"],
                 extra["address"],
                 foursquare_id=extra.get("foursquare_id"),
-                **kwargs
+                **kwargs,
             )
         if message_type == "contact":
             return await client.send_contact(
@@ -139,7 +166,7 @@ async def send_stored_message(client: Client, chat_id: int, message_type: str, t
                 extra["first_name"],
                 last_name=extra.get("last_name"),
                 vcard=extra.get("vcard"),
-                **kwargs
+                **kwargs,
             )
 
     return await client.send_message(chat_id, text, **kwargs)

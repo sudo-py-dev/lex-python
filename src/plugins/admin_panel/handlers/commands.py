@@ -56,4 +56,6 @@ async def open_settings_panel(client: Client, message: Message, chat_id: int) ->
         warn_action=settings.warnAction,
     )
     is_pm = message.chat.type == ChatType.PRIVATE
-    await client.send_message(user_id, text, reply_markup=await main_menu_kb(chat_id, user_id if is_pm else None))
+    await client.send_message(
+        user_id, text, reply_markup=await main_menu_kb(chat_id, user_id if is_pm else None)
+    )

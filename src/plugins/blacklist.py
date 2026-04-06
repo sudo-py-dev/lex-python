@@ -52,7 +52,7 @@ async def add_blacklist_handler(client: Client, message: Message) -> None:
     if success:
         await message.reply(await at(message.chat.id, "blacklist.added", pattern=pattern))
     else:
-        await message.reply("❌ Limit of 150 blacklist patterns reached for this group.")
+        await message.reply(await at(message.chat.id, "blacklist.limit_error"))
 
 
 @bot.on_message(filters.command(["rmblacklist", "unblacklist"]) & filters.group)
@@ -133,19 +133,31 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
                     message.chat.id, message.from_user.id, RESTRICTED_PERMISSIONS
                 )
             elif action == "kick":
-                await client.ban_chat_member(message.chat.id, message.from_user.id, until_date=datetime.now() + timedelta(minutes=1))
+                await client.ban_chat_member(
+                    message.chat.id,
+                    message.from_user.id,
+                    until_date=datetime.now() + timedelta(minutes=1),
+                )
             elif action == "ban":
                 await client.ban_chat_member(message.chat.id, message.from_user.id)
             elif action == "warn":
                 count = await add_warn(
-                    ctx, message.chat.id, message.from_user.id, client.me.id, "Blacklisted word"
+                    ctx,
+                    message.chat.id,
+                    message.from_user.id,
+                    client.me.id,
+                    await at(message.chat.id, "blacklist.reason"),
                 )
                 if count >= settings.warnLimit:
                     w_action = settings.warnAction.lower()
                     if w_action == "ban":
                         await client.ban_chat_member(message.chat.id, message.from_user.id)
                     elif w_action == "kick":
-                        await client.ban_chat_member(message.chat.id, message.from_user.id, until_date=datetime.now() + timedelta(minutes=1))
+                        await client.ban_chat_member(
+                            message.chat.id,
+                            message.from_user.id,
+                            until_date=datetime.now() + timedelta(minutes=1),
+                        )
                     elif w_action == "mute":
                         await client.restrict_chat_member(
                             message.chat.id,

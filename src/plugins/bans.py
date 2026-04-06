@@ -89,7 +89,11 @@ async def kick_handler(client: Client, message: Message, target_user: User) -> N
 
     ctx = get_context()
     try:
-        await client.ban_chat_member(message.chat.id, target_user.id, until_date=datetime.now() + dt_module.timedelta(minutes=1))
+        await client.ban_chat_member(
+            message.chat.id,
+            target_user.id,
+            until_date=datetime.now() + dt_module.timedelta(minutes=1),
+        )
         await log_action(ctx, message.chat.id, message.from_user.id, target_user.id, "kick")
         await message.reply(await at(message.chat.id, "kick.success", mention=target_user.mention))
     except Exception:
@@ -174,7 +178,9 @@ async def tban_handler(client: Client, message: Message, target_user: User) -> N
             msg_link=message.link,
         )
         await create_timed_action(ctx, message.chat.id, target_user.id, "tban", expires_at)
-        SchedulerManager.schedule_timed_action(ctx, message.chat.id, target_user.id, "tban", delay_seconds)
+        SchedulerManager.schedule_timed_action(
+            ctx, message.chat.id, target_user.id, "tban", delay_seconds
+        )
         await message.reply(
             await at(
                 message.chat.id, "tban.success", mention=target_user.mention, duration=delay_str
@@ -218,7 +224,9 @@ async def tmute_handler(client: Client, message: Message, target_user: User) -> 
             msg_link=message.link,
         )
         await create_timed_action(ctx, message.chat.id, target_user.id, "tmute", expires_at)
-        SchedulerManager.schedule_timed_action(ctx, message.chat.id, target_user.id, "tmute", delay_seconds)
+        SchedulerManager.schedule_timed_action(
+            ctx, message.chat.id, target_user.id, "tmute", delay_seconds
+        )
         await message.reply(
             await at(
                 message.chat.id, "tmute.success", mention=target_user.mention, duration=delay_str
