@@ -132,7 +132,109 @@ async def protected_panel_callback_handler(
                     ),
                     reply_markup=kb,
                 )
+            elif cat == "ai_security":
+                from src.db.repositories.ai_guard import get_ai_guard_settings
+
+                from .keyboards import ai_security_kb
+
+                s = await get_ai_guard_settings(ctx, chat_id)
+                status_label = await at(at_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}")
+                action_label = await at(at_id, f"action.{s.action}")
+
+                await callback.message.edit_text(
+                    await at(
+                        at_id,
+                        "panel.ai_guard_text",
+                        status=status_label,
+                        action=action_label,
+                        model=s.modelId,
+                    ),
+                    reply_markup=await ai_security_kb(ctx, chat_id, user_id),
+                )
             await callback.answer()
+
+    elif action == "toggle_ai_guard":
+        from src.db.repositories.ai_guard import get_ai_guard_settings, update_ai_guard_settings
+
+        from .keyboards import ai_security_kb
+
+        s = await get_ai_guard_settings(ctx, chat_id)
+        
+        if not s.isEnabled and not s.apiKey:
+            await callback.answer(
+                await at(user_id, "panel.ai_guard_key_required"),
+                show_alert=True
+            )
+            return
+
+        await update_ai_guard_settings(ctx, chat_id, isEnabled=not s.isEnabled)
+
+        s = await get_ai_guard_settings(ctx, chat_id)
+        status_label = await at(at_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}")
+        action_label = await at(at_id, f"action.{s.action}")
+
+        await callback.message.edit_text(
+            await at(
+                at_id,
+                "panel.ai_guard_text",
+                status=status_label,
+                action=action_label,
+                model=s.modelId,
+            ),
+            reply_markup=await ai_security_kb(ctx, chat_id, user_id),
+        )
+        await callback.answer()
+
+    elif action == "cycle_ai_guard_action":
+        from src.db.repositories.ai_guard import get_ai_guard_settings, update_ai_guard_settings
+
+        from .keyboards import ai_security_kb
+
+        actions = ["delete", "warn", "mute", "ban"]
+        s = await get_ai_guard_settings(ctx, chat_id)
+        current_idx = actions.index(s.action) if s.action in actions else 0
+        next_action = actions[(current_idx + 1) % len(actions)]
+
+        await update_ai_guard_settings(ctx, chat_id, action=next_action)
+
+        s = await get_ai_guard_settings(ctx, chat_id)
+        status_label = await at(at_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}")
+        action_label = await at(at_id, f"action.{s.action}")
+
+        await callback.message.edit_text(
+            await at(
+                at_id,
+                "panel.ai_guard_text",
+                status=status_label,
+                action=action_label,
+                model=s.modelId,
+            ),
+            reply_markup=await ai_security_kb(ctx, chat_id, user_id),
+        )
+        await callback.answer(await at(user_id, "panel.ai_guard_action_set", action=action_label))
+
+    elif action == "set_groq_key":
+        from .input_handlers.dispatch_logic import capture_next_input
+
+        await capture_next_input(
+            user_id, chat_id, "groqKey", prompt_msg_id=callback.message.id
+        )
+        await callback.message.edit_text(
+            await at(at_id, "panel.input_prompt_groqKey"),
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton(await at(at_id, "common.btn_cancel"), callback_data="panel:category:ai_security")]]
+            )
+        )
+        await callback.answer()
+
+    elif action == "ai_guard_setup":
+        from .keyboards import ai_security_kb
+
+        await callback.message.edit_text(
+            await at(at_id, "panel.ai_guard_setup_guide"),
+            reply_markup=await ai_security_kb(ctx, chat_id, user_id),
+        )
+        await callback.answer()
 
     elif action == "langblock":
         page = int(data[2]) if len(data) > 2 else 0

@@ -54,10 +54,7 @@ async def numeric_security_processor(
             await clear_slowmode(ctx, chat_id)
     elif field == "purgeMessagesCount":
         await _handle_purge(client, chat_id, num_value)
-    else:
-        await update_chat_setting(ctx, chat_id, field, num_value)
-
-    kb, text_id = await _get_security_ui(ctx, chat_id, field, page)
+    kb, text_id = await _get_security_ui(ctx, chat_id, field, page, user_id)
     main_text = await _format_security_text(ctx, chat_id, text_id, num_value)
 
     success_text = await at(user_id, "panel.input_success")
@@ -71,7 +68,7 @@ async def numeric_security_processor(
     )
 
 
-@input_registry.register(["gsbKey"])
+@input_registry.register(["gsbKey", "groqKey"])
 async def string_security_processor(
     client: Client,
     message: Message,
@@ -86,16 +83,23 @@ async def string_security_processor(
     str_value = str(value).strip()
 
     if str_value.lower() == "reset":
-        await update_chat_setting(ctx, chat_id, "gsbKey", None)
-        await update_chat_setting(ctx, chat_id, "urlScannerEnabled", False)
+        if field == "gsbKey":
+            await update_chat_setting(ctx, chat_id, "gsbKey", None)
+            await update_chat_setting(ctx, chat_id, "urlScannerEnabled", False)
+        elif field == "groqKey":
+            from src.db.repositories.ai_guard import update_ai_guard_settings
+
+            await update_ai_guard_settings(ctx, chat_id, apiKey=None, isEnabled=False)
         str_value = None
     elif not str_value:
         await message.reply(await at(user_id, "panel.input_invalid_string"))
         return
     else:
-        await update_chat_setting(ctx, chat_id, field, str_value)
+        if field == "gsbKey":
+            await update_chat_setting(ctx, chat_id, field, str_value)
+            await update_ai_guard_settings(ctx, chat_id, apiKey=str_value)
 
-    kb, text_id = await _get_security_ui(ctx, chat_id, field, page)
+    kb, text_id = await _get_security_ui(ctx, chat_id, field, page, user_id)
     main_text = await _format_security_text(ctx, chat_id, text_id, str_value)
 
     success_text = await at(user_id, "panel.input_success")
@@ -131,7 +135,7 @@ async def _handle_purge(client: Client, chat_id: int, count: int):
     asyncio.create_task(do_purge())
 
 
-async def _get_security_ui(ctx: AppContext, chat_id: int, field: str, page: int):
+async def _get_security_ui(ctx: AppContext, chat_id: int, field: str, page: int, user_id: int):
     if field.startswith("flood"):
         return await flood_kb(ctx, chat_id), "panel.flood_text"
     if field.startswith("raid"):
@@ -142,6 +146,10 @@ async def _get_security_ui(ctx: AppContext, chat_id: int, field: str, page: int)
         return await slowmode_kb(ctx, chat_id), "panel.slowmode_text"
     if field == "gsbKey":
         return await url_scanner_kb(ctx, chat_id), "panel.urlscanner_text"
+    if field == "groqKey":
+        from ...keyboards import ai_security_kb
+
+        return await ai_security_kb(ctx, chat_id, user_id), "panel.ai_guard_text"
     if field == "warnLimit":
         return await warns_kb(ctx, chat_id), "panel.warns_text"
     if field == "purgeMessagesCount":
@@ -199,5 +207,21 @@ async def _format_security_text(ctx: AppContext, chat_id: int, text_id: str, val
             text_id,
             status=status,
             key="********" if s.gsbKey else await at(chat_id, "panel.not_set"),
+        )
+    if text_id == "panel.ai_guard_text":
+        from src.db.repositories.ai_guard import get_ai_guard_settings
+
+        s = await get_ai_guard_settings(ctx, chat_id)
+        status_label = await at(
+            chat_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}"
+        )
+        action_label = await at(chat_id, f"action.{s.action}")
+
+        return await at(
+            chat_id,
+            text_id,
+            status=status_label,
+            action=action_label,
+            model=s.modelId,
         )
     return await at(chat_id, text_id)

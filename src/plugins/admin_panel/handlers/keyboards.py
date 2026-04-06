@@ -73,6 +73,10 @@ async def security_category_kb(chat_id: int, user_id: int | None = None) -> Inli
                 InlineKeyboardButton(
                     await at(chat_id, "panel.btn_urlscanner"), callback_data="panel:urlscanner"
                 ),
+                InlineKeyboardButton(
+                    await at(chat_id, "panel.btn_ai_guard_toggle").split(":")[0],
+                    callback_data="panel:ai_security",
+                ),
             ],
             [InlineKeyboardButton(await at(chat_id, "panel.btn_back"), callback_data="panel:main")],
         ]
@@ -598,6 +602,43 @@ async def cleaner_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> Inli
                     await at(at_id, "panel.btn_back"), callback_data="panel:category:scheduler"
                 )
             ],
+        ]
+    )
+
+
+async def ai_security_kb(ctx, chat_id: int, user_id: int) -> InlineKeyboardMarkup:
+    """Keyboard for AI Security settings."""
+    from src.db.repositories.ai_guard import get_ai_guard_settings
+
+    s = await get_ai_guard_settings(ctx, chat_id)
+    status_icon = "✅" if s.isEnabled else "❌"
+    action_label = await at(chat_id, f"action.{s.action}")
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_ai_guard_toggle", status=status_icon),
+                    callback_data="panel:toggle_ai_guard",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_set_groq_key"),
+                    callback_data="panel:set_groq_key",
+                ),
+                InlineKeyboardButton(
+                    await at(user_id, "common.btn_action", action=action_label),
+                    callback_data="panel:cycle_ai_guard_action",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_ai_guard_setup"),
+                    callback_data="panel:ai_guard_setup",
+                )
+            ],
+            [InlineKeyboardButton(await at(user_id, "panel.btn_back"), callback_data="panel:category:security")],
         ]
     )
 

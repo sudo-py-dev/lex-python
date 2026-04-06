@@ -23,6 +23,7 @@ class AIService:
         system_prompt: str | None,
         custom_instruction: str | None,
         messages: list[dict[str, str]],
+        response_format: dict | None = None,
     ) -> str:
         """
         Unified call mechanism using the OpenAI Chat Completion protocol.
@@ -36,6 +37,7 @@ class AIService:
                 system_prompt,
                 custom_instruction,
                 messages,
+                response_format,
             )
         elif provider == "claude" or provider == "anthropic":
             return await AIService._call_anthropic(
@@ -65,6 +67,7 @@ class AIService:
         system_prompt: str | None,
         custom_instruction: str | None,
         messages: list[dict[str, str]],
+        response_format: dict | None = None,
     ) -> str:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
@@ -76,6 +79,8 @@ class AIService:
         payload_messages.extend(messages)
 
         payload = {"model": model_id, "messages": payload_messages, "temperature": 0.7}
+        if response_format:
+            payload["response_format"] = response_format
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             try:

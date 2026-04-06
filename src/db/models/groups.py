@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .ai import AISettings
+    from .ai import AIGuardSettings, AISettings
     from .moderation import Blacklist, BlockedEntity, BlockedLanguage, UserWarn
     from .plugins import Filter, Note, Reminder
 
@@ -90,6 +90,9 @@ class GroupSettings(TimestampMixin, Base):
         back_populates="group", uselist=False, lazy="selectin"
     )
     aiSettings: Mapped[Optional["AISettings"]] = relationship(
+        back_populates="group", uselist=False, lazy="selectin"
+    )
+    aiGuardSettings: Mapped[Optional["AIGuardSettings"]] = relationship(
         back_populates="group", uselist=False, lazy="selectin"
     )
 

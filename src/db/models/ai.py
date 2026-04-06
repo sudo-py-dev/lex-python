@@ -37,6 +37,26 @@ class AISettings(Base):
     )
 
 
+class AIGuardSettings(Base):
+    __tablename__ = "aiguardsettings"
+
+    chatId: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("groupsettings.id"), primary_key=True
+    )
+    isEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    apiKey: Mapped[str | None] = mapped_column(Text, nullable=True)
+    modelId: Mapped[str] = mapped_column(
+        String(100), default="llama-3.1-8b-instant", server_default=sa_text("'llama-3.1-8b-instant'")
+    )
+    action: Mapped[str] = mapped_column(
+        String(50), default="delete", server_default=sa_text("'delete'")
+    )
+
+    group: Mapped["GroupSettings"] = relationship(
+        back_populates="aiGuardSettings", uselist=False, lazy="selectin"
+    )
+
+
 class AIChatContext(Base):
     __tablename__ = "aichatcontext"
 
