@@ -9,6 +9,7 @@ from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.models import Note
 from src.utils.decorators import admin_only, safe_handler
+from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
 
 
@@ -111,12 +112,26 @@ async def get_note_handler(client: Client, message: Message) -> None:
 
     if note.isPrivate:
         try:
-            await client.send_message(message.from_user.id, note.content)
+            parsed = TelegramFormatter.parse_message(
+                text=note.content,
+                user=message.from_user,
+                chat_id=message.chat.id,
+                chat_title=message.chat.title,
+                bot_username=client.me.username,
+            )
+            await TelegramFormatter.send_parsed(client, message.from_user.id, parsed)
             await message.reply(await at(message.chat.id, "note.sent_dm"))
         except Exception:
             await message.reply(await at(message.chat.id, "common.err_start_private"))
     else:
-        await message.reply(note.content)
+        parsed = TelegramFormatter.parse_message(
+            text=note.content,
+            user=message.from_user,
+            chat_id=message.chat.id,
+            chat_title=message.chat.title,
+            bot_username=client.me.username,
+        )
+        await TelegramFormatter.send_parsed(client, message.chat.id, parsed, reply_to_message_id=message.id)
 
     await message.stop_propagation()
 
@@ -164,10 +179,43 @@ async def hash_note_handler(client: Client, message: Message) -> None:
 
     if note.isPrivate:
         with contextlib.suppress(Exception):
-            await client.send_message(message.from_user.id, note.content)
+            parsed = TelegramFormatter.parse_message(
+                text=note.content,
+                user=message.from_user,
+                chat_id=message.chat.id,
+                chat_title=message.chat.title,
+                bot_username=client.me.username,
+            )
+            await TelegramFormatter.send_parsed(client, message.from_user.id, parsed)
     else:
-        await message.reply(note.content)
+        parsed = TelegramFormatter.parse_message(
+            text=note.content,
+            user=message.from_user,
+            chat_id=message.chat.id,
+            chat_title=message.chat.title,
+            bot_username=client.me.username,
+        )
+        await TelegramFormatter.send_parsed(client, message.chat.id, parsed, reply_to_message_id=message.id)
         await message.stop_propagation()
+
+
+@bot.on_message(filters.private & filters.regex(r"^/start note_(-?\d+)_(.+)$"), group=1)
+@safe_handler
+async def start_note_deeplink_handler(client: Client, message: Message) -> None:
+    """Intercept deep-links pointing to notes from inline buttons."""
+    chat_id = int(message.matches[0].group(1))
+    note_name = message.matches[0].group(2).lower()
+    note = await get_note(chat_id, note_name)
+    if not note:
+        return
+    parsed = TelegramFormatter.parse_message(
+        text=note.content,
+        user=message.from_user,
+        chat_id=chat_id,
+        bot_username=client.me.username,
+    )
+    await TelegramFormatter.send_parsed(client, message.from_user.id, parsed)
+    await message.stop_propagation()
 
 
 register(NotesPlugin())

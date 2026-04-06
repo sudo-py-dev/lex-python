@@ -115,6 +115,8 @@
   "filter.list_header": "📋 该组中的活动过滤器：",
   "filter.not_found": "❌ 找不到“{keyword}”的过滤器。",
   "filter.removed": "✅ “{keyword}”过滤器已被删除。",
+  "filter.stopall_done": "✅ 所有 {count} 过滤器已从此组中删除。",
+  "filter.stopall_empty": "❌ 该组中没有设置过滤器。",
   "flood.set": "🌊 防洪设置为每 {window} 秒 → {action} {threshold} 条消息。",
   "flood.triggered": "🌊 {mention} 因泛滥而被 {action} 编辑。",
   "forcesub.current": "🌐 当前强制订阅：{channel}",

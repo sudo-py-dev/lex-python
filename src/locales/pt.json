@@ -115,6 +115,8 @@
   "filter.list_header": "📋 Filtros ativos neste grupo:",
   "filter.not_found": "❌ Nenhum filtro encontrado para `{keyword}`.",
   "filter.removed": "✅ O filtro para `{keyword}` foi removido.",
+  "filter.stopall_done": "✅ Todos os filtros {count} foram removidos deste grupo.",
+  "filter.stopall_empty": "❌ Nenhum filtro está definido neste grupo.",
   "flood.set": "🌊 Controle de inundação definido para {threshold} mensagens por {window}s → {action}.",
   "flood.triggered": "🌊 {mention} foi {action}ed por inundação.",
   "forcesub.current": "🌐 Assinatura forçada atual: {channel}",

@@ -125,8 +125,13 @@ async def general_category_kb(chat_id: int, user_id: int | None = None) -> Inlin
             ],
             [
                 InlineKeyboardButton(
+                    await at(chat_id, "panel.btn_filters"), callback_data="panel:filters"
+                ),
+                InlineKeyboardButton(
                     await at(chat_id, "panel.btn_language"), callback_data="panel:language:group"
                 ),
+            ],
+            [
                 InlineKeyboardButton(
                     await at(chat_id, "common.service_cleaner"),
                     callback_data="panel:svc",
@@ -252,6 +257,39 @@ async def rules_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMa
             ],
         ]
     )
+
+
+async def filters_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
+    from src.db.repositories.filters import get_all_filters
+
+    filters_list = await get_all_filters(ctx, chat_id)
+    buttons = []
+
+    # Show up to 20 filters to prevent "payload too long" issues
+    for f in filters_list[:20]:
+        buttons.append(
+            [
+                InlineKeyboardButton(f"📜 {f.keyword}", callback_data="none"),
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_delete_filter"), callback_data=f"panel:delete_filter:{f.id}"
+                ),
+            ]
+        )
+
+    if filters_list:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_clear_filters"), callback_data="panel:clear_filters"
+                )
+            ]
+        )
+
+    buttons.append(
+        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:category:general")]
+    )
+    return InlineKeyboardMarkup(buttons)
 
 
 async def scheduler_menu_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:

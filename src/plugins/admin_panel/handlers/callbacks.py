@@ -17,6 +17,7 @@ from ..repository import get_chat_settings, toggle_service_type, toggle_setting
 from .ai_kbs import ai_menu_kb, model_selection_kb
 from .keyboards import (
     cleaner_menu_kb,
+    filters_menu_kb,
     flood_kb,
     general_category_kb,
     main_menu_kb,
@@ -308,10 +309,31 @@ async def protected_panel_callback_handler(
         kb = await welcome_kb(ctx, chat_id, user_id=user_id if is_pm else None)
         await callback.message.edit_text(await at(at_id, "panel.welcome_text"), reply_markup=kb)
         await callback.answer()
+    elif action == "filters":
+        kb = await filters_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+        await callback.message.edit_text(await at(at_id, "panel.filters_text"), reply_markup=kb)
+        await callback.answer()
     elif action == "rules":
         kb = await rules_kb(chat_id, user_id=user_id if is_pm else None)
         await callback.message.edit_text(await at(at_id, "panel.rules_text"), reply_markup=kb)
         await callback.answer()
+    elif action == "delete_filter":
+        if len(data) >= 3:
+            f_id = int(data[2])
+            from src.db.repositories.filters import remove_filter_by_id
+            success = await remove_filter_by_id(ctx, f_id)
+            if success:
+                await callback.answer(await at(at_id, "common.done"))
+            else:
+                await callback.answer(await at(at_id, "panel.error_generic"), show_alert=True)
+            kb = await filters_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+            await callback.message.edit_reply_markup(reply_markup=kb)
+    elif action == "clear_filters":
+        from src.db.repositories.filters import remove_all_filters
+        await remove_all_filters(ctx, chat_id)
+        await callback.answer(await at(at_id, "common.done"))
+        kb = await filters_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+        await callback.message.edit_reply_markup(reply_markup=kb)
     elif action == "raid":
         s = await get_chat_settings(ctx, chat_id)
         kb = await raid_kb(ctx, chat_id, user_id=user_id if is_pm else None)

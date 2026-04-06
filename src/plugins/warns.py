@@ -4,7 +4,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, User
 
 from src.core.bot import bot
-from src.core.context import AppContext
+from src.core.context import AppContext, get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.group_settings import get_settings
 from src.db.repositories.warns import (
@@ -18,22 +18,13 @@ from src.utils.decorators import admin_only, resolve_target, safe_handler
 from src.utils.i18n import at
 from src.utils.permissions import RESTRICTED_PERMISSIONS, Permission, has_permission
 
-_ctx: AppContext | None = None
-
-
-def get_ctx() -> AppContext:
-    if _ctx is None:
-        raise RuntimeError("Warns plugin not initialized")
-    return _ctx
-
 
 class WarnsPlugin(Plugin):
     name = "warns"
     priority = 40
 
     async def setup(self, client: Client, ctx: AppContext) -> None:
-        global _ctx
-        _ctx = ctx
+        pass
 
 
 @bot.on_message(filters.command("warn") & filters.group)
@@ -41,29 +32,12 @@ class WarnsPlugin(Plugin):
 @admin_only
 @resolve_target
 async def warn_handler(client: Client, message: Message, target_user: User) -> None:
-    """
-    Issue a warning to a user for a specific reason.
-
-    Increments the user's warning count in the chat. If the warning limit is reached,
-    it executes the configured moderation action (mute, kick, or ban) and resets their warnings.
-    Requires the bot to have 'can_restrict_members' permission and the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-        target_user (User): The user to be warned (resolved by @resolve_target).
-
-    Side Effects:
-        - Increments warning count in the database.
-        - May mute, kick, or ban the user if the limit is reached.
-        - Logs the warning in the database and audit log channel.
-        - Sends a confirmation or limit-reached message.
-    """
+    """Issue a warning to a user."""
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
         await message.reply(await at(message.chat.id, "error.no_permission"))
         return
 
-    ctx = get_ctx()
+    ctx = get_context()
     settings = await get_settings(ctx, message.chat.id)
     reason = " ".join(message.command[1:]) if len(message.command) > 1 else None
     if message.reply_to_message and len(message.command) > 1:
@@ -139,25 +113,12 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
 @admin_only
 @resolve_target
 async def unwarn_handler(client: Client, message: Message, target_user: User) -> None:
-    """
-    Remove all current warnings for a specific user in the chat.
-
-    Requires the bot to have 'can_restrict_members' permission and the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-        target_user (User): The user to be unwarned (resolved by @resolve_target).
-
-    Side Effects:
-        - Deletes all warnings for the user from the database.
-        - Sends a confirmation message.
-    """
+    """Remove all warnings for a user."""
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
         await message.reply(await at(message.chat.id, "error.no_permission"))
         return
 
-    await reset_warns(get_ctx(), message.chat.id, target_user.id)
+    await reset_warns(get_context(), message.chat.id, target_user.id)
     await message.reply(await at(message.chat.id, "warn.reset", mention=target_user.mention))
 
 
@@ -165,19 +126,8 @@ async def unwarn_handler(client: Client, message: Message, target_user: User) ->
 @safe_handler
 @resolve_target
 async def warns_handler(client: Client, message: Message, target_user: User) -> None:
-    """
-    List all active warnings for a specific user in the chat.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-        target_user (User): The user whose warnings are being requested (resolved by @resolve_target).
-
-    Side Effects:
-        - Fetches all warnings for the user from the database.
-        - Sends a message containing the list of warnings and reasons.
-    """
-    ctx = get_ctx()
+    """List all active warnings for a user."""
+    ctx = get_context()
     warns = await get_warns(ctx, message.chat.id, target_user.id)
     settings = await get_settings(ctx, message.chat.id)
 
@@ -203,20 +153,8 @@ async def warns_handler(client: Client, message: Message, target_user: User) -> 
 @safe_handler
 @admin_only
 async def reset_all_warns_handler(client: Client, message: Message) -> None:
-    """
-    Remove all active warnings for ALL users in the current chat.
-
-    Requires the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Deletes all warnings for the chat from the database.
-        - Sends a confirmation message with the total number of warnings removed.
-    """
-    count = await reset_all_chat_warns(get_ctx(), message.chat.id)
+    """Remove all warnings for all users in the chat."""
+    count = await reset_all_chat_warns(get_context(), message.chat.id)
     await message.reply(await at(message.chat.id, "warn.cleared_all", count=count))
 
 

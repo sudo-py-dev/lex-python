@@ -115,6 +115,8 @@
   "filter.list_header": "📋 Активные фильтры в этой группе:",
   "filter.not_found": "❌ Фильтр для `{keyword}` не найден.",
   "filter.removed": "✅ Фильтр `{keyword}` удален.",
+  "filter.stopall_done": "✅ Все фильтры {count} были удалены из этой группы.",
+  "filter.stopall_empty": "❌ В этой группе не установлены фильтры.",
   "flood.set": "🌊 Контроль наводнений установлен на {threshold} сообщений за {window}с → {action}.",
   "flood.triggered": "🌊 {mention} был {action} наказан за флуд.",
   "forcesub.current": "🌐 Текущая принудительная подписка: {channel}",

@@ -27,6 +27,7 @@ class GbanPlugin(Plugin):
 @safe_handler
 @resolve_target
 async def gban_handler(client: Client, message: Message, target_user: User) -> None:
+    """Global ban a user from all groups."""
     if not message.from_user:
         return
 
@@ -48,6 +49,7 @@ async def gban_handler(client: Client, message: Message, target_user: User) -> N
 @safe_handler
 @resolve_target
 async def ungban_handler(client: Client, message: Message, target_user: User) -> None:
+    """Remove a global ban from a user."""
     if not message.from_user:
         return
 
@@ -65,6 +67,7 @@ async def ungban_handler(client: Client, message: Message, target_user: User) ->
 @safe_handler
 @resolve_target
 async def addsudo_handler(client: Client, message: Message, target_user: User) -> None:
+    """Add a user to the sudoers list."""
     if not message.from_user:
         return
 
@@ -76,6 +79,7 @@ async def addsudo_handler(client: Client, message: Message, target_user: User) -
 @bot.on_message(filters.group & filters.new_chat_members, group=6)
 @safe_handler
 async def gban_interceptor(client: Client, message: Message) -> None:
+    """Intercept new chat members and ban if gbanned."""
     if not message.from_user or message.from_user.is_bot:
         return
 

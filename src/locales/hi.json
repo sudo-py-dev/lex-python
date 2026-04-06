@@ -115,6 +115,8 @@
   "filter.list_header": "📋 इस समूह में सक्रिय फ़िल्टर:",
   "filter.not_found": "❌ `{keyword}` के लिए कोई फ़िल्टर नहीं मिला।",
   "filter.removed": "✅ `{keyword}` के लिए फ़िल्टर हटा दिया गया है।",
+  "filter.stopall_done": "✅ इस समूह से सभी {count} फ़िल्टर हटा दिए गए हैं।",
+  "filter.stopall_empty": "❌ इस समूह में कोई फ़िल्टर सेट नहीं है।",
   "flood.set": "🌊 बाढ़ नियंत्रण को {threshold} संदेश प्रति {window}s → {action} पर सेट किया गया।",
   "flood.triggered": "🌊 {mention} को बाढ़ के लिए {action}एड किया गया था।",
   "forcesub.current": "🌐 वर्तमान बल-सदस्यता: {channel}",

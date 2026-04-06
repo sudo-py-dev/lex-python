@@ -115,6 +115,8 @@
   "filter.list_header": "📋 Filter aktif di grup ini:",
   "filter.not_found": "❌ Tidak ditemukan filter untuk `{keyword}`.",
   "filter.removed": "✅ Filter untuk `{keyword}` telah dihapus.",
+  "filter.stopall_done": "✅ Semua filter {count} telah dihapus dari grup ini.",
+  "filter.stopall_empty": "❌ Tidak ada filter yang disetel di grup ini.",
   "flood.set": "🌊 Pengendalian banjir disetel ke {threshold} pesan per {window}dtk → {action}.",
   "flood.triggered": "🌊 {mention} {action}diberikan banjir.",
   "forcesub.current": "🌐 Langganan paksa saat ini: {channel}",

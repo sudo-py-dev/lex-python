@@ -54,6 +54,27 @@ async def remove_filter(ctx: AppContext, chat_id: int, keyword: str) -> bool:
         return False
 
 
+async def remove_filter_by_id(ctx: AppContext, filter_id: int) -> bool:
+    """Remove a filter by its ID."""
+    async with ctx.db() as session:
+        filter_obj = await session.get(Filter, filter_id)
+        if filter_obj:
+            await session.delete(filter_obj)
+            await session.commit()
+            return True
+        return False
+
+
+async def remove_all_filters(ctx: AppContext, chat_id: int) -> int:
+    """Remove all filters from a chat. Returns the number of removed filters."""
+    async with ctx.db() as session:
+        from sqlalchemy import delete
+        stmt = delete(Filter).where(Filter.chatId == chat_id)
+        result = await session.execute(stmt)
+        await session.commit()
+        return result.rowcount
+
+
 async def get_all_filters(ctx: AppContext, chat_id: int) -> list[Filter]:
     """Get all filters for a specific chat."""
     async with ctx.db() as session:

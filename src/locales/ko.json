@@ -115,6 +115,8 @@
   "filter.list_header": "📋 이 그룹의 활성 필터:",
   "filter.not_found": "❌ `{keyword}`에 대한 필터를 찾을 수 없습니다.",
   "filter.removed": "✅ `{keyword}`에 대한 필터가 제거되었습니다.",
+  "filter.stopall_done": "✅ 모든 {count} 필터가 이 그룹에서 제거되었습니다.",
+  "filter.stopall_empty": "❌ 이 그룹에는 필터가 설정되어 있지 않습니다.",
   "flood.set": "🌊 홍수 통제가 {window}s → {action}당 {threshold} 메시지로 설정되었습니다.",
   "flood.triggered": "🌊 {mention}가 홍수로 인해 {action}되었습니다.",
   "forcesub.current": "🌐 현재 강제 구독: {channel}",

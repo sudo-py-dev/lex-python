@@ -8,6 +8,7 @@ from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.group_settings import get_settings, update_settings
 from src.utils.decorators import admin_only, safe_handler
+from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
 
 
@@ -21,29 +22,7 @@ class WelcomePlugin(Plugin):
         pass
 
 
-def _format_welcome(text: str, user: User, chat_title: str) -> str:
-    """Helper to format welcome/goodbye messages with placeholders.
 
-    Placeholders:
-    - {mention}: Mention of the user
-    - {name}: First name of the user
-    - {first_name}: First name of the user
-    - {last_name}: Last name of the user (if any)
-    - {id}: ID of the user
-    - {username}: Username of the user (prefabs to @first_name if not available)
-    - {chat}: Title of the chat
-    - {chat_name}: Title of the chat
-    """
-    return (
-        text.replace("{mention}", user.mention)
-        .replace("{name}", user.first_name)
-        .replace("{first_name}", user.first_name)
-        .replace("{last_name}", user.last_name or "")
-        .replace("{id}", str(user.id))
-        .replace("{username}", f"@{user.username}" if user.username else user.first_name)
-        .replace("{chat}", chat_title)
-        .replace("{chat_name}", chat_title)
-    )
 
 
 async def send_welcome(client: Client, chat_id: int, chat_title: str, user: User) -> None:
@@ -53,8 +32,14 @@ async def send_welcome(client: Client, chat_id: int, chat_title: str, user: User
     if not settings.welcomeEnabled:
         return
     text = settings.welcomeText or await at(chat_id, "welcome.default")
-    formatted_text = _format_welcome(text, user, chat_title)
-    await client.send_message(chat_id, formatted_text)
+    parsed = TelegramFormatter.parse_message(
+        text=text,
+        user=user,
+        chat_id=chat_id,
+        chat_title=chat_title,
+        bot_username=client.me.username,
+    )
+    await TelegramFormatter.send_parsed(client, chat_id, parsed)
 
 
 @bot.on_message(filters.new_chat_members & filters.group)
@@ -91,8 +76,14 @@ async def goodbye_handler(client: Client, message: Message) -> None:
         return
 
     text = settings.goodbyeText or await at(message.chat.id, "goodbye.default")
-    formatted_text = _format_welcome(text, left_member, message.chat.title)
-    await message.reply(formatted_text)
+    parsed = TelegramFormatter.parse_message(
+        text=text,
+        user=left_member,
+        chat_id=message.chat.id,
+        chat_title=message.chat.title,
+        bot_username=client.me.username,
+    )
+    await TelegramFormatter.send_parsed(client, message.chat.id, parsed)
 
 
 @bot.on_message(filters.command("setwelcome") & filters.group)
@@ -153,8 +144,15 @@ async def welcome_test_handler(client: Client, message: Message) -> None:
     ctx = get_context()
     settings = await get_settings(ctx, message.chat.id)
     text = settings.welcomeText or await at(message.chat.id, "welcome.default")
-    formatted_text = _format_welcome(text, message.from_user, message.chat.title)
-    await message.reply(await at(message.chat.id, "welcome.test", text=formatted_text))
+    parsed = TelegramFormatter.parse_message(
+        text=text,
+        user=message.from_user,
+        chat_id=message.chat.id,
+        chat_title=message.chat.title,
+        bot_username=client.me.username,
+    )
+    parsed["text"] = await at(message.chat.id, "welcome.test", text=parsed["text"])
+    await TelegramFormatter.send_parsed(client, message.chat.id, parsed)
 
 
 @bot.on_message(filters.command("goodbyetest") & filters.group)
@@ -165,8 +163,15 @@ async def goodbye_test_handler(client: Client, message: Message) -> None:
     ctx = get_context()
     settings = await get_settings(ctx, message.chat.id)
     text = settings.goodbyeText or await at(message.chat.id, "goodbye.default")
-    formatted_text = _format_welcome(text, message.from_user, message.chat.title)
-    await message.reply(await at(message.chat.id, "goodbye.test", text=formatted_text))
+    parsed = TelegramFormatter.parse_message(
+        text=text,
+        user=message.from_user,
+        chat_id=message.chat.id,
+        chat_title=message.chat.title,
+        bot_username=client.me.username,
+    )
+    parsed["text"] = await at(message.chat.id, "goodbye.test", text=parsed["text"])
+    await TelegramFormatter.send_parsed(client, message.chat.id, parsed)
 
 
 register(WelcomePlugin())

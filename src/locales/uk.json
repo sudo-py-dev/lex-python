@@ -115,6 +115,8 @@
   "filter.list_header": "📋 Активні фільтри в цій групі:",
   "filter.not_found": "❌ Не знайдено фільтр для `{keyword}`.",
   "filter.removed": "✅ Фільтр для `{keyword}` видалено.",
+  "filter.stopall_done": "✅ Усі фільтри {count} видалено з цієї групи.",
+  "filter.stopall_empty": "❌ У цій групі не встановлено фільтри.",
   "flood.set": "🌊 Контроль затоплення встановлено на {threshold} повідомлень на {window} с → {action}.",
   "flood.triggered": "🌊 {mention} було {action}осуджено за флуд.",
   "forcesub.current": "🌐 Поточна примусова підписка: {channel}",

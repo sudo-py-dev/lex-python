@@ -115,6 +115,8 @@
   "filter.list_header": "📋 Bu gruptaki aktif filtreler:",
   "filter.not_found": "❌ `{keyword}` için filtre bulunamadı.",
   "filter.removed": "✅ `{keyword}` filtresi kaldırıldı.",
+  "filter.stopall_done": "✅ Tüm {count} filtreleri bu gruptan kaldırıldı.",
+  "filter.stopall_empty": "❌ Bu grupta herhangi bir filtre ayarlanmadı.",
   "flood.set": "🌊 Su baskını kontrolü, {window} saniye başına {threshold} mesaj → {action} olarak ayarlandı.",
   "flood.triggered": "🌊 {mention} sel nedeniyle {action} su baskınına maruz kaldı.",
   "forcesub.current": "🌐 Mevcut zorunlu abone olma: {channel}",

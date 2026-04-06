@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 
 from src.core.bot import bot
-from src.core.context import AppContext
+from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.rules import (
     clear_rules,
@@ -13,22 +13,13 @@ from src.db.repositories.rules import (
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
 
-_ctx: AppContext | None = None
-
-
-def get_ctx() -> AppContext:
-    if _ctx is None:
-        raise RuntimeError("Rules plugin not initialized")
-    return _ctx
-
 
 class RulesPlugin(Plugin):
     name = "rules"
     priority = 100
 
-    async def setup(self, client: Client, ctx: AppContext) -> None:
-        global _ctx
-        _ctx = ctx
+    async def setup(self, client: Client, ctx) -> None:
+        pass
 
 
 @bot.on_message(filters.command("setrules") & filters.group)
@@ -37,15 +28,18 @@ class RulesPlugin(Plugin):
 async def set_rules_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return
+
+    ctx = get_context()
     content = message.text.split(None, 1)[1]
-    await set_rules(get_ctx(), message.chat.id, content)
+    await set_rules(ctx, message.chat.id, content)
     await message.reply(await at(message.chat.id, "rules.set"))
 
 
 @bot.on_message(filters.command("rules") & filters.group)
 @safe_handler
 async def rules_handler(client: Client, message: Message) -> None:
-    rules = await get_rules(get_ctx(), message.chat.id)
+    ctx = get_context()
+    rules = await get_rules(ctx, message.chat.id)
     if not rules or not rules.content:
         await message.reply(await at(message.chat.id, "rules.not_set"))
         return
@@ -66,7 +60,8 @@ async def rules_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def reset_rules_handler(client: Client, message: Message) -> None:
-    await clear_rules(get_ctx(), message.chat.id)
+    ctx = get_context()
+    await clear_rules(ctx, message.chat.id)
     await message.reply(await at(message.chat.id, "rules.reset"))
 
 
@@ -76,12 +71,30 @@ async def reset_rules_handler(client: Client, message: Message) -> None:
 async def private_rules_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return
+
+    ctx = get_context()
     mode = message.command[1].lower() in ("on", "yes", "true")
-    await toggle_private_rules(get_ctx(), message.chat.id, mode)
+    await toggle_private_rules(ctx, message.chat.id, mode)
     if mode:
         await message.reply(await at(message.chat.id, "rules.private_on"))
     else:
         await message.reply(await at(message.chat.id, "rules.private_off"))
+
+
+@bot.on_message(filters.private & filters.regex(r"^/start rules_(-?\d+)$"), group=1)
+@safe_handler
+async def start_rules_deeplink_handler(client: Client, message: Message) -> None:
+    """Intercept deep-links from {rules} buttons and deliver rules in PM."""
+    ctx = get_context()
+    chat_id = int(message.matches[0].group(1))
+    rules = await get_rules(ctx, chat_id)
+    if not rules or not rules.content:
+        await message.reply(await at(chat_id, "rules.not_set"))
+        return
+
+    header = await at(chat_id, "rules.header")
+    await message.reply(f"{header}\n\n{rules.content}")
+    await message.stop_propagation()
 
 
 register(RulesPlugin())

@@ -115,6 +115,8 @@
   "filter.list_header": "📋 Actieve filters in deze groep:",
   "filter.not_found": "❌ Geen filter gevonden voor `{keyword}`.",
   "filter.removed": "✅ Filter voor `{keyword}` is verwijderd.",
+  "filter.stopall_done": "✅ Alle {count} filters zijn uit deze groep verwijderd.",
+  "filter.stopall_empty": "❌ Er zijn geen filters ingesteld in deze groep.",
   "flood.set": "🌊 Overstromingsbeheer ingesteld op {threshold} berichten per {window}s → {action}.",
   "flood.triggered": "🌊 {mention} kreeg een {action}melding vanwege overstromingen.",
   "forcesub.current": "🌐 Huidige gedwongen abonneren: {channel}",

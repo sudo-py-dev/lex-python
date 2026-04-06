@@ -115,6 +115,8 @@
   "filter.list_header": "📋 このグループのアクティブなフィルター:",
   "filter.not_found": "❌ `{keyword}` のフィルターが見つかりません。",
   "filter.removed": "✅ `{keyword}` のフィルターが削除されました。",
+  "filter.stopall_done": "✅ すべての {count} フィルターがこのグループから削除されました。",
+  "filter.stopall_empty": "❌ このグループにはフィルターが設定されていません。",
   "flood.set": "🌊 フラッド制御は {window} 秒ごとに {threshold} メッセージ → {action} に設定されます。",
   "flood.triggered": "🌊 {mention} は洪水のため {action} されました。",
   "forcesub.current": "🌐 現在の強制サブスクライブ: {channel}",
