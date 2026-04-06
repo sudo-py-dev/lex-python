@@ -12,6 +12,9 @@ class Config(BaseSettings):
     LOG_LEVEL: str = "INFO"
     RATE_LIMIT_DELAY: float = 2.0
     BOT_NAME: str = "lex-tg"
+    GITHUB_URL: str = "https://github.com/sudo-py-dev/lex-tg"
+    DEV_NAME: str = "sudo-py-dev"
+    DEV_URL: str = "https://github.com/sudo-py-dev"
     VERSION: str = "0.0.1"
 
 

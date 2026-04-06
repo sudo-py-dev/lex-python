@@ -214,11 +214,9 @@ class ScanVisitor(ast.NodeVisitor):
         if val in self.en_keys or val in self.en_values:
             return
 
-        # Skip likely internal constants (UPPER_CASE_WITH_UNDERSCORES)
         if val.isupper() and "_" in val:
             return
 
-        # Skip common technical patterns (regex, paths, log formats, AI prompts)
         technical_patterns = [
             r"^[A-Z_]+$",  # Constants
             r"<.*?>",  # Loguru coloring / tags
@@ -234,11 +232,9 @@ class ScanVisitor(ast.NodeVisitor):
         line_no = getattr(node, "lineno", 0)
         line_content = self.lines[line_no - 1].strip() if 0 < line_no <= len(self.lines) else ""
 
-        # Secondary check for print and other calls that might not be caught by AST alone
         if any(x in line_content.lower() for x in ["print(", "raise ", "filters.command"]):
             return
 
-        # Skip imports and docstrings
         if line_content.startswith(("import ", "from ", '"""', "'''")):
             return
 
@@ -288,7 +284,6 @@ def find_unused_keys(mgr: LocaleManager):
     en_keys = sorted(mgr.en_data.keys())
     unused_keys = []
 
-    # Pre-load all src content to search efficiently
     all_content = ""
     for root, _, files in os.walk(os.path.join(BASE_DIR, "src")):
         for file in files:
@@ -300,13 +295,8 @@ def find_unused_keys(mgr: LocaleManager):
                     continue
 
     for key in en_keys:
-        # Search for key as a literal string in any file
-        # Pattern ensures we find "key" or 'key' exactly
         pattern = rf"(['\"]){re.escape(key)}\1"
         if not re.search(pattern, all_content):
-            # Also check for dynamic construction if key contains dots
-            # e.g. at(..., f"prefix.{action}") -> this is hard to catch,
-            # but we can check if the key's suffix exists.
             unused_keys.append(key)
 
     if not unused_keys:
@@ -333,7 +323,9 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Detailed logging")
     parser.add_argument("--scan", action="store_true", help="Scan for unlocalized strings in src/")
     parser.add_argument("--unused", action="store_true", help="Detect unused localization keys")
-    parser.add_argument("--prune", action="store_true", help="Prune extra keys from locales without translating")
+    parser.add_argument(
+        "--prune", action="store_true", help="Prune extra keys from locales without translating"
+    )
     args = parser.parse_args()
 
     mgr = LocaleManager(args.verbose)
@@ -349,7 +341,6 @@ def main():
     if args.langs:
         target_langs = args.langs.split(",")
     else:
-        # Automatically detect all locale files in src/locales/
         target_langs = []
         for file in os.listdir(LOCALES_DIR):
             if file.endswith(".json") and file != "en.json":

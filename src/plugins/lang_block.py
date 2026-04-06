@@ -86,12 +86,31 @@ class LangBlockPlugin(Plugin):
 
 
 def is_supported(lang_code: str) -> bool:
-    """Check if a specific ISO language code is supported by the engine."""
+    """
+    Check if a specific ISO 639-1 language code is supported by the language detector.
+
+    Args:
+        lang_code (str): The language code to check.
+
+    Returns:
+        bool: True if the language is supported, False otherwise.
+    """
     return lang_code.lower() in SUPPORTED_LANGS
 
 
 def detect_language_with_confidence(text: str) -> list[tuple[str, float]]:
-    """Detect language from string and return confidence scores."""
+    """
+    Detect the potential languages of a given text string.
+
+    Uses `langdetect` to analyze the text and returns a list of detected
+    languages with their associated probability scores.
+
+    Args:
+        text (str): The text to analyze.
+
+    Returns:
+        list[tuple[str, float]]: A list of tuples containing (language_code, probability).
+    """
     try:
         langs = detect_langs(text)
         return [(lang_obj.lang, lang_obj.prob) for lang_obj in langs]
@@ -100,7 +119,18 @@ def detect_language_with_confidence(text: str) -> list[tuple[str, float]]:
 
 
 async def get_lang_blocks(ctx, chat_id: int) -> list[BlockedLanguage]:
-    """Retrieve all blocked languages for a specific chat."""
+    """
+    Retrieve all blocked languages for a specific chat, with caching.
+
+    Caches the results in Redis for 24 hours to reduce database load.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+
+    Returns:
+        list[BlockedLanguage]: A list of blocked language database objects.
+    """
     key = f"{CACHE_KEY_PREFIX}{chat_id}"
     cached = await ctx.cache.get(key)
     if cached:
@@ -141,7 +171,24 @@ async def get_lang_blocks(ctx, chat_id: int) -> list[BlockedLanguage]:
 async def add_lang_block(
     ctx, chat_id: int, lang_code: str, action: str = "delete"
 ) -> BlockedLanguage:
-    """Add a new blocked language configuration to a chat."""
+    """
+    Block a new language in a specific chat.
+
+    Validates that the language code is supported by the detector.
+    Invalidates the chat's language block cache upon success.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+        lang_code (str): The ISO 639-1 language code to block.
+        action (str, optional): The moderation action to take on violation. Defaults to "delete".
+
+    Returns:
+        BlockedLanguage: The created or updated blocked language entry.
+
+    Raises:
+        ValueError: If the language code is not supported.
+    """
     lang_code = lang_code.lower().strip()
     if not is_supported(lang_code):
         raise ValueError(f"Language code '{lang_code}' is not supported by the detector.")
@@ -170,7 +217,16 @@ async def add_lang_block(
 
 
 async def remove_lang_block(ctx, chat_id: int, lang_code: str) -> None:
-    """Remove a blocked language configuration from a chat."""
+    """
+    Remove a blocked language configuration from a chat.
+
+    Invalidates the chat's language block cache.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+        lang_code (str): The ISO 639-1 language code to unblock.
+    """
     async with ctx.db() as session:
         stmt = select(BlockedLanguage).where(
             BlockedLanguage.chatId == chat_id, BlockedLanguage.langCode == lang_code
@@ -186,7 +242,23 @@ async def remove_lang_block(ctx, chat_id: int, lang_code: str) -> None:
 @bot.on_message(filters.group & (filters.text | filters.caption), group=-105)
 @safe_handler
 async def lang_block_interceptor(client: Client, message: Message) -> None:
-    """Interceptor to analyze incoming text against language blocks."""
+    """
+    Analyze incoming group messages and enforce language restrictions.
+
+    Uses language detection with a confidence threshold (>0.5). If any
+    detected language is in the chat's block list, a moderation action
+     is executed.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object to analyze.
+
+    Side Effects:
+        - Deletes the message if a violation is found.
+        - May mute, kick, or ban the sender based on settings.
+        - Logs the action in the database and audit log channel.
+        - Stops message propagation on violation.
+    """
     if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
         return
 

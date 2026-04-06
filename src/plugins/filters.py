@@ -40,6 +40,7 @@ async def add_filter_handler(client: Client, message: Message) -> None:
 
     await add_filter(ctx, message.chat.id, keyword, response)
     await message.reply(await at(message.chat.id, "filter.added", keyword=keyword))
+    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("stop") & filters.group)
@@ -57,6 +58,7 @@ async def stop_filter_handler(client: Client, message: Message) -> None:
         await message.reply(await at(message.chat.id, "filter.removed", keyword=keyword))
     else:
         await message.reply(await at(message.chat.id, "filter.not_found"))
+    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("filters") & filters.group)
@@ -73,6 +75,7 @@ async def list_filters_handler(client: Client, message: Message) -> None:
     for f in all_filters:
         text += f"\n• `{f.keyword}`"
     await message.reply(text)
+    await message.stop_propagation()
 
 
 @bot.on_message(filters.group & filters.text, group=4)
@@ -92,6 +95,7 @@ async def filters_interceptor(client: Client, message: Message) -> None:
         pattern = rf"\b{re.escape(f.keyword)}\b"
         if re.search(pattern, text):
             await message.reply(f.responseData)
+            await message.stop_propagation()
             break
 
 

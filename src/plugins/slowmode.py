@@ -28,7 +28,21 @@ class SlowmodePlugin(Plugin):
 @safe_handler
 @admin_only
 async def slowmode_handler(client: Client, message: Message) -> None:
-    """Toggle or set slowmode interval for the current chat."""
+    """
+    Set or clear the slowmode interval for the current chat.
+
+    If no argument is provided, it returns the current slowmode setting.
+    Intervals can be specified in seconds or human-readable formats (e.g., 30s, 1m).
+    Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Updates the chat's slowmode settings in the database.
+        - Sends an informational or confirmation message.
+    """
     ctx = get_context()
     if len(message.command) < 2:
         interval = await get_slowmode(ctx, message.chat.id)
@@ -52,7 +66,22 @@ async def slowmode_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.group, group=8)
 @safe_handler
 async def slowmode_interceptor(client: Client, message: Message) -> None:
-    """Intercept messages and enforce slowmode if enabled."""
+    """
+    Enforce message frequency limits on non-admin users.
+
+    Checks the cache for a recent message timestamp from the user in the
+    current chat. If the user is within the slowmode interval, their
+    message is deleted.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object to inspect.
+
+    Side Effects:
+        - Deletes the message if the user is violating the slowmode limit.
+        - Sets a "cooldown" key in the cache for the user on success.
+        - Stops message propagation on violation.
+    """
     if getattr(message, "command", None):
         return
 

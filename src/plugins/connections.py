@@ -21,7 +21,20 @@ class ConnectionsPlugin(Plugin):
 
 
 async def set_active_chat(ctx, user_id: int, chat_id: int | None) -> UserConnection:
-    """Set the active group connection for a user."""
+    """
+    Set the active group connection for an administrator.
+
+    This enables the user to manage a specific group through private messages
+    with the bot.
+
+    Args:
+        ctx (Context): The application context.
+        user_id (int): The ID of the administrator.
+        chat_id (int | None): The ID of the group chat to connect to, or None to disconnect.
+
+    Returns:
+        UserConnection: The updated or created connection record.
+    """
     async with ctx.db() as session:
         stmt = select(UserConnection).where(UserConnection.userId == user_id)
         result = await session.execute(stmt)
@@ -38,7 +51,16 @@ async def set_active_chat(ctx, user_id: int, chat_id: int | None) -> UserConnect
 
 
 async def get_active_chat(ctx, user_id: int) -> int | None:
-    """Retrieve the current active group chat ID for a user."""
+    """
+    Retrieve the ID of the group currently connected to the user's private session.
+
+    Args:
+        ctx (Context): The application context.
+        user_id (int): The ID of the administrator.
+
+    Returns:
+        int | None: The active group chat ID, or None if no connection exists.
+    """
     async with ctx.db() as session:
         stmt = select(UserConnection).where(UserConnection.userId == user_id)
         result = await session.execute(stmt)
@@ -47,7 +69,16 @@ async def get_active_chat(ctx, user_id: int) -> int | None:
 
 
 async def clear_connection(ctx, user_id: int) -> bool:
-    """Remove a user's active group connection."""
+    """
+    Completely remove a user's active group connection from the database.
+
+    Args:
+        ctx (Context): The application context.
+        user_id (int): The ID of the administrator.
+
+    Returns:
+        bool: True if a connection was found and deleted, False otherwise.
+    """
     async with ctx.db() as session:
         stmt = select(UserConnection).where(UserConnection.userId == user_id)
         result = await session.execute(stmt)
@@ -63,7 +94,20 @@ async def clear_connection(ctx, user_id: int) -> bool:
 @safe_handler
 @admin_only
 async def connect_handler(client: Client, message: Message) -> None:
-    """Connect a group to the user's private session for remote management."""
+    """
+    Establish a connection between the current group and the administrator's private session.
+
+    Once connected, the admin can use commands and access settings for this group
+    directly in their private chat with the bot. Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Updates the user's active connection in the database.
+        - Sends a confirmation message.
+    """
     ctx = get_context()
     await set_active_chat(ctx, message.from_user.id, message.chat.id)
     await message.reply(await at(message.chat.id, "connection.connected", chat=message.chat.title))
@@ -72,7 +116,17 @@ async def connect_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.command("disconnect") & filters.private)
 @safe_handler
 async def disconnect_handler(client: Client, message: Message) -> None:
-    """Disconnect the current active group from the private session."""
+    """
+    Terminate the active group connection in the user's private session.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Removes the active chat ID from the user's connection record in the database.
+        - Sends a confirmation message.
+    """
     ctx = get_context()
     await set_active_chat(ctx, message.from_user.id, None)
     await message.reply(await at(message.chat.id, "connection.disconnected"))
@@ -81,7 +135,17 @@ async def disconnect_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.command("connection") & filters.private)
 @safe_handler
 async def connection_handler(client: Client, message: Message) -> None:
-    """Check the current active group connection status."""
+    """
+    Report the status and name of the currently connected group.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Queries the database and Telegram API for chat information.
+        - Sends a message with the connection details.
+    """
     ctx = get_context()
     chat_id = await get_active_chat(ctx, message.from_user.id)
     if not chat_id:
@@ -97,7 +161,16 @@ async def connection_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.private & filters.command("settings"))
 @safe_handler
 async def pm_settings_handler(client: Client, message: Message) -> None:
-    """Open the settings panel for the currently connected group."""
+    """
+    Open the administrative settings panel for the group currently connected via PM.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Triggers the visual settings panel in the private chat.
+    """
     ctx = get_context()
     chat_id = await get_active_chat(ctx, message.from_user.id)
     if not chat_id:

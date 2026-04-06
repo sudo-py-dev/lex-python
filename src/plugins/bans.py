@@ -35,7 +35,21 @@ class BansPlugin(Plugin):
 @admin_only
 @resolve_target
 async def ban_handler(client: Client, message: Message, target_user: User) -> None:
-    """Permanently ban a user from the current chat."""
+    """
+    Permanently ban a user from the current chat.
+
+    Requires the bot to have 'can_restrict_members' permission and the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be banned (resolved by @resolve_target).
+
+    Side Effects:
+        - Bans the target user from the chat.
+        - Logs the action in the database.
+        - Sends a confirmation message.
+    """
     if not await has_permission(client, message.chat.id, Permission.CAN_BAN):
         await message.reply(await at(message.chat.id, "error.no_permission"))
         return
@@ -61,7 +75,21 @@ async def ban_handler(client: Client, message: Message, target_user: User) -> No
 @admin_only
 @resolve_target
 async def unban_handler(client: Client, message: Message, target_user: User) -> None:
-    """Unban a previously banned user and allow them to rejoin."""
+    """
+    Unban a previously banned user and allow them to rejoin.
+
+    Requires the bot to have 'can_restrict_members' permission and the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be unbanned (resolved by @resolve_target).
+
+    Side Effects:
+        - Unbans the target user from the chat.
+        - Logs the action in the database.
+        - Sends a confirmation message.
+    """
     if not await has_permission(client, message.chat.id, Permission.CAN_BAN):
         await message.reply(await at(message.chat.id, "error.no_permission"))
         return
@@ -82,7 +110,22 @@ async def unban_handler(client: Client, message: Message, target_user: User) -> 
 @admin_only
 @resolve_target
 async def kick_handler(client: Client, message: Message, target_user: User) -> None:
-    """Remove a user from the current chat (they can rejoin immediately)."""
+    """
+    Remove a user from the current chat. The user can rejoin immediately via link.
+
+    Implemented by banning the user for 60 seconds.
+    Requires the bot to have 'can_restrict_members' permission and the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be kicked (resolved by @resolve_target).
+
+    Side Effects:
+        - Temporarily bans (kicks) the target user from the chat.
+        - Logs the action in the database.
+        - Sends a confirmation message.
+    """
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
         await message.reply(await at(message.chat.id, "error.no_permission"))
         return
@@ -105,7 +148,21 @@ async def kick_handler(client: Client, message: Message, target_user: User) -> N
 @admin_only
 @resolve_target
 async def mute_handler(client: Client, message: Message, target_user: User) -> None:
-    """Restrict a user from sending messages in the current chat."""
+    """
+    Restrict a user from sending any messages in the current chat.
+
+    Requires the bot to have 'can_restrict_members' permission and the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be muted (resolved by @resolve_target).
+
+    Side Effects:
+        - Restricts the target user's chat permissions.
+        - Logs the action in the database.
+        - Sends a confirmation message.
+    """
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
         await message.reply(await at(message.chat.id, "error.no_permission"))
         return
@@ -124,7 +181,21 @@ async def mute_handler(client: Client, message: Message, target_user: User) -> N
 @admin_only
 @resolve_target
 async def unmute_handler(client: Client, message: Message, target_user: User) -> None:
-    """Allow a previously muted user to send messages again."""
+    """
+    Allow a previously muted user to send messages again by restoring full permissions.
+
+    Requires the bot to have 'can_restrict_members' permission and the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be unmuted (resolved by @resolve_target).
+
+    Side Effects:
+        - Restores the target user's chat permissions.
+        - Logs the action in the database.
+        - Sends a confirmation message.
+    """
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
         await message.reply(await at(message.chat.id, "error.no_permission"))
         return
@@ -149,7 +220,23 @@ async def unmute_handler(client: Client, message: Message, target_user: User) ->
 @admin_only
 @resolve_target
 async def tban_handler(client: Client, message: Message, target_user: User) -> None:
-    """Temporarily ban a user for a specific duration."""
+    """
+    Temporarily ban a user for a specific duration (e.g., 1h, 1d).
+
+    Requires the bot to have 'can_restrict_members' permission and the user to be an admin.
+    The duration is automatically parsed and scheduled for unbanning.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be temporarily banned (resolved by @resolve_target).
+
+    Side Effects:
+        - Bans the target user from the chat.
+        - Schedules an unban task in the database and SchedulerManager.
+        - Logs the action in the database.
+        - Sends a confirmation message.
+    """
     if not await has_permission(client, message.chat.id, Permission.CAN_BAN):
         await message.reply(await at(message.chat.id, "error.no_permission"))
         return
@@ -195,7 +282,23 @@ async def tban_handler(client: Client, message: Message, target_user: User) -> N
 @admin_only
 @resolve_target
 async def tmute_handler(client: Client, message: Message, target_user: User) -> None:
-    """Temporarily mute a user for a specific duration."""
+    """
+    Temporarily mute a user for a specific duration (e.g., 30m, 12h).
+
+    Requires the bot to have 'can_restrict_members' permission and the user to be an admin.
+    The duration is automatically parsed and scheduled for unmuting.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be temporarily muted (resolved by @resolve_target).
+
+    Side Effects:
+        - Restricts the target user's chat permissions.
+        - Schedules an unmute task in the database and SchedulerManager.
+        - Logs the action in the database.
+        - Sends a confirmation message.
+    """
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
         await message.reply(await at(message.chat.id, "error.no_permission"))
         return

@@ -567,10 +567,12 @@ async def protected_panel_callback_handler(
                 return
             elif field == "urlScannerEnabled":
                 s = await get_chat_settings(ctx, chat_id)
-                if not s.gsbKey and not s.urlScannerEnabled:  # Trying to enable without key
-                    await callback.answer(await at(at_id, "panel.urlscanner_key_required"), show_alert=True)
+                if not s.gsbKey and not s.urlScannerEnabled:
+                    await callback.answer(
+                        await at(at_id, "panel.urlscanner_key_required"), show_alert=True
+                    )
                     return
-                
+
                 kb = await url_scanner_kb(ctx, chat_id, user_id=user_id if is_pm else None)
                 status = await at(
                     at_id,
@@ -683,7 +685,13 @@ async def protected_panel_callback_handler(
                         reply_markup=kb,
                     )
                 elif field == "urlScannerAction":
-                    nxt = {"delete": "warn", "warn": "mute", "mute": "kick", "kick": "ban", "ban": "delete"}[s.urlScannerAction]
+                    nxt = {
+                        "delete": "warn",
+                        "warn": "mute",
+                        "mute": "kick",
+                        "kick": "ban",
+                        "ban": "delete",
+                    }[s.urlScannerAction]
                     s.urlScannerAction = nxt
                     session.add(s)
                     await session.commit()

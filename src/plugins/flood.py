@@ -28,7 +28,21 @@ class FloodPlugin(Plugin):
 
 
 async def increment_flood(ctx, chat_id: int, user_id: int, window: int) -> int:
-    """Increment the flood count for a user in a specific chat."""
+    """
+    Increment the message count for a user within a rolling time window.
+
+    Uses Redis `incr` and `expire` to track how many messages a user has sent
+    in the current window.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+        user_id (int): The ID of the user.
+        window (int): The duration of the window in seconds.
+
+    Returns:
+        int: The updated message count for the user.
+    """
     key = CacheKeys.flood(chat_id, user_id)
     count = await ctx.cache.incr(key)
     if count == 1:
@@ -37,7 +51,14 @@ async def increment_flood(ctx, chat_id: int, user_id: int, window: int) -> int:
 
 
 async def reset_flood(ctx, chat_id: int, user_id: int) -> None:
-    """Reset the flood count for a user."""
+    """
+    Manually reset a user's flood count in a specific chat by deleting the cache key.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+        user_id (int): The ID of the user.
+    """
     await ctx.cache.delete(CacheKeys.flood(chat_id, user_id))
 
 
@@ -45,7 +66,18 @@ async def reset_flood(ctx, chat_id: int, user_id: int) -> None:
 @safe_handler
 @admin_only
 async def set_flood_handler(client: Client, message: Message) -> None:
-    """Configure flood protection settings for the current group."""
+    """
+    Configure flood protection parameters for the current group.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        Expected command format: /setflood <threshold> <window> <action>
+
+    Side Effects:
+        - Updates chat settings in the database (floodThreshold, floodWindow, floodAction).
+        - Sends a confirmation message.
+    """
     if len(message.command) < 4:
         return
 
@@ -72,7 +104,24 @@ async def set_flood_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.group, group=-2)
 @safe_handler
 async def flood_interceptor(client: Client, message: Message) -> None:
-    """Intercept messages and enforce flood protection."""
+    """
+    Monitor incoming messages for flooding and enforce restrictions.
+
+    Increments the user's flood count and, if the threshold is exceeded,
+    executes the configured moderation action (mute, kick, or ban).
+    Deletes subsequent messages from the user until the flood window expires.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object to inspect.
+
+    Side Effects:
+        - Increments flood count in the cache.
+        - Deletes messages once the threshold is reached.
+        - May mute, kick, or ban the user.
+        - Logs the action in the database and audit log channel.
+        - Stops message propagation if the user is flooding.
+    """
     if getattr(message, "command", None):
         return
 

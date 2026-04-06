@@ -27,7 +27,19 @@ class EntityBlockPlugin(Plugin):
 
 
 async def get_blocked_entities(ctx, chat_id: int) -> list[BlockedEntity]:
-    """Retrieve the list of blocked entities for a chat, with caching."""
+    """
+    Retrieve the list of blocked entity types for a specific chat.
+
+    Uses an asynchronous Redis cache (with a 24h TTL) to minimize database lookups
+     for every message.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+
+    Returns:
+        list[BlockedEntity]: A list of blocked entity objects.
+    """
     key = f"{CACHE_KEY_PREFIX}{chat_id}"
     cached = await ctx.cache.get(key)
     if cached:
@@ -68,7 +80,21 @@ async def get_blocked_entities(ctx, chat_id: int) -> list[BlockedEntity]:
 async def add_blocked_entity(
     ctx, chat_id: int, entity_type: str, action: str = "delete"
 ) -> BlockedEntity:
-    """Block a new entity type in a chat."""
+    """
+    Block a specific entity type (or media category) in a chat.
+
+    If the entity type is already blocked, its action is updated.
+    Invalidates the chat's entity block cache after modification.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+        entity_type (str): The identifier for the entity type (e.g., 'url', 'sticker').
+        action (str, optional): The moderation action to take (e.g., 'delete', 'ban', 'mute'). Defaults to "delete".
+
+    Returns:
+        BlockedEntity: The created or updated blocked entity entry.
+    """
     async with ctx.db() as session:
         settings = await session.get(GroupSettings, chat_id)
         if not settings:
@@ -93,7 +119,17 @@ async def add_blocked_entity(
 
 
 async def remove_blocked_entity(ctx, chat_id: int, entity_type: str) -> None:
-    """Unblock an entity type in a chat."""
+    """
+    Unblock an entity type in a chat.
+
+    Removes all database entries for the specified entity type in the chat
+    and invalidates the cache.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+        entity_type (str): The identifier for the entity type.
+    """
     async with ctx.db() as session:
         stmt = select(BlockedEntity).where(
             BlockedEntity.chatId == chat_id, BlockedEntity.entityType == entity_type
@@ -109,7 +145,22 @@ async def remove_blocked_entity(ctx, chat_id: int, entity_type: str) -> None:
 @bot.on_message(filters.group, group=-110)
 @safe_handler
 async def entity_block_interceptor(client: Client, message: Message) -> None:
-    """Interceptor to check messages for blocked entities and take moderation action."""
+    """
+    Check all incoming group messages for restricted content (entities, media, forwards).
+
+    Cross-references the message content against the chat's blocked entities list.
+    If a violation is found, it executes a moderation action (deletion, restriction,
+     or banning) and stops further processing of the message.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object to inspect.
+
+    Side Effects:
+        - Deletes the message if a violation is found.
+        - May mute, kick, or ban the sender according to the block settings.
+        - Stops message propagation on violation.
+    """
     if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
         return
 

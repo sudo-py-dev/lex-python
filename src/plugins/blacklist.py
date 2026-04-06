@@ -28,7 +28,18 @@ class BlacklistPlugin(Plugin):
 
 
 def detect_pattern_type(pattern: str) -> tuple[bool, bool, str]:
-    """Auto-detects if the pattern is Regex, Wildcard, or Literal."""
+    """
+    Auto-detects the matching strategy for a given blacklist pattern.
+
+    Identifies if a pattern should be treated as a Regular Expression, a
+    Wildcard pattern (using *), or a literal string.
+
+    Args:
+        pattern (str): The pattern string to analyze.
+
+    Returns:
+        tuple[bool, bool, str]: A tuple containing (is_regex, is_wildcard, pattern).
+    """
     regex_chars = "^$+.?{}[]()|"
     is_regex = any(c in regex_chars for c in pattern)
     is_wildcard = "*" in pattern and not is_regex
@@ -39,7 +50,20 @@ def detect_pattern_type(pattern: str) -> tuple[bool, bool, str]:
 @safe_handler
 @admin_only
 async def add_blacklist_handler(client: Client, message: Message) -> None:
-    """Add a new word or pattern to the blacklist."""
+    """
+    Add a new word or pattern to the chat's blacklist.
+
+    Automatically detects if the pattern is a regex or wildcard.
+    Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Inserts the pattern into the database blacklist table.
+        - Sends a confirmation message.
+    """
     if len(message.command) < 2:
         return
 
@@ -60,7 +84,19 @@ async def add_blacklist_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def rm_blacklist_handler(client: Client, message: Message) -> None:
-    """Remove a word or pattern from the blacklist."""
+    """
+    Remove an existing word or pattern from the chat's blacklist.
+
+    Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Deletes the pattern from the database blacklist table.
+        - Sends a confirmation message.
+    """
     if len(message.command) < 2:
         return
 
@@ -76,7 +112,17 @@ async def rm_blacklist_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.command("blacklist") & filters.group)
 @safe_handler
 async def list_blacklist_handler(client: Client, message: Message) -> None:
-    """List all blacklisted words/patterns in the current group."""
+    """
+    List all blacklisted words and patterns for the current chat.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Fetches all blacklist entries from the database.
+        - Sends a message containing the list of patterns.
+    """
     ctx = get_context()
     blacklist = await get_all_blacklist(ctx, message.chat.id)
     if not blacklist:
@@ -92,7 +138,23 @@ async def list_blacklist_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.group & (filters.text | filters.caption), group=3)
 @safe_handler
 async def blacklist_interceptor(client: Client, message: Message) -> None:
-    """Intercept messages and check for blacklisted content."""
+    """
+    Intercept group messages to check for blacklisted content.
+
+    If a match is found, the message is deleted, propagation is stopped, and
+    the configured blacklist action (mute, kick, ban, or warn) is performed
+    on the sender.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Deletes the triggering message.
+        - Stops message propagation.
+        - May restrict, kick, or ban the user based on chat settings.
+        - May increment user's warn count.
+    """
     if not message.text and not message.caption:
         return
 

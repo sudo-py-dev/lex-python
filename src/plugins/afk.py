@@ -25,7 +25,20 @@ class AFKPlugin(Plugin):
 @bot.on_message(filters.command("afk") & filters.group)
 @safe_handler
 async def afk_handler(client: Client, message: Message) -> None:
-    """Set the user's AFK status with an optional reason."""
+    """
+    Set the user's AFK (Away From Keyboard) status with an optional reason.
+
+    Stores the AFK timestamp, reason, and user's first name in the cache. Also
+    maps the username to the user ID for mention detection.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Sets multiple keys in the cache (AFK data and username mapping).
+        - Sends a confirmation message that the user is now AFK.
+    """
     if not message.from_user:
         return
 
@@ -58,7 +71,22 @@ async def afk_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.group, group=7)
 @safe_handler
 async def afk_interceptor(client: Client, message: Message) -> None:
-    """Intercept messages to detect users returning from AFK or mentioning AFK users."""
+    """
+    Intercept all group messages to detect user returns from AFK and mentions of AFK users.
+
+    If the sender was AFK, it clears their AFK status and notifies the group.
+    If the message mentions an AFK user (via text mention or @username), it
+    replies with that user's AFK reason and duration.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Clears AFK keys from the cache when a user returns.
+        - Sends a 'returned' message when an AFK user speaks.
+        - Sends a 'mention' message when an AFK user is tagged.
+    """
     if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
         return
 

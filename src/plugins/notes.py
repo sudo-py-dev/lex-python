@@ -94,6 +94,7 @@ async def save_note_handler(client: Client, message: Message) -> None:
 
     await add_note(message.chat.id, name, content)
     await message.reply(await at(message.chat.id, "note.saved", name=name))
+    await message.stop_propagation()
 
 
 @bot.on_message(filters.command(["get", "note"]) & filters.group)
@@ -117,6 +118,8 @@ async def get_note_handler(client: Client, message: Message) -> None:
     else:
         await message.reply(note.content)
 
+    await message.stop_propagation()
+
 
 @bot.on_message(filters.command("notes") & filters.group)
 @safe_handler
@@ -131,6 +134,7 @@ async def list_notes_handler(client: Client, message: Message) -> None:
     for n in notes:
         text += f"\n• `{n.name}`"
     await message.reply(text)
+    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("clear") & filters.group)
@@ -146,6 +150,7 @@ async def clear_note_handler(client: Client, message: Message) -> None:
         await message.reply(await at(message.chat.id, "note.deleted", name=name))
     else:
         await message.reply(await at(message.chat.id, "note.not_found", name=name))
+    await message.stop_propagation()
 
 
 @bot.on_message(filters.group & filters.regex(r"^#(\w+)$"), group=2)
@@ -162,6 +167,7 @@ async def hash_note_handler(client: Client, message: Message) -> None:
             await client.send_message(message.from_user.id, note.content)
     else:
         await message.reply(note.content)
+        await message.stop_propagation()
 
 
 register(NotesPlugin())

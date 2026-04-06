@@ -24,6 +24,18 @@ class RaidPlugin(Plugin):
 @safe_handler
 @admin_only
 async def raid_handler(client: Client, message: Message) -> None:
+    """
+    Toggle anti-raid protection for the current group.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        Expected command format: /raid [on|off]
+
+    Side Effects:
+        - Updates chat settings in the database (raidEnabled).
+        - Sends a confirmation message.
+    """
     if not message.from_user or len(message.command) < 2:
         return
     mode = message.command[1].lower() in ("on", "yes", "true")
@@ -36,6 +48,22 @@ async def raid_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.group & filters.new_chat_members, group=11)
 @safe_handler
 async def raid_interceptor(client: Client, message: Message) -> None:
+    """
+    Monitor new chat member joins to detect and mitigate potential raids.
+
+    Tracks join counts within a short window. If the raid threshold is reached,
+    it locks the group permissions and logs the event.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object containing new chat members.
+
+    Side Effects:
+        - Increments join count in the cache.
+        - May lock group permissions (prevent messages/media).
+        - Logs the raid detection in the audit log channel.
+        - Sends a warning message to the group.
+    """
     if not message.from_user or message.from_user.is_bot:
         return
 

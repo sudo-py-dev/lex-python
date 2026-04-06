@@ -31,7 +31,22 @@ class ApprovalsPlugin(Plugin):
 @admin_only
 @resolve_target
 async def approve_handler(client: Client, message: Message, target_user: User) -> None:
-    """Approve a user to bypass certain restrictions."""
+    """
+    Approve a specific user in the current chat, allowing them to bypass restrictions
+    defined by other plugins (e.g., entity blocks, word filters).
+
+    Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be approved (resolved by @resolve_target).
+
+    Side Effects:
+        - Inserts an approval record into the database.
+        - Invalidates the chat's approval cache.
+        - Sends a confirmation message.
+    """
     ctx = get_context()
     await add_approval(ctx, message.chat.id, target_user.id, message.from_user.id)
     await invalidate_approved_cache(message.chat.id)
@@ -43,7 +58,22 @@ async def approve_handler(client: Client, message: Message, target_user: User) -
 @admin_only
 @resolve_target
 async def unapprove_handler(client: Client, message: Message, target_user: User) -> None:
-    """Remove approval for a specific user."""
+    """
+    Remove the approval status of a specific user in the current chat.
+
+    The user will once again be subject to all group restrictions.
+    Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be unapproved (resolved by @resolve_target).
+
+    Side Effects:
+        - Deletes the approval record from the database.
+        - Invalidates the chat's approval cache.
+        - Sends a confirmation message.
+    """
     ctx = get_context()
     success = await remove_approval(ctx, message.chat.id, target_user.id)
     if success:
@@ -60,7 +90,17 @@ async def unapprove_handler(client: Client, message: Message, target_user: User)
 @bot.on_message(filters.command("approved") & filters.group)
 @safe_handler
 async def list_approved_handler(client: Client, message: Message) -> None:
-    """List all approved users in the current group."""
+    """
+    List all currently approved users in the group.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Fetches all approved users for the current chat from the database.
+        - Sends a message containing the list of user IDs.
+    """
     ctx = get_context()
     approved = await get_all_approved(ctx, message.chat.id)
     if not approved:
@@ -77,7 +117,20 @@ async def list_approved_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def unapproveall_handler(client: Client, message: Message) -> None:
-    """Remove all user approvals in the current group."""
+    """
+    Remove all user approvals for the current group in a single action.
+
+    Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Deletes all approval records for the current chat from the database.
+        - Invalidates the chat's approval cache.
+        - Sends a confirmation message.
+    """
     ctx = get_context()
     await clear_all_approvals(ctx, message.chat.id)
     await invalidate_approved_cache(message.chat.id)
@@ -88,7 +141,18 @@ async def unapproveall_handler(client: Client, message: Message) -> None:
 @safe_handler
 @resolve_target
 async def approval_status_handler(client: Client, message: Message, target_user: User) -> None:
-    """Check if a user is currently approved."""
+    """
+    Check and report the current approval status of a specific user.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user whose status is being checked (resolved by @resolve_target).
+
+    Side Effects:
+        - Queries the database for the user's approval status.
+        - Sends a reply message indicating whether the user is approved.
+    """
     ctx = get_context()
     approved = await is_user_approved(ctx, message.chat.id, target_user.id)
     if approved:

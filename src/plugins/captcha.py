@@ -47,7 +47,24 @@ class CaptchaPlugin(Plugin):
 @bot.on_message(filters.new_chat_members & filters.group, group=-3)
 @safe_handler
 async def captcha_join_handler(client: Client, message: Message) -> None:
-    """Detect new members and initiate CAPTCHA if enabled."""
+    """
+    Detect new chat members and initiate the CAPTCHA verification process if enabled.
+
+    Restricts the new member's permissions and sends a CAPTCHA challenge
+    based on the chat's configuration (poll, math, image, or button).
+    Stores the challenge data in the cache and starts a timeout task.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object containing the new chat members.
+
+    Side Effects:
+        - Restricts new members' chat permissions.
+        - Sends a CAPTCHA challenge message (poll, photo, or text).
+        - Sets CAPTCHA data in the cache.
+        - Spawns a background task to enforce the timeout.
+        - Stops message propagation if any member is restricted.
+    """
     ctx = get_context()
 
     try:
@@ -189,7 +206,24 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
 async def _enforce_captcha_timeout(
     client: Client, chat_id: int, user_id: int, msg_id: int, timeout: int
 ) -> None:
-    """Background task to ban users who fail to complete CAPTCHA in time."""
+    """
+    Background task to enforce the CAPTCHA timeout.
+
+    If the user does not complete the challenge within the specified time,
+    they are banned and the challenge message is deleted.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        chat_id (int): The ID of the chat.
+        user_id (int): The ID of the user being verified.
+        msg_id (int): The ID of the CAPTCHA message to delete.
+        timeout (int): The duration to wait before timeout (in seconds).
+
+    Side Effects:
+        - Deletes CAPTCHA data from the cache.
+        - Bans the user if the challenge is still active.
+        - Deletes the CAPTCHA message.
+    """
     await asyncio.sleep(timeout)
     ctx = get_context()
     key = CacheKeys.captcha(chat_id, user_id)
@@ -207,7 +241,21 @@ async def _enforce_captcha_timeout(
 @bot.on_callback_query(filters.regex(r"^captcha_verify:(\d+)"))
 @safe_handler
 async def captcha_verify_handler(client: Client, callback: CallbackQuery) -> None:
-    """Handle verification for button-based CAPTCHA."""
+    """
+    Handle verification for button-based CAPTCHA.
+
+    Verifies that the user clicking the button is the one being challenged
+     and that the session has not expired.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        callback (CallbackQuery): The callback query from the 'Verify' button.
+
+    Side Effects:
+        - Clears restriction and deletes CAPTCHA message on success.
+        - Triggers the welcome message on success.
+        - Answers the callback query.
+    """
     if not callback.message:
         return
     chat_id = callback.message.chat.id
@@ -238,7 +286,20 @@ async def captcha_verify_handler(client: Client, callback: CallbackQuery) -> Non
 @bot.on_message(filters.group, group=-2)
 @safe_handler
 async def captcha_message_handler(client: Client, message: Message) -> None:
-    """Handle text input for math CAPTCHA."""
+    """
+    Handle text input for math-based CAPTCHA.
+
+    Deletes all messages from users currently undergoing math CAPTCHA and
+    verifies if the input matches the stored numeric answer.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message sent by the user.
+
+    Side Effects:
+        - Deletes the user's message regardless of answer correctness.
+        - Clears restriction and triggers success handler if the answer is correct.
+    """
     if not message.from_user:
         return
     ctx = get_context()
@@ -268,7 +329,20 @@ async def captcha_message_handler(client: Client, message: Message) -> None:
 @bot.on_callback_query(filters.regex(r"^captcha_img_choice:(\d+):(.*)"))
 @safe_handler
 async def captcha_img_choice_handler(client: Client, callback: CallbackQuery) -> None:
-    """Handle selection for image-based CAPTCHA."""
+    """
+    Handle selection for image-based CAPTCHA.
+
+    Verifies if the object chosen by the user matches the hidden answer
+    associated with the generated CAPTCHA image.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        callback (CallbackQuery): The callback query from the object icons.
+
+    Side Effects:
+        - Clears restriction and deletes CAPTCHA photo on success.
+        - Answers the callback query.
+    """
     if not callback.message:
         return
 
@@ -306,7 +380,21 @@ async def captcha_img_choice_handler(client: Client, callback: CallbackQuery) ->
 async def captcha_poll_handler(
     client: Client, update: raw_types.Update, users: dict, chats: dict
 ) -> None:
-    """Handle poll answers for CAPTCHA via raw updates."""
+    """
+    Handle poll/quiz answers for poll-based CAPTCHA.
+
+    Uses raw updates to detect user participation in a quiz and checks if the
+    user selected the correct option ID.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        update (raw_types.Update): The raw update containing poll vote data.
+        users (dict): A dictionary of user objects involved in the update.
+        chats (dict): A dictionary of chat objects involved in the update.
+
+    Side Effects:
+        - Clears restriction and deletes poll message on success.
+    """
     if not isinstance(update, raw_types.UpdateMessagePollVote):
         return
 
@@ -354,7 +442,25 @@ async def captcha_poll_handler(
 async def _handle_captcha_success(
     client: Client, chat_id: int, user, msg_id: int, chat_title: str
 ) -> None:
-    """Standard success handler for all CAPTCHA modes."""
+    """
+    Common logic executed when a user successfully completes any CAPTCHA challenge.
+
+    Removes user restrictions, deletes the challenge message, and triggers
+     the custom welcome message for the group.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        chat_id (int): The ID of the chat.
+        user (User): The user who successfully verified.
+        msg_id (int): The ID of the CAPTCHA message to delete.
+        chat_title (str): The title of the chat (for the welcome message).
+
+    Side Effects:
+        - Restores full permissions to the user.
+        - Deletes the CAPTCHA message.
+        - Clears CAPTCHA data from the cache.
+        - Sends a welcome message.
+    """
     ctx = get_context()
     key = CacheKeys.captcha(chat_id, user.id)
     await ctx.cache.delete(key)

@@ -13,7 +13,7 @@ from .repository import AIRepository
 from .service import AIService
 
 
-@bot.on_message(filters.group & ~filters.service & ~filters.bot, group=-1)
+@bot.on_message(filters.group & ~filters.service & ~filters.bot, group=100)
 @safe_handler
 async def ai_message_handler(client: Client, message: Message):
     """
@@ -30,7 +30,7 @@ async def ai_message_handler(client: Client, message: Message):
         logger.warning("AI Handler: client.me is not populated yet!")
         return
 
-    if not text:
+    if not text or text.startswith("/"):
         return
 
     ctx = get_ctx()

@@ -33,13 +33,21 @@ class LoggingPlugin(Plugin):
         self._chat_title_cache = {}
 
     async def setup(self, client: Client, ctx) -> None:
-        """Initialize the logging worker."""
+        """
+        Initialize the logging worker and begin processing the log queue.
+
+        Args:
+            client (Client): The Pyrogram client instance.
+            ctx (Context): The application context.
+        """
         if self._worker_task is None:
             self._worker_task = asyncio.create_task(self._log_worker(client, ctx))
             logger.info("Logging: Batched worker started.")
 
     async def teardown(self) -> None:
-        """Cancel the worker task on plugin unloading."""
+        """
+        Gracefully shut down the logging worker and wait for the task to finish.
+        """
         if self._worker_task:
             self._worker_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -48,7 +56,16 @@ class LoggingPlugin(Plugin):
             logger.info("Logging: Batched worker stopped.")
 
     async def _log_worker(self, client: Client, ctx) -> None:
-        """Worker that batches moderation events and flushes them periodically."""
+        """
+        Infinite loop worker that processes the log queue.
+
+        Collects moderation events, groups them by chat ID, and flushes them
+        periodically (every 5 seconds or when a batch reaches 5 items).
+
+        Args:
+            client (Client): The Pyrogram client instance.
+            ctx (Context): The application context.
+        """
         while True:
             try:
                 try:
@@ -78,7 +95,19 @@ class LoggingPlugin(Plugin):
     async def _flush_chat_batch(
         self, client: Client, ctx, chat_id: int, events: list[dict]
     ) -> None:
-        """Combine and send a batch of events for a specific chat."""
+        """
+        Send a batch of moderation events to the designated log channel for a chat.
+
+        Args:
+            client (Client): The Pyrogram client instance.
+            ctx (Context): The application context.
+            chat_id (int): The ID of the chat whose events are being logged.
+            events (list[dict]): A list of event data dictionaries to be formatted and sent.
+
+        Side Effects:
+            - Fetches chat settings from the database.
+            - Sends a formatted message to the logging channel.
+        """
         settings = await get_chat_settings(ctx, chat_id)
         if not settings or not settings.logChannelId:
             return
@@ -117,7 +146,20 @@ class LoggingPlugin(Plugin):
 @safe_handler
 @admin_only
 async def set_log_handler(client: Client, message: Message) -> None:
-    """Designate a channel to receive moderation logs for the current group."""
+    """
+    Designate a channel to receive moderation logs for the current group.
+
+    The channel ID can be provided as an argument or by replying to a
+    forwarded message from the desired channel.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Updates the 'logChannelId' setting for the current chat in the database.
+        - Sends a confirmation message.
+    """
     if len(message.command) < 2:
         if message.reply_to_message and message.reply_to_message.forward_from_chat:
             channel_id = message.reply_to_message.forward_from_chat.id
@@ -137,7 +179,17 @@ async def set_log_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def unset_log_handler(client: Client, message: Message) -> None:
-    """Remove the designated logging channel for the current group."""
+    """
+    Remove the current logging channel designation for the group.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Resets the 'logChannelId' setting for the current chat to None in the database.
+        - Sends a confirmation message.
+    """
     ctx = get_context()
     await update_chat_setting(ctx, message.chat.id, "logChannelId", None)
     await message.reply(await at(message.chat.id, "log.unset"))
@@ -153,7 +205,25 @@ async def log_event(
     reason: str | None = None,
     chat_title: str | None = None,
 ) -> None:
-    """Helper method used by other plugins to push events to the batched log queue."""
+    """
+    Push a moderation event into the logging queue.
+
+    This is the primary method used by other plugins to record events.
+    Mentions for users are automatically handled.
+
+    Args:
+        ctx (Context): The application context.
+        client (Client): The Pyrogram client instance.
+        chat_id (int): The ID of the chat in which the event occurred.
+        action (str): The type of action (e.g., 'BAN', 'MUTE', 'WARN').
+        target (User | str): The user who the action was performed on.
+        actor (User | str): The admin who performed the action.
+        reason (str, optional): The reason for the action. Defaults to None.
+        chat_title (str, optional): The title of the chat (to skip a DB lookup). Defaults to None.
+
+    Side Effects:
+        - Adds an event data dict to the `log_queue`.
+    """
     plugin: LoggingPlugin = client.get_plugin("logging")
     if not plugin:
         return

@@ -25,7 +25,22 @@ class AntispamPlugin(Plugin):
 @bot.on_message(filters.group & filters.text, group=3)
 @safe_handler
 async def antispam_handler(client: Client, message: Message) -> None:
-    """Detect duplicate text and delete if user is spamming within a short window."""
+    """
+    Detect duplicate text messages from a user and delete them if they occur within a short window.
+
+    Calculates an MD5 hash of the message text and compares it with the last
+    sent message hash stored in the cache for that user in the specific chat.
+    If it matches, the message is deleted and propagation is stopped.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Deletes the duplicate message.
+        - Stops message propagation to other handlers.
+        - Updates the user's last message hash in the cache (TTL: 60s).
+    """
     if not message.text or getattr(message, "command", None):
         return
 

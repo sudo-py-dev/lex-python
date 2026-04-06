@@ -26,7 +26,24 @@ class UrlScannerPlugin(Plugin):
 @bot.on_message(filters.group & (filters.text | filters.caption), group=1)
 @safe_handler
 async def url_scanner_handler(client: Client, message: Message) -> None:
-    """Intersects messages containing links and scans them if enabled."""
+    """
+    Monitor incoming messages for malicious URLs (phishing, malware).
+
+    Scans both text and caption entities for URLs. If the Google Safe Browsing
+    scan is enabled and an API key is available, it checks the links.
+    If a threat is detected, it executes the configured moderation action.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object to inspect.
+
+    Side Effects:
+        - Scans URLs using an external API (GSB).
+        - Deletes the message if a threat is found.
+        - May mute, kick, or ban the sender based on settings.
+        - Logs the detection in the audit log channel.
+        - Stops message propagation on violation.
+    """
     if getattr(message, "command", None):
         return
 

@@ -23,16 +23,39 @@ class MiscPlugin(Plugin):
 @bot.on_message(filters.command("runs") & filters.group)
 @safe_handler
 async def runs_handler(client: Client, message: Message) -> None:
-    """Reply with a random 'running away' action string."""
+    """
+    Reply with a random 'running away' action string.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Sends a random 'run' message from the localization file.
+    """
     index = random.randint(1, 5)
     await message.reply(await at(message.chat.id, f"misc.run_{index}"))
+    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("slap") & filters.group)
 @safe_handler
 async def slap_handler(client: Client, message: Message) -> None:
-    """Slap the replied-to user with a random object."""
+    """
+    Slap the replied-to user with a random object.
+
+    Requires a reply to identify the target user.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Sends a random 'slap' message mentioning the target user.
+    """
     if not message.reply_to_message:
+        await message.reply(await at(message.chat.id, "error.no_reply"))
+        await message.stop_propagation()
         return
     target = (
         message.reply_to_message.from_user.first_name
@@ -41,19 +64,41 @@ async def slap_handler(client: Client, message: Message) -> None:
     )
     index = random.randint(1, 4)
     await message.reply(await at(message.chat.id, f"misc.slap_{index}", target=target))
+    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("shrug") & filters.group)
 @safe_handler
 async def shrug_handler(client: Client, message: Message) -> None:
-    """Reply with a classic shrug emoticon."""
+    """
+    Reply with a classic shrug emoticon: ¯\\_(ツ)_/¯.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Sends a text message with the shrug emoticon.
+    """
     await message.reply("¯\\_(ツ)_/¯")
+    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("about"))
 @safe_handler
 async def about_handler(client: Client, message: Message) -> None:
-    """Display information regarding the bot's stack, version, and developer."""
+    """
+    Display information regarding the bot's technology stack, version, and developer.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Compiles the tech stack from project configuration.
+        - Sends an informational message with tech stack details, version, and developer links.
+        - Disables link previews for the response message.
+    """
     chat_id = message.chat.id if message.chat else None
     labels = {
         "engine": await at(chat_id, "misc.tech_engine"),
@@ -73,12 +118,14 @@ async def about_handler(client: Client, message: Message) -> None:
             chat_id,
             "misc.about_text",
             version=config.VERSION,
-            dev_name="sudopydev",
-            dev_url="https://github.com/sudopydev/lex-tg",
+            dev_name=config.DEV_NAME,
+            dev_url=config.DEV_URL,
+            repo_url=config.GITHUB_URL,
             tech_stack=tech_stack,
         ),
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
+    await message.stop_propagation()
 
 
 register(MiscPlugin())

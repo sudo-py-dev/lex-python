@@ -21,7 +21,17 @@ class DisablePlugin(Plugin):
 
 
 async def disable_command(ctx, chat_id: int, command: str) -> DisabledCommand:
-    """Add a command to the disabled list for a specific chat."""
+    """
+    Append a command to the disabled list for a specific chat.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+        command (str): The name of the command to disable.
+
+    Returns:
+        DisabledCommand: The newly created or existing record.
+    """
     async with ctx.db() as session:
         stmt = select(DisabledCommand).where(
             DisabledCommand.chatId == chat_id, DisabledCommand.command == command
@@ -38,7 +48,17 @@ async def disable_command(ctx, chat_id: int, command: str) -> DisabledCommand:
 
 
 async def enable_command(ctx, chat_id: int, command: str) -> bool:
-    """Remove a command from the disabled list for a specific chat."""
+    """
+    Remove a command from the disabled list for a specific chat.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+        command (str): The name of the command to enable.
+
+    Returns:
+        bool: True if the command was found and enabled, False otherwise.
+    """
     async with ctx.db() as session:
         stmt = select(DisabledCommand).where(
             DisabledCommand.chatId == chat_id, DisabledCommand.command == command
@@ -53,7 +73,17 @@ async def enable_command(ctx, chat_id: int, command: str) -> bool:
 
 
 async def is_command_disabled(ctx, chat_id: int, command: str) -> bool:
-    """Check if a specific command is disabled in a chat."""
+    """
+    Determine whether a specific command is currently disabled in a chat.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+        command (str): The name of the command to check.
+
+    Returns:
+        bool: True if the command is disabled, False otherwise.
+    """
     async with ctx.db() as session:
         stmt = select(DisabledCommand).where(
             DisabledCommand.chatId == chat_id, DisabledCommand.command == command
@@ -64,7 +94,16 @@ async def is_command_disabled(ctx, chat_id: int, command: str) -> bool:
 
 
 async def get_disabled_commands(ctx, chat_id: int) -> list[DisabledCommand]:
-    """Retrieve all disabled commands for a specific chat."""
+    """
+    Retrieve the full list of all disabled commands for a specific chat.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+
+    Returns:
+        list[DisabledCommand]: A list of disabled command records.
+    """
     async with ctx.db() as session:
         stmt = select(DisabledCommand).where(DisabledCommand.chatId == chat_id)
         result = await session.execute(stmt)
@@ -72,7 +111,16 @@ async def get_disabled_commands(ctx, chat_id: int) -> list[DisabledCommand]:
 
 
 async def clear_all_disabled(ctx, chat_id: int) -> int:
-    """Remove all disabled command restrictions for a specific chat."""
+    """
+    Enable all commands in a specific chat by clearing the disabled list.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+
+    Returns:
+        int: The number of commands that were re-enabled.
+    """
     async with ctx.db() as session:
         stmt = select(DisabledCommand).where(DisabledCommand.chatId == chat_id)
         result = await session.execute(stmt)
@@ -91,7 +139,20 @@ NON_DISABLEABLE = {"enable", "disable", "disabled", "settings", "start", "help"}
 @safe_handler
 @admin_only
 async def disable_handler(client: Client, message: Message) -> None:
-    """Disable a specific command in the current group."""
+    """
+    Disable a specific bot command within the current group.
+
+    Some essential commands (e.g., start, enable, disable) cannot be disabled.
+    Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Inserts a record into the database for the disabled command.
+        - Sends a confirmation message.
+    """
     if len(message.command) < 2:
         return
     ctx = get_context()
@@ -107,7 +168,19 @@ async def disable_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def enable_handler(client: Client, message: Message) -> None:
-    """Enable a previously disabled command in the current group."""
+    """
+    Enable a command that was previously disabled in the current group.
+
+    Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Deletes the disabled command record from the database.
+        - Sends a confirmation message.
+    """
     if len(message.command) < 2:
         return
     ctx = get_context()
@@ -119,7 +192,17 @@ async def enable_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.command("disabled") & filters.group)
 @safe_handler
 async def list_disabled_handler(client: Client, message: Message) -> None:
-    """List all currently disabled commands in the group."""
+    """
+    List all commands that are currently disabled in the current group.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+
+    Side Effects:
+        - Fetches disabled command records from the database.
+        - Sends a message listing the disabled commands.
+    """
     ctx = get_context()
     disabled = await get_disabled_commands(ctx, message.chat.id)
     if not disabled:
@@ -134,7 +217,16 @@ async def list_disabled_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.group, group=-2)
 @safe_handler
 async def disable_interceptor(client: Client, message: Message) -> None:
-    """Interceptor to block execution of disabled commands."""
+    """
+    Monitor incoming group command messages and block those that are disabled.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object to inspect.
+
+    Side Effects:
+        - Stops message propagation if the invoked command is disabled.
+    """
     if not message.command:
         return
     ctx = get_context()

@@ -22,7 +22,17 @@ class FederationPlugin(Plugin):
 
 
 async def create_fed(ctx, name: str, owner_id: int) -> Federation:
-    """Create a new federation owned by a user."""
+    """
+    Create a new federation owned by a specific user.
+
+    Args:
+        ctx (Context): The application context.
+        name (str): The name of the federation.
+        owner_id (int): The ID of the user who will own the federation.
+
+    Returns:
+        Federation: The newly created federation object.
+    """
     async with ctx.db() as session:
         fed = Federation(name=name, ownerId=owner_id)
         session.add(fed)
@@ -32,7 +42,17 @@ async def create_fed(ctx, name: str, owner_id: int) -> Federation:
 
 
 async def join_fed(ctx, fed_id: str, chat_id: int) -> FedChat:
-    """Join a group chat to a specific federation."""
+    """
+    Join a group chat to a specific federation.
+
+    Args:
+        ctx (Context): The application context.
+        fed_id (str): The unique ID of the federation.
+        chat_id (int): The ID of the group chat joining the federation.
+
+    Returns:
+        FedChat: The newly created or updated federation-chat mapping.
+    """
     async with ctx.db() as session:
         stmt = select(FedChat).where(FedChat.chatId == chat_id)
         result = await session.execute(stmt)
@@ -49,7 +69,16 @@ async def join_fed(ctx, fed_id: str, chat_id: int) -> FedChat:
 
 
 async def get_fed_by_chat(ctx, chat_id: int) -> Federation | None:
-    """Retrieve the federation settings for a specific chat."""
+    """
+    Retrieve the federation associated with a specific chat, if any.
+
+    Args:
+        ctx (Context): The application context.
+        chat_id (int): The ID of the chat.
+
+    Returns:
+        Federation | None: The federation object, or None if the chat is not in one.
+    """
     async with ctx.db() as session:
         stmt = select(FedChat).where(FedChat.chatId == chat_id).options(selectinload(FedChat.fed))
         result = await session.execute(stmt)
@@ -58,7 +87,21 @@ async def get_fed_by_chat(ctx, chat_id: int) -> Federation | None:
 
 
 async def fban_user(ctx, fed_id: str, user_id: int, reason: str, banned_by: int) -> FedBan:
-    """Ban a user from a specific federation."""
+    """
+    Apply a federation ban to a user.
+
+    The ban will be enforced in all group chats that are members of this federation.
+
+    Args:
+        ctx (Context): The application context.
+        fed_id (str): The unique ID of the federation.
+        user_id (int): The ID of the user to be banned from the federation.
+        reason (str): The reason for the federation ban.
+        banned_by (int): The ID of the admin issuing the ban.
+
+    Returns:
+        FedBan: The created or updated federation ban record.
+    """
     async with ctx.db() as session:
         stmt = select(FedBan).where(FedBan.fedId == fed_id, FedBan.userId == user_id)
         result = await session.execute(stmt)
@@ -76,7 +119,17 @@ async def fban_user(ctx, fed_id: str, user_id: int, reason: str, banned_by: int)
 
 
 async def is_fbanned(ctx, fed_id: str, user_id: int) -> bool:
-    """Check if a user is banned in a specific federation."""
+    """
+    Check if a specific user is currently banned in a federation.
+
+    Args:
+        ctx (Context): The application context.
+        fed_id (str): The unique ID of the federation.
+        user_id (int): The ID of the user.
+
+    Returns:
+        bool: True if the user is banned, False otherwise.
+    """
     async with ctx.db() as session:
         stmt = select(FedBan).where(FedBan.fedId == fed_id, FedBan.userId == user_id)
         result = await session.execute(stmt)
@@ -87,7 +140,18 @@ async def is_fbanned(ctx, fed_id: str, user_id: int) -> bool:
 @bot.on_message(filters.command("newfed") & filters.private)
 @safe_handler
 async def newfed_handler(client: Client, message: Message) -> None:
-    """Initialize a new federation (private only)."""
+    """
+    Create a new federation for the user in a private chat.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        Expected command format: /newfed <federation_name>
+
+    Side Effects:
+        - Inserts a new federation into the database.
+        - Sends a confirmation message with the federation ID.
+    """
     if len(message.command) < 2:
         return
     ctx = get_context()
@@ -100,7 +164,20 @@ async def newfed_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def joinfed_handler(client: Client, message: Message) -> None:
-    """Join the current group to a federation."""
+    """
+    Add the current group chat to an existing federation.
+
+    Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        Expected command format: /joinfed <federation_id>
+
+    Side Effects:
+        - Updates the chat's federation mapping in the database.
+        - Sends a confirmation message.
+    """
     if len(message.command) < 2:
         return
     ctx = get_context()
@@ -114,7 +191,21 @@ async def joinfed_handler(client: Client, message: Message) -> None:
 @admin_only
 @resolve_target
 async def fban_handler(client: Client, message: Message, target_user: User) -> None:
-    """Ban a user from the currently joined federation."""
+    """
+    Issue a federation ban for a specific user in the current group.
+
+    The user will be immediately banned from the current chat and all other chats
+    within the same federation. Requires the user to be an admin.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object that triggered the handler.
+        target_user (User): The user to be banned (resolved by @resolve_target).
+
+    Side Effects:
+        - Inserts/updates a federation ban record in the database.
+        - Sends a confirmation message.
+    """
     ctx = get_context()
     fed = await get_fed_by_chat(ctx, message.chat.id)
     if not fed:
@@ -132,7 +223,20 @@ async def fban_handler(client: Client, message: Message, target_user: User) -> N
 @bot.on_message(filters.group & filters.new_chat_members, group=12)
 @safe_handler
 async def federation_interceptor(client: Client, message: Message) -> None:
-    """Interceptor to ban incoming members who are blacklisted in the federation."""
+    """
+    Monitor new chat members and enforce federation bans.
+
+    If a newly joined member is blacklisted in the federation the chat is joined to,
+    they are automatically banned from the group.
+
+    Args:
+        client (Client): The Pyrogram client instance.
+        message (Message): The message object containing new chat members.
+
+    Side Effects:
+        - Bans the member if a federation ban is detected.
+        - Sends a notification message if a ban occurs.
+    """
     ctx = get_context()
     fed = await get_fed_by_chat(ctx, message.chat.id)
     if not fed:
