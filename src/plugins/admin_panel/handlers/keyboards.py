@@ -259,26 +259,46 @@ async def rules_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMa
     )
 
 
-async def filters_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
+async def filters_menu_kb(
+    ctx, chat_id: int, page: int = 0, user_id: int | None = None
+) -> InlineKeyboardMarkup:
     at_id = user_id if user_id else chat_id
-    from src.db.repositories.filters import get_all_filters
+    from src.db.repositories.filters import get_filters_count, get_filters_paginated
 
-    filters_list = await get_all_filters(ctx, chat_id)
+    page_size = 10
+    total_count = await get_filters_count(ctx, chat_id)
+    filters_list = await get_filters_paginated(ctx, chat_id, page, page_size)
+
     buttons = []
 
-    # Show up to 20 filters to prevent "payload too long" issues
-    for f in filters_list[:20]:
+    # Add Filter Button
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_add_filter"), callback_data=f"panel:add_filter:{page}"
+            )
+        ]
+    )
+
+    for f in filters_list:
         buttons.append(
             [
-                InlineKeyboardButton(f"📜 {f.keyword}", callback_data="none"),
                 InlineKeyboardButton(
-                    await at(at_id, "common.btn_delete"),
-                    callback_data=f"panel:delete_filter:{f.id}",
+                    f"📜 {f.keyword}", callback_data=f"panel:edit_filter:{f.id}:{page}"
+                ),
+                InlineKeyboardButton(
+                    "🗑️",
+                    callback_data=f"panel:delete_filter:{f.id}:{page}",
                 ),
             ]
         )
 
-    if filters_list:
+    # Pagination
+    nav = await get_pager(page, total_count, page_size, "panel:filters")
+    if nav:
+        buttons.append(nav)
+
+    if total_count > 0:
         buttons.append(
             [
                 InlineKeyboardButton(
@@ -580,6 +600,76 @@ async def cleaner_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> Inli
             ],
         ]
     )
+
+
+async def filter_options_kb(ctx, chat_id: int, user_id: int, page: int) -> InlineKeyboardMarkup:
+    """Keyboard for the third step of the filter creation wizard (Settings)."""
+    from src.cache.local_cache import get_cache
+
+    r = get_cache()
+    settings_raw = await r.get(f"temp_filter_settings:{user_id}")
+    import json
+
+    settings = json.loads(settings_raw) if settings_raw else {}
+
+    # Defaults from settings dict
+    match_mode = settings.get("matchMode", "contains")
+    case_sensitive = settings.get("caseSensitive", False)
+    is_admin_only = settings.get("isAdminOnly", False)
+
+    buttons = []
+
+    # Admin Only Toggle
+    admin_btn_key = (
+        "panel.btn_filter_admins_only" if is_admin_only else "panel.btn_filter_all_users"
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                f"{await at(user_id, admin_btn_key)}: ✅",
+                callback_data=f"panel:toggle_filter:admin:{page}",
+            )
+        ]
+    )
+
+    # Case Sensitive Toggle
+    case_btn_key = (
+        "panel.btn_filter_case_sensitive" if case_sensitive else "panel.btn_filter_case_insensitive"
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                f"{await at(user_id, case_btn_key)}: ✅",
+                callback_data=f"panel:toggle_filter:case:{page}",
+            )
+        ]
+    )
+
+    # Match Mode Toggle
+    match_btn_key = (
+        "panel.btn_filter_match_full" if match_mode == "full" else "panel.btn_filter_match_contains"
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                await at(user_id, match_btn_key), callback_data=f"panel:toggle_filter:match:{page}"
+            )
+        ]
+    )
+
+    # Save & Cancel
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                await at(user_id, "common.btn_save"), callback_data=f"panel:save_filter:{page}"
+            ),
+            InlineKeyboardButton(
+                await at(user_id, "common.btn_cancel"), callback_data=f"panel:filters:{page}"
+            ),
+        ]
+    )
+
+    return InlineKeyboardMarkup(buttons)
 
 
 async def get_pager(

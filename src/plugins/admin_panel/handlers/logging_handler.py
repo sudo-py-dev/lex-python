@@ -27,7 +27,7 @@ async def logging_picker_debug_handler(client: Client, message: Message) -> None
             await logging_picker_handler(client, message)
             return
 
-        cancel_text = await at(user_id, "panel.btn_cancel")
+        cancel_text = await at(user_id, "common.btn_cancel")
         if message.text == cancel_text:
             await logging_picker_cancel_handler(client, message)
             return
@@ -95,7 +95,7 @@ async def logging_picker_cancel_handler(client: Client, message: Message) -> Non
 
     is_cancel = False
     for lang in list_locales():
-        if message.text == t(lang, "panel.btn_cancel"):
+        if message.text == t(lang, "common.btn_cancel"):
             is_cancel = True
             break
 

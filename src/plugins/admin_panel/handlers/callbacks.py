@@ -73,32 +73,6 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
             await callback.answer(await at(at_id, "panel.switch_chat"))
         return
 
-    if action == "language":
-        target = data[2] if len(data) > 2 else None
-        if target == "pm":
-            from src.plugins.language import language_picker_kb
-
-            await callback.message.edit_text(
-                await at(user_id, "language.user_picker_header"),
-                reply_markup=await language_picker_kb(ctx, user_id, is_pm=True),
-            )
-            await callback.answer()
-            return
-
-    if action == "set_lang":
-        target_id = int(data[3]) if len(data) > 3 and data[3] != "None" else None
-        if target_id is None:
-            new_lang = data[2]
-            from src.plugins.language import set_chat_lang
-
-            await set_chat_lang(ctx, user_id, new_lang)
-            kb = await my_groups_kb(ctx, client, user_id)
-            await callback.message.edit_text(
-                await at(user_id, "panel.my_groups_title"), reply_markup=kb
-            )
-            await callback.answer(await at(user_id, "panel.user_lang_set", lang=new_lang.upper()))
-            return
-
     await protected_panel_callback_handler(client, callback)
 
 
@@ -207,11 +181,8 @@ async def protected_panel_callback_handler(
                         await at(at_id, "panel.blacklist_not_found"), show_alert=True
                     )
 
-            from .moderation_kbs import blacklist_kb
-
             kb = await blacklist_kb(ctx, chat_id, page, user_id=user_id if is_pm else None)
             await callback.message.edit_reply_markup(reply_markup=kb)
-        await callback.message.edit_reply_markup(reply_markup=kb)
     elif action == "cycle_blacklist_action":
         page = int(data[2]) if len(data) > 2 else 0
         settings = await get_chat_settings(ctx, chat_id)
@@ -279,20 +250,38 @@ async def protected_panel_callback_handler(
     elif action == "language":
         from src.plugins.language import language_picker_kb
 
+        header_key = "language.user_picker_header" if is_pm else "language.group_picker_header"
         await callback.message.edit_text(
-            await at(at_id, "language.group_picker_header"),
-            reply_markup=await language_picker_kb(ctx, chat_id, is_pm=False),
+            await at(at_id, header_key),
+            reply_markup=await language_picker_kb(
+                ctx, chat_id if not is_pm else user_id, is_pm=is_pm
+            ),
         )
         await callback.answer()
     elif action == "set_lang":
         if len(data) >= 3:
             new_lang = data[2]
-            target_id = int(data[3]) if len(data) > 3 and data[3] != "None" else None
+            target_id = (
+                int(data[3])
+                if len(data) > 3 and data[3] != "None"
+                else (chat_id if not is_pm else user_id)
+            )
 
-            if target_id is not None:
-                from src.plugins.language import set_chat_lang
+            from src.plugins.language import set_chat_lang
 
-                await set_chat_lang(ctx, target_id, new_lang)
+            await set_chat_lang(ctx, target_id, new_lang)
+
+            if is_pm and target_id == user_id:
+                # User changed their own language in PM
+                kb = await my_groups_kb(ctx, client, user_id)
+                await callback.message.edit_text(
+                    await at(user_id, "panel.my_groups_title"), reply_markup=kb
+                )
+                await callback.answer(
+                    await at(user_id, "panel.user_lang_set", lang=new_lang.upper())
+                )
+            else:
+                # User changed group language
                 kb = await main_menu_kb(target_id, user_id=user_id if is_pm else None)
                 await callback.message.edit_text(
                     await at(at_id, "panel.main_text"), reply_markup=kb
@@ -310,9 +299,89 @@ async def protected_panel_callback_handler(
         await callback.message.edit_text(await at(at_id, "panel.welcome_text"), reply_markup=kb)
         await callback.answer()
     elif action == "filters":
-        kb = await filters_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+        page = int(data[2]) if len(data) > 2 else 0
+        kb = await filters_menu_kb(ctx, chat_id, page=page, user_id=user_id if is_pm else None)
         await callback.message.edit_text(await at(at_id, "panel.filters_text"), reply_markup=kb)
         await callback.answer()
+    elif action == "add_filter":
+        from src.db.repositories.filters import get_filters_count
+
+        count = await get_filters_count(ctx, chat_id)
+        if count >= 150:
+            await callback.answer(await at(at_id, "filter.limit_reached"), show_alert=True)
+            return
+
+        from .input_handlers.dispatch_logic import capture_next_input
+
+        page = int(data[2]) if len(data) > 2 else 0
+        await capture_next_input(
+            user_id, chat_id, "filterKeyword", prompt_msg_id=callback.message.id, page=page
+        )
+        await callback.message.edit_text(
+            await at(at_id, "panel.input_prompt_filterKeyword"),
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            await at(at_id, "common.btn_cancel"),
+                            callback_data=f"panel:filters:{page}",
+                        )
+                    ]
+                ]
+            ),
+        )
+        await callback.answer()
+    elif action == "edit_filter":
+        if len(data) >= 3:
+            f_id = int(data[2])
+            page = int(data[3]) if len(data) > 3 else 0
+            from src.db.models import Filter
+
+            async with ctx.db() as session:
+                f_obj = await session.get(Filter, f_id)
+                if not f_obj:
+                    await callback.answer(await at(at_id, "panel.error_generic"), show_alert=True)
+                    return
+
+                r = get_cache()
+                import json
+
+                # Pre-fill cache with existing data
+                await r.set(f"temp_filter_kw:{user_id}", f_obj.keyword, ttl=600)
+                await r.set(
+                    f"temp_filter_resp:{user_id}",
+                    json.dumps(
+                        {
+                            "text": f_obj.text,
+                            "type": f_obj.responseType,
+                            "file_id": f_obj.fileId,
+                        }
+                    ),
+                    ttl=600,
+                )
+                await r.set(f"temp_filter_settings:{user_id}", json.dumps(f_obj.settings), ttl=600)
+                await r.set(f"temp_filter_edit_id:{user_id}", str(f_id), ttl=600)
+
+                from .input_handlers.dispatch_logic import capture_next_input
+
+                await capture_next_input(
+                    user_id, chat_id, "filterResponse", prompt_msg_id=callback.message.id, page=page
+                )
+
+                await callback.message.edit_text(
+                    await at(at_id, "panel.input_prompt_filterResponse", keyword=f_obj.keyword),
+                    reply_markup=InlineKeyboardMarkup(
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    await at(at_id, "common.btn_cancel"),
+                                    callback_data=f"panel:filters:{page}",
+                                )
+                            ]
+                        ]
+                    ),
+                )
+                await callback.answer()
     elif action == "rules":
         kb = await rules_kb(chat_id, user_id=user_id if is_pm else None)
         await callback.message.edit_text(await at(at_id, "panel.rules_text"), reply_markup=kb)
@@ -320,6 +389,7 @@ async def protected_panel_callback_handler(
     elif action == "delete_filter":
         if len(data) >= 3:
             f_id = int(data[2])
+            page = int(data[3]) if len(data) > 3 else 0
             from src.db.repositories.filters import remove_filter_by_id
 
             success = await remove_filter_by_id(ctx, f_id)
@@ -327,30 +397,90 @@ async def protected_panel_callback_handler(
                 await callback.answer(await at(at_id, "common.done"))
             else:
                 await callback.answer(await at(at_id, "panel.error_generic"), show_alert=True)
-            kb = await filters_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+            kb = await filters_menu_kb(ctx, chat_id, page=page, user_id=user_id if is_pm else None)
             await callback.message.edit_reply_markup(reply_markup=kb)
     elif action == "clear_filters":
         from src.db.repositories.filters import remove_all_filters
 
         await remove_all_filters(ctx, chat_id)
         await callback.answer(await at(at_id, "common.done"))
-        kb = await filters_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+        kb = await filters_menu_kb(ctx, chat_id, page=0, user_id=user_id if is_pm else None)
         await callback.message.edit_reply_markup(reply_markup=kb)
-    elif action == "raid":
-        s = await get_chat_settings(ctx, chat_id)
-        kb = await raid_kb(ctx, chat_id, user_id=user_id if is_pm else None)
-        status = await at(
-            at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled"
-        )
-        await callback.message.edit_text(
-            await at(
-                at_id,
-                "panel.raid_text",
-                status=status,
-                action=await at(at_id, f"action.{s.raidAction.lower()}"),
-            ),
-            reply_markup=kb,
-        )
+    elif action == "toggle_filter":
+        if len(data) >= 4:
+            mode = data[2]
+            page = int(data[3])
+            r = get_cache()
+            settings_raw = await r.get(f"temp_filter_settings:{user_id}")
+            import json
+
+            settings = json.loads(settings_raw) if settings_raw else {}
+
+            if mode == "admin":
+                settings["isAdminOnly"] = not settings.get("isAdminOnly", False)
+            elif mode == "case":
+                settings["caseSensitive"] = not settings.get("caseSensitive", False)
+            elif mode == "match":
+                settings["matchMode"] = (
+                    "full" if settings.get("matchMode") == "contains" else "contains"
+                )
+
+            await r.set(f"temp_filter_settings:{user_id}", json.dumps(settings), ttl=600)
+            from .keyboards import filter_options_kb
+
+            kb = await filter_options_kb(ctx, chat_id, user_id, page)
+            await callback.message.edit_reply_markup(reply_markup=kb)
+            await callback.answer()
+    elif action == "save_filter":
+        page = int(data[2])
+        r = get_cache()
+        keyword = await r.get(f"temp_filter_kw:{user_id}")
+        resp_raw = await r.get(f"temp_filter_resp:{user_id}")
+        settings_raw = await r.get(f"temp_filter_settings:{user_id}")
+
+        if not keyword or not resp_raw:
+            await callback.answer(await at(at_id, "panel.error_generic"), show_alert=True)
+            return
+
+        import json
+
+        resp_data = json.loads(resp_raw)
+        settings = json.loads(settings_raw) if settings_raw else {}
+
+        from src.db.repositories.filters import add_filter, update_filter_by_id
+
+        edit_id_raw = await r.get(f"temp_filter_edit_id:{user_id}")
+        if edit_id_raw:
+            edit_id = int(edit_id_raw)
+            await update_filter_by_id(
+                ctx,
+                edit_id,
+                keyword,
+                text=resp_data.get("text") or "",
+                response_type=resp_data["type"],
+                file_id=resp_data.get("file_id"),
+                settings=settings,
+            )
+        else:
+            await add_filter(
+                ctx,
+                chat_id,
+                keyword,
+                text=resp_data.get("text") or "",
+                response_type=resp_data["type"],
+                file_id=resp_data.get("file_id"),
+                settings=settings,
+            )
+
+        # Cleanup
+        await r.delete(f"temp_filter_kw:{user_id}")
+        await r.delete(f"temp_filter_resp:{user_id}")
+        await r.delete(f"temp_filter_settings:{user_id}")
+        await r.delete(f"temp_filter_edit_id:{user_id}")
+
+        await callback.answer(await at(at_id, "panel.input_success"))
+        kb = await filters_menu_kb(ctx, chat_id, page=page, user_id=user_id if is_pm else None)
+        await callback.message.edit_text(await at(at_id, "panel.filters_text"), reply_markup=kb)
         await callback.answer()
     elif action == "captcha":
         s = await get_chat_settings(ctx, chat_id)
@@ -455,17 +585,7 @@ async def protected_panel_callback_handler(
             reply_markup=kb,
         )
         await callback.answer()
-    elif action == "langblock":
-        page = int(data[2]) if len(data) > 2 else 0
-        from .moderation_kbs import langblock_kb
-
-        kb = await langblock_kb(ctx, chat_id, page, user_id=user_id if is_pm else None)
-        await callback.message.edit_text(
-            await at(at_id, "panel.langblock_text"),
-            reply_markup=kb,
-        )
-        await callback.answer()
-    elif action == "rem_langblock":
+    elif action == "lang_remove":
         if len(data) >= 3:
             code = data[2]
             from src.plugins.lang_block import remove_lang_block
@@ -477,7 +597,7 @@ async def protected_panel_callback_handler(
             kb = await langblock_kb(ctx, chat_id, user_id=user_id if is_pm else None)
             await callback.message.edit_reply_markup(reply_markup=kb)
             await callback.answer(await at(at_id, "panel.langblock_removed", code=code.upper()))
-    elif action == "cycle_lang_action":
+    elif action == "lang_cycle_action":
         if len(data) >= 3:
             code = data[2]
             page = int(data[3]) if len(data) > 3 else 0
@@ -1123,7 +1243,7 @@ async def protected_panel_callback_handler(
                 [
                     [
                         InlineKeyboardButton(
-                            await at(user_id, "panel.btn_cancel_input"),
+                            await at(user_id, "common.btn_cancel"),
                             callback_data="panel:cancel_input",
                         )
                     ]

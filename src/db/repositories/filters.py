@@ -8,11 +8,10 @@ async def add_filter(
     ctx: AppContext,
     chat_id: int,
     keyword: str,
-    response_data: str,
+    text: str,
     response_type: str = "text",
     file_id: str | None = None,
-    match_mode: str = "contains",
-    case_sensitive: bool = False,
+    settings: dict | None = None,
 ) -> Filter:
     """Add or update a filter for a chat."""
     async with ctx.db() as session:
@@ -21,27 +20,53 @@ async def add_filter(
         filter_obj = result.scalars().first()
 
         if filter_obj:
-            filter_obj.responseData = response_data
+            filter_obj.text = text
             filter_obj.responseType = response_type
             filter_obj.fileId = file_id
-            filter_obj.matchMode = match_mode
-            filter_obj.caseSensitive = case_sensitive
+            if settings is not None:
+                filter_obj.settings = settings
             session.add(filter_obj)
         else:
             filter_obj = Filter(
                 chatId=chat_id,
                 keyword=keyword,
-                responseData=response_data,
+                text=text,
                 responseType=response_type,
                 fileId=file_id,
-                matchMode=match_mode,
-                caseSensitive=case_sensitive,
+                settings=settings or {},
             )
             session.add(filter_obj)
 
         await session.commit()
         await session.refresh(filter_obj)
         return filter_obj
+
+
+async def update_filter_by_id(
+    ctx: AppContext,
+    filter_id: int,
+    keyword: str,
+    text: str,
+    response_type: str = "text",
+    file_id: str | None = None,
+    settings: dict | None = None,
+) -> bool:
+    """Update an existing filter by its ID."""
+    async with ctx.db() as session:
+        filter_obj = await session.get(Filter, filter_id)
+        if not filter_obj:
+            return False
+
+        filter_obj.keyword = keyword
+        filter_obj.text = text
+        filter_obj.responseType = response_type
+        filter_obj.fileId = file_id
+        if settings is not None:
+            filter_obj.settings = settings
+
+        session.add(filter_obj)
+        await session.commit()
+        return True
 
 
 async def remove_filter(ctx: AppContext, chat_id: int, keyword: str) -> bool:
@@ -85,6 +110,32 @@ async def get_all_filters(ctx: AppContext, chat_id: int) -> list[Filter]:
         stmt = select(Filter).where(Filter.chatId == chat_id)
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+
+async def get_filters_paginated(
+    ctx: AppContext, chat_id: int, page: int, page_size: int
+) -> list[Filter]:
+    """Get a paginated list of filters for a specific chat."""
+    async with ctx.db() as session:
+        stmt = (
+            select(Filter)
+            .where(Filter.chatId == chat_id)
+            .order_by(Filter.keyword)
+            .offset(page * page_size)
+            .limit(page_size)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+
+async def get_filters_count(ctx: AppContext, chat_id: int) -> int:
+    """Get the total count of filters for a specific chat."""
+    async with ctx.db() as session:
+        from sqlalchemy import func
+
+        stmt = select(func.count()).where(Filter.chatId == chat_id)
+        result = await session.execute(stmt)
+        return result.scalar() or 0
 
 
 async def get_filters_for_chat(ctx: AppContext, chat_id: int) -> list[Filter]:

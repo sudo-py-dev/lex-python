@@ -326,7 +326,7 @@ async def user_warns_kb(
         kb.append(
             [
                 InlineKeyboardButton(
-                    f"ID: {uid} | {count} Warns",
+                    await at(chat_id, "panel.warn_item", id=uid, count=count),
                     callback_data=f"panel:user_warn_info:{uid}:{page}",
                 ),
                 InlineKeyboardButton("❌", callback_data=f"panel:user_warn_reset:{uid}:{page}"),
@@ -370,7 +370,7 @@ async def log_channel_picker_kb(
                     ),
                 ),
             ],
-            [KeyboardButton(await at(at_id, "panel.btn_cancel"))],
+            [KeyboardButton(await at(at_id, "common.btn_cancel"))],
         ],
         resize_keyboard=True,
         one_time_keyboard=True,

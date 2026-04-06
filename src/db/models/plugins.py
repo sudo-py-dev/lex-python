@@ -6,6 +6,7 @@ if TYPE_CHECKING:
 
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     DateTime,
     ForeignKey,
@@ -25,15 +26,12 @@ class Filter(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("groupsettings.id"), index=True)
     keyword: Mapped[str] = mapped_column(String(255))
-    matchMode: Mapped[str] = mapped_column(
-        String(50), default="contains", server_default=sa_text("'contains'")
-    )
-    caseSensitive: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    text: Mapped[str] = mapped_column(Text)
     responseType: Mapped[str] = mapped_column(
         String(50), default="text", server_default=sa_text("'text'")
     )
-    responseData: Mapped[str] = mapped_column(Text)
     fileId: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    settings: Mapped[dict] = mapped_column(JSON, default=dict, server_default=sa_text("'{}'"))
     createdAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )

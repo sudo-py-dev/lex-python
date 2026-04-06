@@ -44,7 +44,7 @@ class TelegramFormatter:
         kwargs: ParsedMessage = {
             "text": text,
             "reply_markup": None,
-            "link_preview_options": LinkPreviewOptions(is_disabled=True),  # off by default
+            "link_preview_options": LinkPreviewOptions(is_disabled=True),
             "disable_notification": False,
             "protect_content": False,
             "has_media_spoiler": False,
@@ -108,14 +108,6 @@ class TelegramFormatter:
                 ("Rules", f"https://t.me/{bot_username}?start=rules_{chat_id}", False, None)
             )
 
-        # 3. Parse Buttons via Regex
-        # Matches [Text](buttonurl://link) or [Text](buttonurl#style://link:same)
-        # Styles: primary, danger, success (maps to ButtonStyle enum)
-        # Note buttons: [Text](buttonurl://#note_name:same)
-        # Group 1: Text
-        # Group 2: Optional style (primary|danger|success)
-        # Group 3: URL (including #note_name optionally)
-        # Group 4: Optional :same
         _style_map = {
             "primary": ButtonStyle.PRIMARY,
             "danger": ButtonStyle.DANGER,
@@ -188,11 +180,9 @@ class TelegramFormatter:
         parsed: ParsedMessage,
         reply_to_message_id: int | None = None,
     ) -> Any:
-        """Send a media filter response (photo, video, document, etc) with caption + buttons."""
         reply_params = (
             ReplyParameters(message_id=reply_to_message_id) if reply_to_message_id else None
         )
-        # Caption comes from parsed["text"]; buttons from parsed["reply_markup"]
         common = dict(
             caption=parsed["text"] or None,
             reply_markup=parsed["reply_markup"],
@@ -212,10 +202,8 @@ class TelegramFormatter:
         }
         sender = _DISPATCH.get(response_type)
         if sender is None:
-            # Fall back to plain message if type is unknown
             return await TelegramFormatter.send_parsed(client, chat_id, parsed, reply_to_message_id)
 
-        # Stickers and video notes do NOT support captions
         if response_type in ("sticker", "video_note"):
             common.pop("caption", None)
 

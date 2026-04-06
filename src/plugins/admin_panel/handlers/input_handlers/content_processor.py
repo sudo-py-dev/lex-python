@@ -94,7 +94,7 @@ async def _handle_reminder_message_capture(
         [
             [
                 InlineKeyboardButton(
-                    await at(user_id, "panel.btn_cancel_input"),
+                    await at(user_id, "common.btn_cancel"),
                     callback_data="panel:cancel_input",
                 )
             ]

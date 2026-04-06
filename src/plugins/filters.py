@@ -16,6 +16,7 @@ from src.db.repositories.filters import (
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
+from src.utils.permissions import is_admin
 
 
 class FiltersPlugin(Plugin):
@@ -33,14 +34,9 @@ class FiltersPlugin(Plugin):
 @admin_only
 async def add_filter_handler(client: Client, message: Message) -> None:
     """Add a new auto-reply filter to the current group."""
-    # Usage:
-    # 1. /filter keyword response
-    # 2. Reply to a message: /filter keyword
-
     if len(message.command) < 2:
         return
 
-    # 1. Determine Keyword
     text_after_cmd = message.text.split(None, 1)[1] if " " in message.text else ""
     keyword = ""
     response = ""
@@ -58,14 +54,12 @@ async def add_filter_handler(client: Client, message: Message) -> None:
         keyword = message.command[1].lower()
         response = message.text.split(None, 2)[2] if len(message.command) > 2 else ""
 
-    # 2. Determine Response (Media vs Text)
     response_type = "text"
     file_id = None
 
     if message.reply_to_message:
         reply = message.reply_to_message
 
-        # Check media types
         media_obj = (
             reply.photo
             or reply.video
@@ -96,24 +90,36 @@ async def add_filter_handler(client: Client, message: Message) -> None:
             elif reply.video_note:
                 response_type = "video_note"
 
-            # If command has a response part, use it as caption
-            # Otherwise, use the media's original caption
             if not response:
                 response = reply.caption or ""
         else:
-            # Reply to a text message (but no media)
             if not response:
                 response = reply.text or ""
 
     if not response and not file_id:
         return
 
+    limit = 64
+    if len(keyword) > limit:
+        await message.reply(await at(message.chat.id, "filter.keyword_too_long", limit=limit))
+        return
+
     ctx = get_context()
+
+    from src.db.repositories.filters import get_all_filters
+
+    all_fs = await get_all_filters(ctx, message.chat.id)
+    keywords = [f.keyword for f in all_fs]
+
+    if keyword not in keywords and len(all_fs) >= 150:
+        await message.reply(await at(message.chat.id, "filter.limit_reached"))
+        return
+
     await add_filter(
         ctx,
         message.chat.id,
         keyword,
-        response_data=response,
+        text=response,
         response_type=response_type,
         file_id=file_id,
     )
@@ -182,12 +188,30 @@ async def filters_interceptor(client: Client, message: Message) -> None:
     if not all_filters:
         return
 
-    text = message.text.lower()
+    text = message.text
+    user_is_admin = None
+
     for f in all_filters:
-        pattern = rf"\b{re.escape(f.keyword)}\b"
-        if re.search(pattern, text):
+        settings = f.settings or {}
+        match_mode = settings.get("matchMode", "contains")
+        case_sensitive = settings.get("caseSensitive", False)
+        is_admin_only = settings.get("isAdminOnly", False)
+
+        if is_admin_only:
+            if user_is_admin is None:
+                user_is_admin = await is_admin(client, message.chat.id, message.from_user.id)
+
+            if not user_is_admin:
+                continue
+
+        kw = f.keyword if case_sensitive else f.keyword.lower()
+        t = text if case_sensitive else text.lower()
+
+        is_match = t == kw if match_mode == "full" else re.search(rf"\b{re.escape(kw)}\b", t)
+
+        if is_match:
             parsed = TelegramFormatter.parse_message(
-                text=f.responseData,
+                text=f.text,
                 user=message.from_user,
                 chat_id=message.chat.id,
                 chat_title=message.chat.title,

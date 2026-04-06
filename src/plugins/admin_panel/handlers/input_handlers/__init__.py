@@ -12,6 +12,7 @@ from src.utils.permissions import is_admin
 from .ai_processor import ai_settings_processor
 from .content_processor import content_settings_processor
 from .dispatch_logic import capture_next_input, input_registry
+from .filters_processor import filters_settings_processor
 from .security_processor import numeric_security_processor
 from .system_processor import system_settings_processor
 
