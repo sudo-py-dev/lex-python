@@ -14,7 +14,7 @@ async def raid_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboa
         [
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_raid_toggle", status=status),
+                    await at(chat_id, "common.btn_status", status=status),
                     callback_data="panel:tgs:raidEnabled",
                 ),
             ],
@@ -32,7 +32,7 @@ async def raid_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboa
                 InlineKeyboardButton(
                     await at(
                         chat_id,
-                        "panel.btn_raid_action",
+                        "common.btn_action",
                         action=await at(chat_id, f"action.{settings.raidAction.lower()}"),
                     ),
                     callback_data="panel:cycle:raidAction",
@@ -56,7 +56,7 @@ async def captcha_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKey
         [
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_captcha_toggle", status=status),
+                    await at(chat_id, "common.btn_status", status=status),
                     callback_data="panel:tgs:captchaEnabled",
                 ),
             ],
@@ -92,7 +92,7 @@ async def url_scanner_kb(ctx, chat_id: int, user_id: int | None = None) -> Inlin
         [
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_urlscanner_toggle", status=status),
+                    await at(chat_id, "common.btn_status", status=status),
                     callback_data="panel:tgs:urlScannerEnabled",
                 ),
             ],
@@ -104,6 +104,16 @@ async def url_scanner_kb(ctx, chat_id: int, user_id: int | None = None) -> Inlin
                 InlineKeyboardButton(
                     await at(chat_id, "panel.btn_get_gsb_key"),
                     url="https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(
+                        chat_id,
+                        "common.btn_action",
+                        action=await at(chat_id, f"action.{settings.urlScannerAction.lower()}"),
+                    ),
+                    callback_data="panel:cycle:urlScannerAction",
                 ),
             ],
             [

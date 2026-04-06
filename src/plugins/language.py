@@ -10,7 +10,7 @@ from src.db.models import GroupSettings
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at, list_locales
 
-_CACHE_TTL = 3600
+_CACHE_TTL = 1200  # 20 minutes
 
 LANG_METADATA = {
     "en": ("English", ":United_States:"),

@@ -28,7 +28,7 @@ async def warns_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeybo
                 InlineKeyboardButton(
                     await at(
                         chat_id,
-                        "panel.btn_warn_action",
+                        "common.btn_action",
                         action=await at(chat_id, f"action.{settings.warnAction.lower()}"),
                     ),
                     callback_data="panel:cycle:warnAction",

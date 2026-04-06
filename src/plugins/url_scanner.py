@@ -42,7 +42,7 @@ async def url_scanner_handler(client: Client, message: Message) -> None:
 
     api_key = settings.gsbKey
     if not api_key:
-        logger.warning("URL Scanner: No API key found for chat {}", message.chat.id)
+        logger.debug("URL Scanner: No API key found for chat {}", message.chat.id)
         return
     urls = []
     entities = message.entities or message.caption_entities or []
@@ -64,7 +64,7 @@ async def url_scanner_handler(client: Client, message: Message) -> None:
         acted = await execute_moderation_action(
             client=client,
             message=message,
-            action="delete",
+            action=settings.urlScannerAction,
             reason=await at(message.chat.id, "url_scanner.malicious_reason"),
             violation_key="url_scanner.malicious_detected",
             type=threat_text,

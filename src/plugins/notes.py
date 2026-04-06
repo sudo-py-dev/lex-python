@@ -113,7 +113,7 @@ async def get_note_handler(client: Client, message: Message) -> None:
             await client.send_message(message.from_user.id, note.content)
             await message.reply(await at(message.chat.id, "note.sent_dm"))
         except Exception:
-            await message.reply(await at(message.chat.id, "note.start_private"))
+            await message.reply(await at(message.chat.id, "common.err_start_private"))
     else:
         await message.reply(note.content)
 

@@ -10,7 +10,7 @@ from pyrogram import Client, enums
 from src.cache.local_cache import get_cache
 from src.core.constants import CacheKeys
 
-_TTL = 300
+_TTL = 18000  # 5 hours
 
 
 async def _fetch_and_cache(client: Client, chat_id: int) -> set[int]:

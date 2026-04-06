@@ -10,7 +10,7 @@ from src.cache.local_cache import get_cache
 from src.core.constants import CacheKeys
 from src.db.repositories.approvals import get_all_approved
 
-_TTL = 600  # 10 minutes
+_TTL = 300  # 5 minutes
 
 
 async def _fetch_and_cache_approved(chat_id: int) -> set[int]:

@@ -128,7 +128,7 @@ async def general_category_kb(chat_id: int, user_id: int | None = None) -> Inlin
                     await at(chat_id, "panel.btn_language"), callback_data="panel:language:group"
                 ),
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_service_cleaner"),
+                    await at(chat_id, "common.service_cleaner"),
                     callback_data="panel:svc",
                 ),
             ],
@@ -170,7 +170,7 @@ async def flood_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeybo
             ],
             [
                 InlineKeyboardButton(
-                    await at(at_id, "panel.btn_action", action=settings.floodAction.capitalize()),
+                    await at(at_id, "common.btn_action", action=settings.floodAction.capitalize()),
                     callback_data="panel:toggle_flood_action",
                 ),
             ],
@@ -271,7 +271,7 @@ async def scheduler_menu_kb(chat_id: int, user_id: int | None = None) -> InlineK
                     await at(at_id, "panel.btn_nightlock"), callback_data="panel:nightlock"
                 ),
                 InlineKeyboardButton(
-                    await at(at_id, "panel.btn_cleaner"), callback_data="panel:cleaner"
+                    await at(at_id, "common.service_cleaner"), callback_data="panel:cleaner"
                 ),
             ],
             [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")],

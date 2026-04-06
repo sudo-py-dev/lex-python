@@ -70,7 +70,7 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
 
             if is_pm:
                 kb = await my_groups_kb(ctx, client, user_id)
-                text = await at(user_id, "panel.access_denied_repick")
+                text = await at(user_id, "common.err_access_denied")
                 if isinstance(event, CallbackQuery):
                     await event.message.edit_text(text, reply_markup=kb)
                     await event.answer()

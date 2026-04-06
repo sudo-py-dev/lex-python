@@ -333,6 +333,7 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Detailed logging")
     parser.add_argument("--scan", action="store_true", help="Scan for unlocalized strings in src/")
     parser.add_argument("--unused", action="store_true", help="Detect unused localization keys")
+    parser.add_argument("--prune", action="store_true", help="Prune extra keys from locales without translating")
     args = parser.parse_args()
 
     mgr = LocaleManager(args.verbose)
@@ -345,7 +346,17 @@ def main():
         find_unused_keys(mgr)
         return
 
-    target_langs = args.langs.split(",") if args.langs else DEFAULT_LANGS.keys()
+    if args.langs:
+        target_langs = args.langs.split(",")
+    else:
+        # Automatically detect all locale files in src/locales/
+        target_langs = []
+        for file in os.listdir(LOCALES_DIR):
+            if file.endswith(".json") and file != "en.json":
+                target_langs.append(file.replace(".json", ""))
+
+    if not target_langs:
+        target_langs = list(DEFAULT_LANGS.keys())
 
     print(f"{Fore.CYAN}{Style.BRIGHT}Locale Manager v2.0")
     print(f"{Fore.WHITE}Master: {EN_FILE} ({len(mgr.en_data)} keys)")
@@ -367,6 +378,9 @@ def main():
 
             missing = [k for k in mgr.en_data if k not in data or args.force or k in force_keys]
             extra = [k for k in data if k not in mgr.en_data]
+
+            if args.prune:
+                missing = []
 
             if missing or extra:
                 work_plan.append(
@@ -439,6 +453,12 @@ def main():
                 data[k] = results[i]
 
             global_done += len(missing)
+
+        if extra:
+            print(f"\n{Fore.RED}➤ {lang_name.upper()}: Pruned {len(extra)} extra keys.")
+            if mgr.verbose:
+                for k in extra:
+                    print(f"  {Fore.YELLOW}- {k}")
 
         mgr.save_json(job["path"], data)
 

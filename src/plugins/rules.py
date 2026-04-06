@@ -57,7 +57,7 @@ async def rules_handler(client: Client, message: Message) -> None:
             await client.send_message(message.from_user.id, text)
             await message.reply(await at(message.chat.id, "rules.sent_dm"))
         except Exception:
-            await message.reply(await at(message.chat.id, "rules.start_private"))
+            await message.reply(await at(message.chat.id, "common.err_start_private"))
     else:
         await message.reply(text)
 

@@ -566,8 +566,12 @@ async def protected_panel_callback_handler(
                 )
                 return
             elif field == "urlScannerEnabled":
-                kb = await url_scanner_kb(ctx, chat_id, user_id=user_id if is_pm else None)
                 s = await get_chat_settings(ctx, chat_id)
+                if not s.gsbKey and not s.urlScannerEnabled:  # Trying to enable without key
+                    await callback.answer(await at(at_id, "panel.urlscanner_key_required"), show_alert=True)
+                    return
+                
+                kb = await url_scanner_kb(ctx, chat_id, user_id=user_id if is_pm else None)
                 status = await at(
                     at_id,
                     "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled",
@@ -577,7 +581,7 @@ async def protected_panel_callback_handler(
                         at_id,
                         "panel.urlscanner_text",
                         status=status,
-                        key="********" if s.gsbKey else "None",
+                        key="********" if s.gsbKey else await at(at_id, "panel.not_set"),
                     ),
                     reply_markup=kb,
                 )
@@ -675,6 +679,25 @@ async def protected_panel_callback_handler(
                             mode=await at(at_id, f"mode.{s.captchaMode.lower()}"),
                             timeout=s.captchaTimeout,
                             action=await at(at_id, "action.ban"),
+                        ),
+                        reply_markup=kb,
+                    )
+                elif field == "urlScannerAction":
+                    nxt = {"delete": "warn", "warn": "mute", "mute": "kick", "kick": "ban", "ban": "delete"}[s.urlScannerAction]
+                    s.urlScannerAction = nxt
+                    session.add(s)
+                    await session.commit()
+                    kb = await url_scanner_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+                    status = await at(
+                        at_id,
+                        "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled",
+                    )
+                    await callback.message.edit_text(
+                        await at(
+                            at_id,
+                            "panel.urlscanner_text",
+                            status=status,
+                            key="********" if s.gsbKey else await at(at_id, "panel.not_set"),
                         ),
                         reply_markup=kb,
                     )

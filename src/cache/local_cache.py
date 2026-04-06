@@ -137,7 +137,7 @@ class AsyncSnapshotCache:
         key, _ = self._data.popitem(last=False)
         self._expiries.pop(key, None)
         self._evictions += 1
-        logger.trace(f"Evicted LRU key: {key}")
+        logger.debug(f"Cache reached 10k items. Evicted oldest (LRU): {key}")
 
     async def stats(self) -> dict[str, Any]:
         """Returns cache usage statistics."""

@@ -69,6 +69,9 @@ class GroupSettings(TimestampMixin, Base):
     )
     urlScannerEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     gsbKey: Mapped[str | None] = mapped_column(Text, nullable=True)
+    urlScannerAction: Mapped[str] = mapped_column(
+        String(50), default="delete", server_default=sa_text("'delete'")
+    )
     isActive: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
 
     warns: Mapped[list["UserWarn"]] = relationship(back_populates="group", lazy="raise")

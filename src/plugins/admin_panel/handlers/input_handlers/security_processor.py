@@ -85,11 +85,15 @@ async def string_security_processor(
     user_id = message.from_user.id
     str_value = str(value).strip()
 
-    if not str_value:
+    if str_value.lower() == "reset":
+        await update_chat_setting(ctx, chat_id, "gsbKey", None)
+        await update_chat_setting(ctx, chat_id, "urlScannerEnabled", False)
+        str_value = None
+    elif not str_value:
         await message.reply(await at(user_id, "panel.input_invalid_string"))
         return
-
-    await update_chat_setting(ctx, chat_id, field, str_value)
+    else:
+        await update_chat_setting(ctx, chat_id, field, str_value)
 
     kb, text_id = await _get_security_ui(ctx, chat_id, field, page)
     main_text = await _format_security_text(ctx, chat_id, text_id, str_value)
