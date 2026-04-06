@@ -279,7 +279,10 @@ async def blacklist_kb(
         badge = await at(chat_id, badge_key)
         kb.append(
             [
-                InlineKeyboardButton(f"{badge} {b.pattern}", callback_data="none"),
+                InlineKeyboardButton(
+                    f"{badge} {(b.pattern[:30] + '...') if len(b.pattern) > 30 else b.pattern}",
+                    callback_data="none",
+                ),
                 InlineKeyboardButton("❌", callback_data=f"panel:blacklist_remove:{b.id}:{page}"),
             ]
         )
