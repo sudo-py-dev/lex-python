@@ -541,7 +541,7 @@
   "rules.reset": "✅ Правила очищено.",
   "rules.sent_dm": "✅ Правила надіслано через DM.",
   "rules.set": "✅ Правила оновлено.",
-  "rules.start_private": "common.err_start_private",
+  "rules.start_private": "❌ Будь ласка, спочатку почніть мене особисто.",
   "scheduler.cleanup_summary": "🧹 **Щоденне прибирання завершено!**\n\n- Видалено: {deleted}\n- Підробки: {fakes}\n- Неактивний: {inactive}",
   "scheduler.nightlock_engaged": "🌑 **Нічне блокування включено.** Тепер у групі вимкнено звук до ранку.",
   "scheduler.nightlock_lifted": "☀️ **Нічне блокування знято.** Група відкрита.",

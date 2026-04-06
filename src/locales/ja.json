@@ -541,7 +541,7 @@
   "rules.reset": "✅ ルールはクリアされています。",
   "rules.sent_dm": "✅ ルールはDMでお送りします。",
   "rules.set": "✅ ルールが更新されました。",
-  "rules.start_private": "common.err_start_private",
+  "rules.start_private": "❌ まずはプライベートな話から始めてください。",
   "scheduler.cleanup_summary": "🧹 **毎日のクリーンアップが完了しました!**\n\n- 削除済み: {deleted}\n- 偽物: {fakes}\n- 非アクティブ: {inactive}",
   "scheduler.nightlock_engaged": "🌑 **夜間ロックが有効です。** グループは朝までミュートされます。",
   "scheduler.nightlock_lifted": "☀️ **夜間ロックが解除されました。** グループがオープンしました。",

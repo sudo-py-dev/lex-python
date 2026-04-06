@@ -541,7 +541,7 @@
   "rules.reset": "✅ 规则已明确。",
   "rules.sent_dm": "✅ 通过 DM 发送规则。",
   "rules.set": "✅ 规则已更新。",
-  "rules.start_private": "common.err_start_private",
+  "rules.start_private": "❌请先私聊我。",
   "scheduler.cleanup_summary": "🧹 **每日清理完成！**\n\n- 已删除：{deleted}\n- 假货：{fakes}\n- 不活动：{inactive}",
   "scheduler.nightlock_engaged": "🌑 **夜锁已启用。** 该群组现在保持静音，直到早上。",
   "scheduler.nightlock_lifted": "☀️ **夜锁解除。** 该群组现已开放。",

@@ -541,7 +541,7 @@
   "rules.reset": "✅ नियम साफ़ कर दिए गए हैं.",
   "rules.sent_dm": "✅ नियम डीएम के माध्यम से भेजे गए।",
   "rules.set": "✅ नियम अपडेट कर दिए गए हैं.",
-  "rules.start_private": "Common.err_start_private",
+  "rules.start_private": "❌ कृपया पहले मुझे अकेले में शुरू करें।",
   "scheduler.cleanup_summary": "🧹 **दैनिक सफाई पूर्ण!**\n\n- हटाया गया: {deleted}\n- नकली: {fakes}\n- निष्क्रिय: {inactive}",
   "scheduler.nightlock_engaged": "🌑 **नाइट लॉक एंगेज्ड।** ग्रुप अब सुबह तक म्यूट है।",
   "scheduler.nightlock_lifted": "☀️ **रात का ताला हटा दिया गया।** समूह अब खुला है।",

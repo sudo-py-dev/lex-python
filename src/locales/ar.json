@@ -541,7 +541,7 @@
   "rules.reset": "✅ تم مسح القواعد.",
   "rules.sent_dm": "✅ القواعد ترسل عبر DM.",
   "rules.set": "✅ تم تحديث القواعد.",
-  "rules.start_private": "common.err_start_private",
+  "rules.start_private": "❌من فضلك ابدأني على الخاص أولاً.",
   "scheduler.cleanup_summary": "🧹 **اكتمل التنظيف اليومي!**\n\n- تم الحذف: {deleted}\n- مزيفة: {fakes}\n- غير نشط: {inactive}",
   "scheduler.nightlock_engaged": "🌑 **تم تفعيل القفل الليلي.** تم الآن كتم صوت المجموعة حتى الصباح.",
   "scheduler.nightlock_lifted": "☀️ **تم رفع القفل الليلي.** المجموعة مفتوحة الآن.",

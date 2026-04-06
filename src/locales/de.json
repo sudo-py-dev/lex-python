@@ -541,7 +541,7 @@
   "rules.reset": "✅ Regeln wurden geklärt.",
   "rules.sent_dm": "✅ Regeln per DM verschickt.",
   "rules.set": "✅ Die Regeln wurden aktualisiert.",
-  "rules.start_private": "common.err_start_private",
+  "rules.start_private": "❌ Bitte starten Sie mich zunächst privat.",
   "scheduler.cleanup_summary": "🧹 **Tägliche Bereinigung abgeschlossen!**\n\n- Gelöscht: {deleted}\n- Fälschungen: {fakes}\n- Inaktiv: {inactive}",
   "scheduler.nightlock_engaged": "🌑 **Nachtsperre aktiviert.** Die Gruppe ist jetzt bis zum Morgen stummgeschaltet.",
   "scheduler.nightlock_lifted": "☀️ **Nachtsperre aufgehoben.** Die Gruppe ist jetzt geöffnet.",
