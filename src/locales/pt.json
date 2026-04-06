@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Software indesejado",
   "tmute.success": "🔇 {mention} foi temporariamente silenciado por {duration}.",
   "url_scanner.malicious_detected": "⚠️ **Link malicioso detectado!**\n\nUsuário: {user}\nAmeaça: {threat}",
+  "url_scanner.malicious_reason": "URL malicioso",
   "warn.added": "⚠️ {mention} foi avisado. ({count}/{limit})",
   "warn.cleared_all": "✅ Removido todos os avisos {count} neste chat.",
   "warn.limit_reached": "⚠️ {mention} atingiu o limite de avisos e foi {action}ed.",

@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Perangkat Lunak yang Tidak Diinginkan",
   "tmute.success": "🔇 {mention} telah dinonaktifkan sementara untuk {duration}.",
   "url_scanner.malicious_detected": "⚠️ **Tautan Berbahaya Terdeteksi!**\n\nPengguna: {user}\nAncaman: {threat}",
+  "url_scanner.malicious_reason": "URL berbahaya",
   "warn.added": "⚠️ {mention} telah diperingatkan. ({count}/{limit})",
   "warn.cleared_all": "✅ Menghapus semua peringatan {count} dalam obrolan ini.",
   "warn.limit_reached": "⚠️ {mention} telah mencapai batas peringatan dan {action}dihapus.",

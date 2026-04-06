@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Software indesiderato",
   "tmute.success": "🔇 {mention} è stato temporaneamente disattivato per {duration}.",
   "url_scanner.malicious_detected": "⚠️ **Collegamento dannoso rilevato!**\n\nUtente: {user}\nMinaccia: {threat}",
+  "url_scanner.malicious_reason": "URL dannoso",
   "warn.added": "⚠️ {mention} è stato avvisato. ({count}/{limit})",
   "warn.cleared_all": "✅ Cancellati tutti gli {count} avvisi in questa chat.",
   "warn.limit_reached": "⚠️ {mention} ha raggiunto il limite di avvisi ed è stato {action}ed.",

@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Небажане програмне забезпечення",
   "tmute.success": "🔇 {mention} тимчасово вимкнено для {duration}.",
   "url_scanner.malicious_detected": "⚠️ **Виявлено зловмисне посилання!**\n\nКористувач: {user}\nЗагроза: {threat}",
+  "url_scanner.malicious_reason": "Шкідливий URL",
   "warn.added": "⚠️ {mention} отримав попередження. ({count}/{limit})",
   "warn.cleared_all": "✅ Видалено всі {count} попередження в цьому чаті.",
   "warn.limit_reached": "⚠️ {mention} досяг ліміту попереджень і був {action}ред.",

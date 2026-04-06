@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "不要なソフトウェア",
   "tmute.success": "🔇 {mention} は {duration} に対して一時的にミュートされています。",
   "url_scanner.malicious_detected": "⚠️ **悪意のあるリンクが検出されました!**\n\nユーザー: {user}\n脅威: {threat}",
+  "url_scanner.malicious_reason": "悪意のある URL",
   "warn.added": "⚠️ {mention} は警告されました。 ({count}/{limit})",
   "warn.cleared_all": "✅ このチャットの {count} 警告をすべてクリアしました。",
   "warn.limit_reached": "⚠️ {mention} は警告制限に達したため、{action} されました。",

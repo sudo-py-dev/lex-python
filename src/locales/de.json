@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Unerwünschte Software",
   "tmute.success": "🔇 {mention} wurde für {duration} vorübergehend stummgeschaltet.",
   "url_scanner.malicious_detected": "⚠️ **Bösartiger Link erkannt!**\n\nBenutzer: {user}\nBedrohung: {threat}",
+  "url_scanner.malicious_reason": "Schädliche URL",
   "warn.added": "⚠️ {mention} wurde gewarnt. ({count}/{limit})",
   "warn.cleared_all": "✅ Alle {count} Warnungen in diesem Chat gelöscht.",
   "warn.limit_reached": "⚠️ {mention} hat das Warnlimit erreicht und wurde {action}ed.",

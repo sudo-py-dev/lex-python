@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "不需要的软件",
   "tmute.success": "🔇 {mention} 已暂时静音 {duration}。",
   "url_scanner.malicious_detected": "⚠️ **检测到恶意链接！**\n\n用户：{user}\n威胁：{threat}",
+  "url_scanner.malicious_reason": "恶意网址",
   "warn.added": "⚠️ {mention} 已收到警告。 ({count}/{limit})",
   "warn.cleared_all": "✅ 清除了此聊天中的所有 {count} 警告。",
   "warn.limit_reached": "⚠️ {mention} 已达到警告限制，已被 {action} 编辑。",

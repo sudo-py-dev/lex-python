@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "İstenmeyen Yazılım",
   "tmute.success": "🔇 {mention}, {duration} için geçici olarak sessize alındı.",
   "url_scanner.malicious_detected": "⚠️ **Kötü Amaçlı Bağlantı Algılandı!**\n\nKullanıcı: {user}\nTehdit: {threat}",
+  "url_scanner.malicious_reason": "Kötü amaçlı URL",
   "warn.added": "⚠️ {mention} uyarıldı. ({count}/{limit})",
   "warn.cleared_all": "✅ Bu sohbetteki tüm {count} uyarıları temizlendi.",
   "warn.limit_reached": "⚠️ {mention} uyarı sınırına ulaştı ve {action}edildi.",

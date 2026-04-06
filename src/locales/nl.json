@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Ongewenste software",
   "tmute.success": "🔇 {mention} is tijdelijk gedempt voor {duration}.",
   "url_scanner.malicious_detected": "⚠️ **Schadelijke link gedetecteerd!**\n\nGebruiker: {user}\nBedreiging: {threat}",
+  "url_scanner.malicious_reason": "Schadelijke URL",
   "warn.added": "⚠️ {mention} is gewaarschuwd. ({count}/{limit})",
   "warn.cleared_all": "✅ Alle {count} waarschuwingen in deze chat gewist.",
   "warn.limit_reached": "⚠️ {mention} heeft de waarschuwingslimiet bereikt en is {action}ed.",

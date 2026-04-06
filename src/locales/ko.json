@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "원치 않는 소프트웨어",
   "tmute.success": "🔇 {mention}가 {duration}에 대해 일시적으로 음소거되었습니다.",
   "url_scanner.malicious_detected": "⚠️ **악성링크가 감지되었습니다!**\n\n사용자: {user}\n위협: {threat}",
+  "url_scanner.malicious_reason": "악성 URL",
   "warn.added": "⚠️ {mention}님이 경고를 받았습니다. ({count}/{limit})",
   "warn.cleared_all": "✅ 이 채팅의 {count} 경고를 모두 지웠습니다.",
   "warn.limit_reached": "⚠️ {mention}이(가) 경고 제한에 도달하여 {action}되었습니다.",

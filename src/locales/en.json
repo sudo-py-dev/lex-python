@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Unwanted Software",
   "tmute.success": "🔇 {mention} has been temporarily muted for {duration}.",
   "url_scanner.malicious_detected": "⚠️ **Malicious Link Detected!**\n\nUser: {user}\nThreat: {threat}",
+  "url_scanner.malicious_reason": "Malicious URL",
   "warn.added": "⚠️ {mention} has been warned. ({count}/{limit})",
   "warn.cleared_all": "✅ Cleared all {count} warnings in this chat.",
   "warn.limit_reached": "⚠️ {mention} has reached the warn limit and was {action}ed.",

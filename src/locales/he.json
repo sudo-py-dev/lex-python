@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "תוכנה לא רצויה",
   "tmute.success": "🔇 המשתמש {mention} הושתק זמנית למשך {duration}.",
   "url_scanner.malicious_detected": "⚠️ **זוהה קישור זדוני!**\n\nמשתמש: {user}\nאיום: {threat}",
+  "url_scanner.malicious_reason": "כתובת אתר זדונית",
   "warn.added": "⚠️ {mention} קיבל אזהרה. ({count}/{limit})",
   "warn.cleared_all": "✅ נוקו {count} אזהרות בקבוצה זו.",
   "warn.limit_reached": "⚠️ {mention} הגיע למגבלת האזהרות ובוצע {action}.",

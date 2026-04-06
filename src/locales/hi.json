@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "अवांछित सॉफ़्टवेयर",
   "tmute.success": "🔇 {mention} को {duration} के लिए अस्थायी रूप से म्यूट कर दिया गया है।",
   "url_scanner.malicious_detected": "⚠️ **दुर्भावनापूर्ण लिंक का पता चला!**\n\nउपयोगकर्ता: {user}\nखतरा: {threat}",
+  "url_scanner.malicious_reason": "दुर्भावनापूर्ण यूआरएल",
   "warn.added": "⚠️ {mention} को चेतावनी दी गई है। ({count}/{limit})",
   "warn.cleared_all": "✅ इस चैट में सभी {count} चेतावनियाँ साफ़ कर दी गईं।",
   "warn.limit_reached": "⚠️ {mention} चेतावनी सीमा तक पहुंच गया है और {action}एड था।",

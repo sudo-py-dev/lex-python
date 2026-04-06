@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Нежелательное программное обеспечение",
   "tmute.success": "🔇 {mention} временно отключен для {duration}.",
   "url_scanner.malicious_detected": "⚠️ **Обнаружена вредоносная ссылка!**\n\nПользователь: {user}\nУгроза: {threat}",
+  "url_scanner.malicious_reason": "Вредоносный URL-адрес",
   "warn.added": "⚠️ {mention} получил предупреждение. ({count}/{limit})",
   "warn.cleared_all": "✅ Удалены все предупреждения {count} в этом чате.",
   "warn.limit_reached": "⚠️ {mention} достиг предела предупреждений и был {action} удален.",

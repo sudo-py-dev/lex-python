@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Logiciels indésirables",
   "tmute.success": "🔇 {mention} a été temporairement désactivé pour {duration}.",
   "url_scanner.malicious_detected": "⚠️ **Lien malveillant détecté !**\n\nUtilisateur : {user}\nMenace : {threat}",
+  "url_scanner.malicious_reason": "URL malveillante",
   "warn.added": "⚠️ {mention} a été prévenu. ({count}/{limit})",
   "warn.cleared_all": "✅ Effacement de tous les {count} avertissements dans ce chat.",
   "warn.limit_reached": "⚠️ {mention} a atteint la limite d'avertissement et a été {action}ed.",

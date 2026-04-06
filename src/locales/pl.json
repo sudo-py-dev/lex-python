@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Niechciane oprogramowanie",
   "tmute.success": "🔇 {mention} został tymczasowo wyciszony przez {duration}.",
   "url_scanner.malicious_detected": "⚠️ **Wykryto złośliwy link!**\n\nUżytkownik: {user}\nZagrożenie: {threat}",
+  "url_scanner.malicious_reason": "Złośliwy adres URL",
   "warn.added": "⚠️ {mention} został ostrzeżony. ({count}/{limit})",
   "warn.cleared_all": "✅ Usunięto wszystkie {count} ostrzeżenia na tym czacie.",
   "warn.limit_reached": "⚠️ {mention} osiągnął limit ostrzeżeń i został {action}ed.",

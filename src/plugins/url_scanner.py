@@ -8,6 +8,7 @@ from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.group_settings import get_settings
 from src.utils.decorators import safe_handler
+from src.utils.i18n import at
 from src.utils.moderation import execute_moderation_action, resolve_sender
 from src.utils.url_scanner import is_url_malicious
 
@@ -64,7 +65,7 @@ async def url_scanner_handler(client: Client, message: Message) -> None:
             client=client,
             message=message,
             action="delete",
-            reason="Malicious URL",
+            reason=await at(message.chat.id, "url_scanner.malicious_reason"),
             violation_key="url_scanner.malicious_detected",
             type=threat_text,
         )

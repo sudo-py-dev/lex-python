@@ -459,6 +459,7 @@
   "threat_types.UNWANTED_SOFTWARE": "البرامج غير المرغوب فيها",
   "tmute.success": "🔇 تم كتم صوت {mention} مؤقتًا لمدة {duration}.",
   "url_scanner.malicious_detected": "⚠️ **تم اكتشاف رابط ضار!**\n\nالمستخدم: {user}\nالتهديد: {threat}",
+  "url_scanner.malicious_reason": "عنوان URL ضار",
   "warn.added": "⚠️ تم تحذير {mention}. ({count}/{limit})",
   "warn.cleared_all": "✅ مسح جميع التحذيرات {count} في هذه الدردشة.",
   "warn.limit_reached": "⚠️ وصل {mention} إلى حد التحذير وتم إصدار {action}.",
