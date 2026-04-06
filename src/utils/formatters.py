@@ -194,7 +194,6 @@ class TelegramFormatter:
         )
         # Caption comes from parsed["text"]; buttons from parsed["reply_markup"]
         common = dict(
-            chat_id=chat_id,
             caption=parsed["text"] or None,
             reply_markup=parsed["reply_markup"],
             disable_notification=parsed["disable_notification"],
@@ -220,4 +219,4 @@ class TelegramFormatter:
         if response_type in ("sticker", "video_note"):
             common.pop("caption", None)
 
-        return await sender(file_id, **common)
+        return await sender(chat_id, file_id, **common)
