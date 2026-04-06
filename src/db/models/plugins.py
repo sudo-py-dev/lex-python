@@ -33,6 +33,7 @@ class Filter(Base):
         String(50), default="text", server_default=sa_text("'text'")
     )
     responseData: Mapped[str] = mapped_column(Text)
+    fileId: Mapped[str | None] = mapped_column(String(255), nullable=True)
     createdAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )

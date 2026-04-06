@@ -54,14 +54,12 @@ HELP_CATEGORIES = [
 
 
 async def get_help_kb(chat_id: int) -> InlineKeyboardMarkup:
-    """ Generate the 3-column grid of help categories. """
+    """Generate the 3-column grid of help categories."""
     buttons = []
     row = []
     for cat_id, label_key in HELP_CATEGORIES:
         row.append(
-            InlineKeyboardButton(
-                await at(chat_id, label_key), callback_data=f"help:cat:{cat_id}"
-            )
+            InlineKeyboardButton(await at(chat_id, label_key), callback_data=f"help:cat:{cat_id}")
         )
         if len(row) == 3:
             buttons.append(row)
@@ -71,11 +69,7 @@ async def get_help_kb(chat_id: int) -> InlineKeyboardMarkup:
 
     # Back to start button
     buttons.append(
-        [
-            InlineKeyboardButton(
-                await at(chat_id, "help.back_btn"), callback_data="help:start"
-            )
-        ]
+        [InlineKeyboardButton(await at(chat_id, "help.back_btn"), callback_data="help:start")]
     )
     return InlineKeyboardMarkup(buttons)
 
@@ -114,13 +108,7 @@ async def help_callback_handler(client: Client, callback_query: CallbackQuery) -
         cat_id = data.replace("help:cat:", "")
         text = await at(chat_id, f"help.{cat_id}_text")
         kb = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        await at(chat_id, "help.back_btn"), callback_data="help:main"
-                    )
-                ]
-            ]
+            [[InlineKeyboardButton(await at(chat_id, "help.back_btn"), callback_data="help:main")]]
         )
         await callback_query.message.edit_text(text, reply_markup=kb)
 

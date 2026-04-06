@@ -5,10 +5,10 @@ from pyrogram.types import Message
 
 from src.cache.local_cache import get_cache
 from src.core.bot import bot
+from src.core.context import get_context
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
 
-from . import get_ctx
 from .repository import AIRepository
 from .service import AIService
 
@@ -33,7 +33,7 @@ async def ai_message_handler(client: Client, message: Message):
     if not text or text.startswith("/"):
         return
 
-    ctx = get_ctx()
+    ctx = get_context()
     cache = get_cache()
 
     logger.debug(f"AI [{chat_id}] Handler triggered. User: {user_name} ({user_id})")

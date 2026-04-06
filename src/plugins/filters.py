@@ -33,28 +33,90 @@ class FiltersPlugin(Plugin):
 @admin_only
 async def add_filter_handler(client: Client, message: Message) -> None:
     """Add a new auto-reply filter to the current group."""
-    if len(message.command) < 3:
+    # Usage:
+    # 1. /filter keyword response
+    # 2. Reply to a message: /filter keyword
+
+    if len(message.command) < 2:
         return
 
-    text_after_cmd = message.text.split(None, 1)[1]
+    # 1. Determine Keyword
+    text_after_cmd = message.text.split(None, 1)[1] if " " in message.text else ""
+    keyword = ""
+    response = ""
+
     if text_after_cmd.startswith('"') or text_after_cmd.startswith("'"):
         quote_char = text_after_cmd[0]
         end_idx = text_after_cmd.find(quote_char, 1)
         if end_idx != -1:
             keyword = text_after_cmd[1:end_idx].lower()
-            response = text_after_cmd[end_idx+1:].strip()
+            response = text_after_cmd[end_idx + 1 :].strip()
         else:
             keyword = message.command[1].lower()
-            response = message.text.split(None, 2)[2]
+            response = message.text.split(None, 2)[2] if len(message.command) > 2 else ""
     else:
         keyword = message.command[1].lower()
-        response = message.text.split(None, 2)[2]
+        response = message.text.split(None, 2)[2] if len(message.command) > 2 else ""
 
-    if not response:
+    # 2. Determine Response (Media vs Text)
+    response_type = "text"
+    file_id = None
+
+    if message.reply_to_message:
+        reply = message.reply_to_message
+
+        # Check media types
+        media_obj = (
+            reply.photo
+            or reply.video
+            or reply.document
+            or reply.animation
+            or reply.sticker
+            or reply.audio
+            or reply.voice
+            or reply.video_note
+        )
+
+        if media_obj:
+            file_id = getattr(media_obj, "file_id", None)
+            if reply.photo:
+                response_type = "photo"
+            elif reply.video:
+                response_type = "video"
+            elif reply.document:
+                response_type = "document"
+            elif reply.animation:
+                response_type = "animation"
+            elif reply.sticker:
+                response_type = "sticker"
+            elif reply.audio:
+                response_type = "audio"
+            elif reply.voice:
+                response_type = "voice"
+            elif reply.video_note:
+                response_type = "video_note"
+
+            # If command has a response part, use it as caption
+            # Otherwise, use the media's original caption
+            if not response:
+                response = reply.caption or ""
+        else:
+            # Reply to a text message (but no media)
+            if not response:
+                response = reply.text or ""
+
+    if not response and not file_id:
         return
 
     ctx = get_context()
-    await add_filter(ctx, message.chat.id, keyword, response)
+    await add_filter(
+        ctx,
+        message.chat.id,
+        keyword,
+        response_data=response,
+        response_type=response_type,
+        file_id=file_id,
+    )
     await message.reply(await at(message.chat.id, "filter.added", keyword=keyword))
     await message.stop_propagation()
 
@@ -129,9 +191,23 @@ async def filters_interceptor(client: Client, message: Message) -> None:
                 user=message.from_user,
                 chat_id=message.chat.id,
                 chat_title=message.chat.title,
-                bot_username=client.me.username
+                bot_username=client.me.username,
             )
-            await TelegramFormatter.send_parsed(client, message.chat.id, parsed, reply_to_message_id=message.id)
+
+            if f.fileId:
+                await TelegramFormatter.send_media_parsed(
+                    client,
+                    message.chat.id,
+                    f.responseType,
+                    f.fileId,
+                    parsed,
+                    reply_to_message_id=message.id,
+                )
+            else:
+                await TelegramFormatter.send_parsed(
+                    client, message.chat.id, parsed, reply_to_message_id=message.id
+                )
+
             await message.stop_propagation()
             break
 

@@ -38,7 +38,7 @@ async def main() -> None:
     scheduler.add_job(cache.save_snapshot, "interval", minutes=4, id="cache_snapshot")
     scheduler.add_job(cache.cleanup_expired, "interval", minutes=5, id="cache_cleanup")
 
-    ctx = AppContext(session_factory=AsyncSessionLocal, cache=cache, scheduler=scheduler)
+    ctx = AppContext(db=AsyncSessionLocal, cache=cache, scheduler=scheduler)
     set_context(ctx)
 
     autodiscover("src.plugins")

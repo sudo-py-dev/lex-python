@@ -131,7 +131,9 @@ async def get_note_handler(client: Client, message: Message) -> None:
             chat_title=message.chat.title,
             bot_username=client.me.username,
         )
-        await TelegramFormatter.send_parsed(client, message.chat.id, parsed, reply_to_message_id=message.id)
+        await TelegramFormatter.send_parsed(
+            client, message.chat.id, parsed, reply_to_message_id=message.id
+        )
 
     await message.stop_propagation()
 
@@ -195,7 +197,9 @@ async def hash_note_handler(client: Client, message: Message) -> None:
             chat_title=message.chat.title,
             bot_username=client.me.username,
         )
-        await TelegramFormatter.send_parsed(client, message.chat.id, parsed, reply_to_message_id=message.id)
+        await TelegramFormatter.send_parsed(
+            client, message.chat.id, parsed, reply_to_message_id=message.id
+        )
         await message.stop_propagation()
 
 

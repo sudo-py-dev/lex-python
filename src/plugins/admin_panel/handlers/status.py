@@ -3,7 +3,7 @@ from pyrogram.enums import ChatMemberStatus, ChatType
 from pyrogram.types import ChatMemberUpdated
 
 from src.core.bot import bot
-from src.plugins.admin_panel import get_ctx
+from src.core.context import get_context
 from src.plugins.admin_panel.repository import set_chat_active_status
 from src.utils.admin_cache import invalidate_cache
 
@@ -21,7 +21,7 @@ async def on_my_status_update(client: Client, update: ChatMemberUpdated):
 
     new_status = update.new_chat_member.status
     old_status = update.old_chat_member.status
-    ctx = get_ctx()
+    ctx = get_context()
 
     if new_status == ChatMemberStatus.ADMINISTRATOR:
         await set_chat_active_status(ctx, chat_id, True)

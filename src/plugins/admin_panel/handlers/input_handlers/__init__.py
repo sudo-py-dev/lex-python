@@ -4,7 +4,7 @@ from pyrogram.types import Message
 
 from src.cache.local_cache import get_cache
 from src.core.bot import bot
-from src.plugins.admin_panel import get_ctx
+from src.core.context import get_context
 from src.utils.i18n import at
 from src.utils.permissions import is_admin
 
@@ -48,7 +48,7 @@ async def dispatch_admin_input(client: Client, message: Message) -> None:
         await message.reply(await at(user_id, "panel.error_not_admin"))
         return
 
-    ctx = get_ctx()
+    ctx = get_context()
     value = message.text if message.text else message
 
     handled = await input_registry.dispatch(

@@ -22,9 +22,6 @@ class WelcomePlugin(Plugin):
         pass
 
 
-
-
-
 async def send_welcome(client: Client, chat_id: int, chat_title: str, user: User) -> None:
     """Send a welcome message to a specific user in a chat."""
     ctx = get_context()

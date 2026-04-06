@@ -4,11 +4,11 @@ from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.core.bot import bot
+from src.core.context import get_context
 from src.plugins.connections import set_active_chat
 from src.utils.i18n import at
 from src.utils.permissions import is_admin
 
-from .. import get_ctx
 from ..decorators import AdminPanelContext, admin_panel_context
 from .keyboards import main_menu_kb, my_groups_kb
 
@@ -29,7 +29,7 @@ async def settings_handler(client: Client, message: Message, ap_ctx: AdminPanelC
 
 
 async def open_settings_panel(client: Client, message: Message, chat_id: int) -> None:
-    ctx = get_ctx()
+    ctx = get_context()
     user_id = message.from_user.id
     is_pm = message.chat.type == ChatType.PRIVATE
 

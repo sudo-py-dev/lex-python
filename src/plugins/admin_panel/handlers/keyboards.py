@@ -272,7 +272,8 @@ async def filters_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> Inli
             [
                 InlineKeyboardButton(f"📜 {f.keyword}", callback_data="none"),
                 InlineKeyboardButton(
-                    await at(at_id, "panel.btn_delete_filter"), callback_data=f"panel:delete_filter:{f.id}"
+                    await at(at_id, "panel.btn_delete_filter"),
+                    callback_data=f"panel:delete_filter:{f.id}",
                 ),
             ]
         )
@@ -287,7 +288,11 @@ async def filters_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> Inli
         )
 
     buttons.append(
-        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:category:general")]
+        [
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_back"), callback_data="panel:category:general"
+            )
+        ]
     )
     return InlineKeyboardMarkup(buttons)
 

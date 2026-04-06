@@ -85,11 +85,7 @@ async def send_start_message(client: Client, message: Message, edit: bool = Fals
 
     kb = InlineKeyboardMarkup(
         [
-            [
-                InlineKeyboardButton(
-                    await at(chat_id, "help.start_btn"), callback_data="help:main"
-                )
-            ],
+            [InlineKeyboardButton(await at(chat_id, "help.start_btn"), callback_data="help:main")],
             [
                 InlineKeyboardButton(
                     await at(chat_id, "help.groups_btn"), callback_data="panel:my_groups"

@@ -7,11 +7,11 @@ from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMa
 
 from src.cache.local_cache import get_cache
 from src.core.bot import bot
+from src.core.context import get_context
 from src.db.models import GroupCleaner, NightLock, Reminder
 from src.plugins.ai_assistant.repository import AIRepository
 from src.utils.i18n import at
 
-from .. import get_ctx
 from ..decorators import AdminPanelContext, admin_panel_context
 from ..repository import get_chat_settings, toggle_service_type, toggle_setting
 from .ai_kbs import ai_menu_kb, model_selection_kb
@@ -42,7 +42,7 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
 
     data = callback.data.split(":")
     action = data[1]
-    ctx = get_ctx()
+    ctx = get_context()
     user_id = callback.from_user.id
 
     if action == "close":
@@ -321,6 +321,7 @@ async def protected_panel_callback_handler(
         if len(data) >= 3:
             f_id = int(data[2])
             from src.db.repositories.filters import remove_filter_by_id
+
             success = await remove_filter_by_id(ctx, f_id)
             if success:
                 await callback.answer(await at(at_id, "common.done"))
@@ -330,6 +331,7 @@ async def protected_panel_callback_handler(
             await callback.message.edit_reply_markup(reply_markup=kb)
     elif action == "clear_filters":
         from src.db.repositories.filters import remove_all_filters
+
         await remove_all_filters(ctx, chat_id)
         await callback.answer(await at(at_id, "common.done"))
         kb = await filters_menu_kb(ctx, chat_id, user_id=user_id if is_pm else None)

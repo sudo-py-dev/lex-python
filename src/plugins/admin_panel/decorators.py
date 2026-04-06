@@ -10,12 +10,10 @@ from pyrogram import Client
 from pyrogram.enums import ChatType
 from pyrogram.types import CallbackQuery, Message
 
-from src.core.context import AppContext
+from src.core.context import AppContext, get_context
 from src.plugins.connections import get_active_chat
 from src.utils.i18n import at
 from src.utils.permissions import is_admin
-
-from . import get_ctx
 
 
 @dataclass
@@ -44,7 +42,7 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
         if message and message.chat.type == ChatType.PRIVATE:
             is_pm = True
 
-        ctx = get_ctx()
+        ctx = get_context()
 
         if not is_pm:
             chat_id = message.chat.id

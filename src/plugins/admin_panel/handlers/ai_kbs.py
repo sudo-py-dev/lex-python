@@ -1,14 +1,13 @@
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from src.core.context import get_context
 from src.plugins.ai_assistant.repository import AIRepository
 from src.utils.i18n import at
-
-from .. import get_ctx
 
 
 async def ai_menu_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
     at_id = user_id if user_id else chat_id
-    ctx = get_ctx()
+    ctx = get_context()
     settings = await AIRepository.get_settings(ctx, chat_id)
 
     is_enabled = settings.isEnabled if settings else False

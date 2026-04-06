@@ -178,3 +178,46 @@ class TelegramFormatter:
             protect_content=parsed["protect_content"],
             reply_parameters=reply_params,
         )
+
+    @staticmethod
+    async def send_media_parsed(
+        client,
+        chat_id: int,
+        response_type: str,
+        file_id: str,
+        parsed: ParsedMessage,
+        reply_to_message_id: int | None = None,
+    ) -> Any:
+        """Send a media filter response (photo, video, document, etc) with caption + buttons."""
+        reply_params = (
+            ReplyParameters(message_id=reply_to_message_id) if reply_to_message_id else None
+        )
+        # Caption comes from parsed["text"]; buttons from parsed["reply_markup"]
+        common = dict(
+            chat_id=chat_id,
+            caption=parsed["text"] or None,
+            reply_markup=parsed["reply_markup"],
+            disable_notification=parsed["disable_notification"],
+            protect_content=parsed["protect_content"],
+            reply_parameters=reply_params,
+        )
+        _DISPATCH: dict[str, Any] = {
+            "photo": client.send_photo,
+            "video": client.send_video,
+            "document": client.send_document,
+            "audio": client.send_audio,
+            "voice": client.send_voice,
+            "animation": client.send_animation,
+            "sticker": client.send_sticker,
+            "video_note": client.send_video_note,
+        }
+        sender = _DISPATCH.get(response_type)
+        if sender is None:
+            # Fall back to plain message if type is unknown
+            return await TelegramFormatter.send_parsed(client, chat_id, parsed, reply_to_message_id)
+
+        # Stickers and video notes do NOT support captions
+        if response_type in ("sticker", "video_note"):
+            common.pop("caption", None)
+
+        return await sender(file_id, **common)
