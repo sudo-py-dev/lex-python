@@ -138,6 +138,7 @@ async def flood_interceptor(client: Client, message: Message) -> None:
     if count > settings.floodThreshold:
         with contextlib.suppress(Exception):
             await message.delete()
+        await message.stop_propagation()
 
 
 register(FloodPlugin())

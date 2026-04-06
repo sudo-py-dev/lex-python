@@ -158,7 +158,7 @@ async def entity_block_interceptor(client: Client, message: Message) -> None:
         return
     type_label = await at(message.chat.id, f"lock.{violated_block.entityType}")
     reason = await at(message.chat.id, "reason.blocked_entity", type=type_label)
-    await execute_moderation_action(
+    acted = await execute_moderation_action(
         client=client,
         message=message,
         action=violated_block.action,
@@ -167,6 +167,8 @@ async def entity_block_interceptor(client: Client, message: Message) -> None:
         violation_key="entityblock.violation",
         type=type_label,
     )
+    if acted:
+        await message.stop_propagation()
 
 
 register(EntityBlockPlugin())

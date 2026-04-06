@@ -212,7 +212,7 @@ async def lang_block_interceptor(client: Client, message: Message) -> None:
     if not violated_block:
         return
     reason = await at(message.chat.id, "reason.blocked_language", lang=violated_block.langCode)
-    await execute_moderation_action(
+    acted = await execute_moderation_action(
         client=client,
         message=message,
         action=violated_block.action,
@@ -221,6 +221,8 @@ async def lang_block_interceptor(client: Client, message: Message) -> None:
         violation_key="langblock.violation",
         lang=violated_block.langCode.upper(),
     )
+    if acted:
+        await message.stop_propagation()
 
 
 register(LangBlockPlugin())

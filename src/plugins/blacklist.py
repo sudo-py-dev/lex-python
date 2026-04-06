@@ -127,6 +127,7 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
         action = settings.blacklistAction.lower()
         try:
             await message.delete()
+            await message.stop_propagation()
             if action == "mute":
                 await client.restrict_chat_member(message.chat.id, user_id, RESTRICTED_PERMISSIONS)
             elif action == "kick":

@@ -22,7 +22,7 @@ class AntispamPlugin(Plugin):
         pass
 
 
-@bot.on_message(filters.group & filters.text, group=5)
+@bot.on_message(filters.group & filters.text, group=3)
 @safe_handler
 async def antispam_handler(client: Client, message: Message) -> None:
     """Detect duplicate text and delete if user is spamming within a short window."""
@@ -41,6 +41,7 @@ async def antispam_handler(client: Client, message: Message) -> None:
     if last_hash and last_hash == text_hash:
         with contextlib.suppress(Exception):
             await message.delete()
+        await message.stop_propagation()
     else:
         await ctx.cache.set(key, text_hash, ttl=60)
 
