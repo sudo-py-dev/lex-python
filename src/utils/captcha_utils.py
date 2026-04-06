@@ -5,7 +5,7 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from src.utils.i18n import at
+from src.utils.i18n import at, t
 
 
 def generate_math_captcha():
@@ -35,33 +35,44 @@ async def generate_poll_captcha(chat_id: int):
 
 
 CAPTCHA_OBJECTS = {
-    "Apple": "🍎",
-    "Car": "🚗",
-    "Dog": "🐶",
-    "Cat": "🐱",
-    "Banana": "🍌",
-    "Soccer": "⚽",
-    "Guitar": "🎸",
-    "Robot": "🤖",
-    "Plane": "✈️",
-    "Tree": "🌳",
-    "House": "🏠",
-    "Sun": "☀️",
+    "apple": "🍎",
+    "car": "🚗",
+    "dog": "🐶",
+    "cat": "🐱",
+    "banana": "🍌",
+    "soccer": "⚽",
+    "guitar": "🎸",
+    "robot": "🤖",
+    "plane": "✈️",
+    "tree": "🌳",
+    "house": "🏠",
+    "sun": "☀️",
 }
 
 
-def generate_image_captcha():
+def generate_image_captcha(lang: str = "en"):
     """Generates a Multi-Modal Logic Challenge CAPTCHA image with random emojis and a target marker."""
     width, height = 400, 150
     bg_color = (random.randint(230, 255), random.randint(230, 255), random.randint(230, 255))
     image = Image.new("RGB", (width, height), color=bg_color)
     draw = ImageDraw.Draw(image)
 
-    font_path = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"
+    # Robust path discovery relative to the project root
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    assets_dir = os.path.join(base_dir, "assets")
+    emoji_font_path = os.path.join(assets_dir, "fonts", "NotoColorEmoji.ttf")
+    text_font_path = os.path.join(assets_dir, "fonts", "DejaVuSans.ttf")
+
     emoji_font = None
-    if os.path.exists(font_path):
+    text_font = None
+
+    if os.path.exists(emoji_font_path):
         with contextlib.suppress(Exception):
-            emoji_font = ImageFont.truetype(font_path, 109)
+            emoji_font = ImageFont.truetype(emoji_font_path, 109)
+
+    if os.path.exists(text_font_path):
+        with contextlib.suppress(Exception):
+            text_font = ImageFont.truetype(text_font_path, 80)
 
     all_names = list(CAPTCHA_OBJECTS.keys())
     selected_names = random.sample(all_names, 3)
@@ -76,10 +87,11 @@ def generate_image_captcha():
         emoji = CAPTCHA_OBJECTS[name]
         final_pos = (pos[0] + random.randint(-10, 10), pos[1] + random.randint(-5, 5))
 
+        localized_name = t(lang, f"captcha.object.{name}")
         if emoji_font:
             draw.text(final_pos, emoji, font=emoji_font, embedded_color=True)
         else:
-            draw.text(final_pos, name.upper(), fill=(0, 0, 0))
+            draw.text(final_pos, localized_name.upper(), font=text_font, fill=(0, 0, 0))
 
         if name == target_name:
             target_pos = final_pos

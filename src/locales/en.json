@@ -450,5 +450,17 @@
   "misc.slap_3": "slaps {target} into the next room.",
   "misc.slap_4": "slaps {target} with a wet noodle.",
   "warns.no_warns": "No warns found.",
-  "common.user_id_label": "User ID:"
+  "common.user_id_label": "User ID:",
+  "captcha.object.apple": "Apple",
+  "captcha.object.car": "Car",
+  "captcha.object.dog": "Dog",
+  "captcha.object.cat": "Cat",
+  "captcha.object.banana": "Banana",
+  "captcha.object.soccer": "Soccer",
+  "captcha.object.guitar": "Guitar",
+  "captcha.object.robot": "Robot",
+  "captcha.object.plane": "Plane",
+  "captcha.object.tree": "Tree",
+  "captcha.object.house": "House",
+  "captcha.object.sun": "Sun"
 }

@@ -26,7 +26,7 @@ from src.utils.captcha_utils import (
     generate_poll_captcha,
 )
 from src.utils.decorators import safe_handler
-from src.utils.i18n import at
+from src.utils.i18n import at, resolve_lang
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
     UNRESTRICTED_PERMISSIONS,
@@ -108,7 +108,8 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
                     )
                 )
             elif mode == "image":
-                img_io, answer, options = generate_image_captcha()
+                lang = await resolve_lang(message.chat.id)
+                img_io, answer, options = generate_image_captcha(lang=lang)
                 id_map = {uuid.uuid4().hex[:8]: opt for opt in options}
                 kb = InlineKeyboardMarkup(
                     [

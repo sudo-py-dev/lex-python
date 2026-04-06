@@ -168,12 +168,32 @@ class ScanVisitor(ast.NodeVisitor):
 
     def is_logger_call(self, node: ast.Call) -> bool:
         # Handle logger.info(...), log.debug(...), etc.
-        if isinstance(node.func, ast.Attribute) and \
-           isinstance(node.func.value, ast.Name) and node.func.value.id in ["logger", "log"]:
-            if node.func.attr in ["debug", "info", "warning", "error", "exception", "critical", "trace", "success"]:
+        if (
+            isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in ["logger", "log"]
+        ):
+            if node.func.attr in [
+                "debug",
+                "info",
+                "warning",
+                "error",
+                "exception",
+                "critical",
+                "trace",
+                "success",
+            ]:
                 return True
         # Handle info(...), debug(...) if imported directly
-        elif isinstance(node.func, ast.Name) and node.func.id in ["debug", "info", "warning", "error", "exception", "trace", "success"]:
+        elif isinstance(node.func, ast.Name) and node.func.id in [
+            "debug",
+            "info",
+            "warning",
+            "error",
+            "exception",
+            "trace",
+            "success",
+        ]:
             return True
         return False
 
@@ -181,7 +201,7 @@ class ScanVisitor(ast.NodeVisitor):
         old_in_logger = self.in_logger
         if self.is_logger_call(node):
             self.in_logger = True
-        
+
         self.generic_visit(node)
         self.in_logger = old_in_logger
 
@@ -202,13 +222,13 @@ class ScanVisitor(ast.NodeVisitor):
 
         # Skip common technical patterns (regex, paths, log formats, AI prompts)
         technical_patterns = [
-            r"^[A-Z_]+$", # Constants
-            r"<.*?>",     # Loguru coloring / tags
-            r"^IDENTITY:", # AI Identity prompt
-            r"^\d+ (MB|GB|KB|week|day|month|year)s?$", # Config values
-            r"\{time:.*?\}", # Loguru time format
-            r"^https?://", # URLs
-            r"^[a-z0-9_\-\.]+\.[a-z]{2,4}(/.*)?$", # Domains
+            r"^[A-Z_]+$",  # Constants
+            r"<.*?>",  # Loguru coloring / tags
+            r"^IDENTITY:",  # AI Identity prompt
+            r"^\d+ (MB|GB|KB|week|day|month|year)s?$",  # Config values
+            r"\{time:.*?\}",  # Loguru time format
+            r"^https?://",  # URLs
+            r"^[a-z0-9_\-\.]+\.[a-z]{2,4}(/.*)?$",  # Domains
         ]
         if any(re.search(p, val) for p in technical_patterns):
             return
@@ -224,14 +244,16 @@ class ScanVisitor(ast.NodeVisitor):
         if line_content.startswith(("import ", "from ", '"""', "'''")):
             return
 
-        print(f"  {Fore.YELLOW}[{self.rel_path}:{line_no}] {Fore.WHITE}'{val[:60]}{'...' if len(val) > 60 else ''}'")
+        print(
+            f"  {Fore.YELLOW}[{self.rel_path}:{line_no}] {Fore.WHITE}'{val[:60]}{'...' if len(val) > 60 else ''}'"
+        )
         self.found_count += 1
 
 
 def scan_unlocalized(mgr: LocaleManager):
     """Scan src/ for hardcoded strings that should be in en.json."""
     print(f"\n{Fore.CYAN}{Style.BRIGHT}Scanning for unlocalized strings in src/...")
-    
+
     total_found = 0
     excluded_files = {"__init__.py", "i18n.py", "config.py", "prompts.py"}
 
