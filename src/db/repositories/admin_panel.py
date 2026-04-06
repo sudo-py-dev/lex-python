@@ -60,7 +60,7 @@ async def update_chat_title(ctx: AppContext, chat_id: int, title: str) -> None:
         settings = await session.get(GroupSettings, chat_id)
         if not settings:
             settings = GroupSettings(id=chat_id)
-        
+
         settings.title = title
         session.add(settings)
         await session.commit()

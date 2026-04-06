@@ -15,16 +15,18 @@ async def logging_picker_debug_handler(client: Client, message: Message) -> None
     """Debug handler to inspect all private messages for chat_shared attributes."""
     cache = get_cache()
     user_id = message.from_user.id
-    
+
     is_picking = await cache.exists(f"ap:logging_picker:{user_id}")
-    
+
     if message.chat_shared or is_picking:
-        logger.debug(f"LOGGING PICKER DEBUG: msg_id={message.id}, chat_shared={message.chat_shared is not None}, is_picking={is_picking}")
-        
+        logger.debug(
+            f"LOGGING PICKER DEBUG: msg_id={message.id}, chat_shared={message.chat_shared is not None}, is_picking={is_picking}"
+        )
+
         if message.chat_shared:
             await logging_picker_handler(client, message)
             return
-            
+
         cancel_text = await at(user_id, "panel.btn_cancel")
         if message.text == cancel_text:
             await logging_picker_cancel_handler(client, message)

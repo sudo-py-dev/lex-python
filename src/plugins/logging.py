@@ -63,7 +63,7 @@ class LoggingPlugin(Plugin):
                 for chat_id, buffer in list(self._batch_buffers.items()):
                     if not buffer:
                         continue
-                    
+
                     if now - self._batch_last_flush[chat_id] > 5.0 or len(buffer) >= 5:
                         await self._flush_chat_batch(client, ctx, chat_id, buffer)
                         self._batch_buffers[chat_id] = []
@@ -75,26 +75,32 @@ class LoggingPlugin(Plugin):
                 logger.error(f"Logging: Worker encountered an error: {e}")
                 await asyncio.sleep(2.0)
 
-    async def _flush_chat_batch(self, client: Client, ctx, chat_id: int, events: list[dict]) -> None:
+    async def _flush_chat_batch(
+        self, client: Client, ctx, chat_id: int, events: list[dict]
+    ) -> None:
         """Combine and send a batch of events for a specific chat."""
         settings = await get_chat_settings(ctx, chat_id)
         if not settings or not settings.logChannelId:
             return
 
         chat_title = self._chat_title_cache.get(chat_id, f"Chat {chat_id}")
-        
+
         header = await at(chat_id, "logging.batch_header", chat=chat_title)
-        
+
         items = []
         for ev in events:
-            reason_str = f"\n{await at(chat_id, 'logging.reason_label')} {ev['reason']}" if ev['reason'] else ""
+            reason_str = (
+                f"\n{await at(chat_id, 'logging.reason_label')} {ev['reason']}"
+                if ev["reason"]
+                else ""
+            )
             item = await at(
                 chat_id,
                 "logging.batch_item",
                 action=ev["action"].upper(),
                 target=ev["target_mention"],
                 actor=ev["actor_mention"],
-                reason=reason_str
+                reason=reason_str,
             )
             items.append(item)
 
@@ -105,6 +111,7 @@ class LoggingPlugin(Plugin):
             await asyncio.sleep(0.5)
         except Exception as e:
             logger.error(f"Logging: Failed to flush batch to {settings.logChannelId}: {e}")
+
 
 @bot.on_message(filters.command("setlog") & filters.group)
 @safe_handler
@@ -125,6 +132,7 @@ async def set_log_handler(client: Client, message: Message) -> None:
     await update_chat_setting(ctx, message.chat.id, "logChannelId", channel_id)
     await message.reply(await at(message.chat.id, "log.set"))
 
+
 @bot.on_message(filters.command("unsetlog") & filters.group)
 @safe_handler
 @admin_only
@@ -133,6 +141,7 @@ async def unset_log_handler(client: Client, message: Message) -> None:
     ctx = get_context()
     await update_chat_setting(ctx, message.chat.id, "logChannelId", None)
     await message.reply(await at(message.chat.id, "log.unset"))
+
 
 async def log_event(
     ctx,
@@ -167,9 +176,10 @@ async def log_event(
         "target_mention": target_mention,
         "actor_mention": actor_mention,
         "reason": reason,
-        "timestamp": time.time()
+        "timestamp": time.time(),
     }
 
     await plugin.log_queue.put(event_data)
+
 
 register(LoggingPlugin())

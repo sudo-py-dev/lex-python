@@ -26,10 +26,10 @@ class ServiceMsgsPlugin(Plugin):
 async def service_msg_handler(client: Client, message: Message) -> None:
     """Consolidated handler to synchronize chat info and clean service messages."""
     ctx = get_context()
-    
+
     if message.new_chat_title:
         await update_chat_title(ctx, message.chat.id, message.new_chat_title)
-    
+
     if message.new_chat_members:
         await update_chat_title(ctx, message.chat.id, message.chat.title)
 
@@ -53,7 +53,7 @@ async def service_msg_handler(client: Client, message: Message) -> None:
                 "migrate_to_chat_id": "MIGRATE_TO_CHAT_ID",
                 "migrate_from_chat_id": "MIGRATE_FROM_CHAT_ID",
             }
-            
+
             types = json.loads(settings.cleanServiceTypes)
             for attr, label in service_map.items():
                 if getattr(message, attr, None) and label in types:
@@ -62,9 +62,11 @@ async def service_msg_handler(client: Client, message: Message) -> None:
         except (json.JSONDecodeError, TypeError):
             pass
 
-    if not should_delete and ((message.new_chat_members and settings.cleanJoin) or \
-           (message.left_chat_member and settings.cleanLeave) or \
-           (message.pinned_message and settings.cleanPinned)):
+    if not should_delete and (
+        (message.new_chat_members and settings.cleanJoin)
+        or (message.left_chat_member and settings.cleanLeave)
+        or (message.pinned_message and settings.cleanPinned)
+    ):
         should_delete = True
 
     if should_delete:

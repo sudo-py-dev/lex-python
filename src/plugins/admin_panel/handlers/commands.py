@@ -48,5 +48,5 @@ async def open_settings_panel(client: Client, message: Message, chat_id: int) ->
     await client.send_message(
         user_id,
         await at(user_id if is_pm else chat_id, "panel.main_text"),
-        reply_markup=await main_menu_kb(chat_id, user_id if is_pm else None)
+        reply_markup=await main_menu_kb(chat_id, user_id if is_pm else None),
     )

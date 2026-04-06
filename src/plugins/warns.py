@@ -79,7 +79,9 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
                 f"warn_limit_{action}",
                 target_user,
                 client.me,
-                reason=await at(message.chat.id, "logging.warn_limit_reason", limit=settings.warnLimit),
+                reason=await at(
+                    message.chat.id, "logging.warn_limit_reason", limit=settings.warnLimit
+                ),
                 chat_title=message.chat.title,
             )
             await message.reply(
@@ -93,25 +95,25 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
         except Exception:
             pass
     else:
-            await message.reply(
-                await at(
-                    message.chat.id,
-                    "warn.added",
-                    mention=target_user.mention,
-                    count=count,
-                    limit=settings.warnLimit,
-                )
-            )
-            await log_event(
-                ctx,
-                client,
+        await message.reply(
+            await at(
                 message.chat.id,
-                "warn",
-                target_user,
-                message.from_user,
-                reason=reason,
-                chat_title=message.chat.title,
+                "warn.added",
+                mention=target_user.mention,
+                count=count,
+                limit=settings.warnLimit,
             )
+        )
+        await log_event(
+            ctx,
+            client,
+            message.chat.id,
+            "warn",
+            target_user,
+            message.from_user,
+            reason=reason,
+            chat_title=message.chat.title,
+        )
 
 
 @bot.on_message(filters.command("unwarn") & filters.group)

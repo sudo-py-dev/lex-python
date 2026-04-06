@@ -9,8 +9,6 @@ from pyrogram.types import ChatMember, ChatPermissions
 from .admin_cache import is_admin as cached_is_admin
 from .approved_cache import is_approved as cached_is_approved
 
-_BOT_ID: int | None = None
-
 RESTRICTED_PERMISSIONS = ChatPermissions(
     can_send_messages=False,
     can_send_other_messages=False,
@@ -77,13 +75,8 @@ async def has_permission(client: Client, chat_id: int | None, permission: Permis
     """Check if the BOT has a specific permission in a chat."""
     if chat_id is None:
         return False
-    global _BOT_ID
     try:
-        if _BOT_ID is None:
-            me = await client.get_me()
-            _BOT_ID = me.id
-
-        member: ChatMember = await client.get_chat_member(chat_id, _BOT_ID)
+        member: ChatMember = await client.get_chat_member(chat_id, client.me.id)
 
         if member.status == ChatMemberStatus.OWNER:
             return True

@@ -17,13 +17,14 @@ async def _fetch_and_cache_approved(chat_id: int) -> set[int]:
     """Fetch approved users from DB, store in Local Cache."""
     if chat_id is None:
         return set()
-    
+
     try:
         from src.core.context import get_context
+
         ctx = get_context()
         approvals = await get_all_approved(ctx, chat_id)
         approved_ids = {a.userId for a in approvals}
-        
+
         r = get_cache()
         await r.set(CacheKeys.approved(chat_id), json.dumps(list(approved_ids)), ttl=_TTL)
         logger.debug(f"Approved cache refreshed for chat {chat_id}: {len(approved_ids)} users")
@@ -37,7 +38,7 @@ async def is_approved(chat_id: int | None, user_id: int | None) -> bool:
     """Check if user is approved. Uses Local cache, falls back to DB."""
     if chat_id is None or user_id is None:
         return False
-    
+
     if chat_id > 0:
         return False
 
@@ -48,7 +49,7 @@ async def is_approved(chat_id: int | None, user_id: int | None) -> bool:
             return user_id in json.loads(cached)
         except Exception:
             pass
-            
+
     approved_ids = await _fetch_and_cache_approved(chat_id)
     return user_id in approved_ids
 

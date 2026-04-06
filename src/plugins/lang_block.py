@@ -223,5 +223,4 @@ async def lang_block_interceptor(client: Client, message: Message) -> None:
     )
 
 
-
 register(LangBlockPlugin())

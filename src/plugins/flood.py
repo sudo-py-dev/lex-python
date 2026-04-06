@@ -105,9 +105,7 @@ async def flood_interceptor(client: Client, message: Message) -> None:
                     until_date=datetime.now() + timedelta(minutes=1),
                 )
             else:
-                await client.restrict_chat_member(
-                    message.chat.id, user_id, RESTRICTED_PERMISSIONS
-                )
+                await client.restrict_chat_member(message.chat.id, user_id, RESTRICTED_PERMISSIONS)
 
             await message.reply(
                 await at(
@@ -118,9 +116,7 @@ async def flood_interceptor(client: Client, message: Message) -> None:
                 )
             )
 
-            await log_action(
-                ctx, message.chat.id, client.me.id, user_id, f"flood_{action}"
-            )
+            await log_action(ctx, message.chat.id, client.me.id, user_id, f"flood_{action}")
             await log_event(
                 ctx,
                 client,
