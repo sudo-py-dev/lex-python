@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import os
+import sqlite3
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -51,6 +52,15 @@ async def main() -> None:
         await bot.start()
         logger.info(f"{config.BOT_NAME} is running!")
         await asyncio.Event().wait()
+    except sqlite3.OperationalError as e:
+        if "database is locked" in str(e):
+            logger.error(
+                f"🚨 {config.BOT_NAME} failed to start: The database is locked. "
+                "This usually means another instance of the bot is already running. "
+                "Please make sure to close other sessions before starting a new one."
+            )
+        else:
+            logger.error(f"Database error: {e}")
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.warning(f"{config.BOT_NAME} is shutting down...")
     except Exception as e:
