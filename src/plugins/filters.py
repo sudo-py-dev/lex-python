@@ -105,25 +105,14 @@ async def add_filter_handler(client: Client, message: Message) -> None:
         return
 
     ctx = get_context()
-
-    from src.db.repositories.filters import get_all_filters
-
-    all_fs = await get_all_filters(ctx, message.chat.id)
-    keywords = [f.keyword for f in all_fs]
-
-    if keyword not in keywords and len(all_fs) >= 150:
-        await message.reply(await at(message.chat.id, "filter.limit_reached"))
-        return
-
-    await add_filter(
-        ctx,
-        message.chat.id,
-        keyword,
-        text=response,
-        response_type=response_type,
-        file_id=file_id,
-    )
-    await message.reply(await at(message.chat.id, "filter.added", keyword=keyword))
+    try:
+        await add_filter(ctx, message.chat.id, keyword, response, response_type, file_id)
+        await message.reply(await at(message.chat.id, "filter.added", keyword=keyword))
+    except ValueError as e:
+        if str(e) == "filter_limit_reached":
+            await message.reply(await at(message.chat.id, "filter.limit_reached"))
+        else:
+            raise e
     await message.stop_propagation()
 
 

@@ -8,6 +8,17 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.models import ChannelProtect
+from src.db.repositories.allowed_channels import (
+    add_allowed_channel,
+    get_allowed_channels,
+    remove_allowed_channel,
+)
+from src.utils.allowlist_cache import (
+    invalidate_allowlist_cache,
+)
+from src.utils.allowlist_cache import (
+    is_channel_allowed as cached_is_channel_allowed,
+)
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
 
@@ -27,18 +38,6 @@ async def set_channel_protect(
 ) -> ChannelProtect:
     """
     Update or create the channel protection configuration for a specific chat.
-
-    This setting controls whether the bot should automatically delete messages
-    sent from channels or anonymous accounts.
-
-    Args:
-        ctx (Context): The application context.
-        chat_id (int): The ID of the chat.
-        anti_channel (bool, optional): Whether to block channel messages. Defaults to False.
-        anti_anon (bool, optional): Whether to block anonymous messages. Defaults to False.
-
-    Returns:
-        ChannelProtect: The updated or newly created configuration object.
     """
     async with ctx.db() as session:
         obj = await session.get(ChannelProtect, chat_id)
@@ -57,13 +56,6 @@ async def set_channel_protect(
 async def get_channel_protect(ctx, chat_id: int) -> ChannelProtect | None:
     """
     Retrieve the current channel protection configuration for a chat.
-
-    Args:
-        ctx (Context): The application context.
-        chat_id (int): The ID of the chat.
-
-    Returns:
-        ChannelProtect | None: The configuration object, or None if not set.
     """
     async with ctx.db() as session:
         return await session.get(ChannelProtect, chat_id)
@@ -75,17 +67,6 @@ async def get_channel_protect(ctx, chat_id: int) -> ChannelProtect | None:
 async def antichannel_handler(client: Client, message: Message) -> None:
     """
     Toggle the 'Anti-channel' protection mode in the current group.
-
-    When enabled, the bot will delete any message sent from a channel.
-    Requires the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Updates the chat's channel protection settings in the database.
-        - Sends a confirmation message.
     """
     if len(message.command) < 2:
         return
@@ -111,18 +92,6 @@ async def antichannel_handler(client: Client, message: Message) -> None:
 async def antianon_handler(client: Client, message: Message) -> None:
     """
     Toggle the 'Anti-anonymous' protection mode in the current group.
-
-    When enabled, the bot will delete any message sent by an anonymous user
-    (one who is not linked to a specific user profile).
-    Requires the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Updates the chat's channel protection settings in the database.
-        - Sends a confirmation message.
     """
     if len(message.command) < 2:
         return
@@ -142,22 +111,89 @@ async def antianon_handler(client: Client, message: Message) -> None:
     )
 
 
+@bot.on_message(filters.command("allowlist") & filters.group)
+@safe_handler
+@admin_only
+async def allowlist_handler(client: Client, message: Message) -> None:
+    """
+    Whitelist a channel for the current group.
+    Format: /allowlist [channel_id | reply to channel message]
+    """
+    target_id = None
+    if message.reply_to_message and message.reply_to_message.sender_chat:
+        target_id = message.reply_to_message.sender_chat.id
+    elif len(message.command) > 1:
+        with contextlib.suppress(ValueError):
+            target_id = int(message.command[1])
+
+    if not target_id:
+        return
+
+    ctx = get_context()
+    try:
+        await add_allowed_channel(ctx, message.chat.id, target_id)
+        await invalidate_allowlist_cache(message.chat.id)
+        await message.reply(await at(message.chat.id, "allowlist.added", channel_id=target_id))
+    except ValueError as e:
+        if str(e) == "allowlist_limit_reached":
+            await message.reply(await at(message.chat.id, "allowlist.limit_reached"))
+        else:
+            raise e
+
+
+@bot.on_message(filters.command("unallowlist") & filters.group)
+@safe_handler
+@admin_only
+async def unallowlist_handler(client: Client, message: Message) -> None:
+    """Remove a channel from the whitelist."""
+    target_id = None
+    if message.reply_to_message and message.reply_to_message.sender_chat:
+        target_id = message.reply_to_message.sender_chat.id
+    elif len(message.command) > 1:
+        with contextlib.suppress(ValueError):
+            target_id = int(message.command[1])
+
+    if not target_id:
+        return
+
+    ctx = get_context()
+    if await remove_allowed_channel(ctx, message.chat.id, target_id):
+        await invalidate_allowlist_cache(message.chat.id)
+        await message.reply(await at(message.chat.id, "allowlist.removed", channel_id=target_id))
+    else:
+        await message.reply(await at(message.chat.id, "allowlist.not_found"))
+
+
+@bot.on_message(filters.command("allowlisted") & filters.group)
+@safe_handler
+async def list_allowed_handler(client: Client, message: Message) -> None:
+    """List all whitelisted channels."""
+    ctx = get_context()
+    allowed = await get_allowed_channels(ctx, message.chat.id)
+    if not allowed:
+        await message.reply(await at(message.chat.id, "allowlist.empty"))
+        return
+
+    text = await at(message.chat.id, "allowlist.header")
+    for a in allowed:
+        text += f"\n• `{a.channelId}`"
+    await message.reply(text)
+
+
 @bot.on_message(filters.group, group=13)
 @safe_handler
 async def channel_protect_interceptor(client: Client, message: Message) -> None:
     """
     Monitor and moderate incoming group messages based on sender type.
-
-    Deletes messages from channels or anonymous accounts if the corresponding
-    protection modes are active.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object to inspect.
-
-    Side Effects:
-        - Deletes the message if a violation of 'Anti-channel' or 'Anti-anon' is detected.
     """
+    # Skip if whitelisted channel
+    if (
+        message.sender_chat
+        and message.sender_chat.type == ChatType.CHANNEL
+        and await cached_is_channel_allowed(message.chat.id, message.sender_chat.id)
+    ):
+        return
+
     ctx = get_context()
     cp = await get_channel_protect(ctx, message.chat.id)
     if not cp:

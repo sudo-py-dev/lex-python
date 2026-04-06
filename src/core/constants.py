@@ -56,6 +56,10 @@ class CacheKeys:
     def antispam(chat_id: int, user_id: int) -> str:
         return f"antispam:{chat_id}:{user_id}"
 
+    @staticmethod
+    def allowlisted(chat_id: int) -> str:
+        return f"allowlisted:{chat_id}"
+
 
 class Actions:
     """Action name constants."""

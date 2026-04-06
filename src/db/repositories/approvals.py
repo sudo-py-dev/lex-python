@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from src.core.context import AppContext
 from src.db.models import Approval
@@ -15,6 +15,13 @@ async def add_approval(ctx: AppContext, chat_id: int, user_id: int, granted_by: 
             approval.grantedBy = granted_by
             session.add(approval)
         else:
+
+            count_stmt = select(func.count()).select_from(Approval).where(Approval.chatId == chat_id)
+            count_result = await session.execute(count_stmt)
+            count = count_result.scalar() or 0
+            if count >= 1000:
+                raise ValueError("approval_limit_reached")
+
             approval = Approval(chatId=chat_id, userId=user_id, grantedBy=granted_by)
             session.add(approval)
 

@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from src.core.context import AppContext
 from src.db.models import Blacklist
@@ -12,12 +12,15 @@ async def add_blacklist(
     is_regex: bool = False,
     is_wildcard: bool = False,
 ) -> Blacklist | None:
-    """Add a pattern to the blacklist for a chat. Limits to 150 entries."""
+    """Add a pattern to the blacklist for a chat. Limits to 200 entries."""
     async with ctx.db() as session:
-        count_stmt = select(Blacklist).where(Blacklist.chatId == chat_id)
-        res = await session.execute(count_stmt)
-        if len(res.scalars().all()) >= 150:
-            return None
+
+        count_stmt = select(func.count()).select_from(Blacklist).where(Blacklist.chatId == chat_id)
+        count_result = await session.execute(count_stmt)
+        count = count_result.scalar() or 0
+
+        if count >= 200:
+            raise ValueError("blacklist_limit_reached")
 
         blacklist = Blacklist(
             chatId=chat_id,
@@ -57,6 +60,6 @@ async def get_all_blacklist(ctx: AppContext, chat_id: int) -> list[Blacklist]:
 async def get_blacklist_count(ctx: AppContext, chat_id: int) -> int:
     """Get the count of blacklisted patterns for a chat."""
     async with ctx.db() as session:
-        stmt = select(Blacklist).where(Blacklist.chatId == chat_id)
+        stmt = select(func.count()).select_from(Blacklist).where(Blacklist.chatId == chat_id)
         result = await session.execute(stmt)
-        return len(result.scalars().all())
+        return result.scalar() or 0

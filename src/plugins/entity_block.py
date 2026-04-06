@@ -30,7 +30,7 @@ async def get_blocked_entities(ctx, chat_id: int) -> list[BlockedEntity]:
     """
     Retrieve the list of blocked entity types for a specific chat.
 
-    Uses an asynchronous Redis cache (with a 24h TTL) to minimize database lookups
+    Uses an asynchronous memory cache (with a 24h TTL) to minimize database lookups
      for every message.
 
     Args:

@@ -2,7 +2,7 @@ import contextlib
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from src.core.bot import bot
 from src.core.context import get_context
@@ -36,6 +36,12 @@ async def add_note(chat_id: int, name: str, content: str, is_private: bool = Fal
             note.isPrivate = is_private
             session.add(note)
         else:
+            count_stmt = select(func.count()).select_from(Note).where(Note.chatId == chat_id)
+            count_result = await session.execute(count_stmt)
+            count = count_result.scalar()
+            if count >= 1000:
+                raise ValueError("note_limit_reached")
+
             note = Note(chatId=chat_id, name=name, content=content, isPrivate=is_private)
             session.add(note)
 
@@ -93,8 +99,14 @@ async def save_note_handler(client: Client, message: Message) -> None:
     if not content:
         return
 
-    await add_note(message.chat.id, name, content)
-    await message.reply(await at(message.chat.id, "note.saved", name=name))
+    try:
+        await add_note(message.chat.id, name, content)
+        await message.reply(await at(message.chat.id, "note.saved", name=name))
+    except ValueError as e:
+        if str(e) == "note_limit_reached":
+            await message.reply(await at(message.chat.id, "note.limit_reached"))
+        else:
+            raise e
     await message.stop_propagation()
 
 

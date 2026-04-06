@@ -31,7 +31,7 @@ async def increment_flood(ctx, chat_id: int, user_id: int, window: int) -> int:
     """
     Increment the message count for a user within a rolling time window.
 
-    Uses Redis `incr` and `expire` to track how many messages a user has sent
+    Uses Cache `incr` and `expire` to track how many messages a user has sent
     in the current window.
 
     Args:

@@ -766,7 +766,7 @@ async def protected_panel_callback_handler(
                 localized_type = service_type.replace("_", " ").title()
 
             await callback.answer(
-                await at(at_id, "panel.service_cleaner_toggled", type=localized_type)
+                await at(at_id, "common.btn_action", type=localized_type)
             )
     elif action == "tgs":
         if len(data) >= 3:

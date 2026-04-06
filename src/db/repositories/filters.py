@@ -27,6 +27,15 @@ async def add_filter(
                 filter_obj.settings = settings
             session.add(filter_obj)
         else:
+            # Check limit
+            from sqlalchemy import func
+
+            count_stmt = select(func.count()).select_from(Filter).where(Filter.chatId == chat_id)
+            count_result = await session.execute(count_stmt)
+            count = count_result.scalar()
+            if count >= 200:
+                raise ValueError("filter_limit_reached")
+
             filter_obj = Filter(
                 chatId=chat_id,
                 keyword=keyword,

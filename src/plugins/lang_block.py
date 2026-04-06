@@ -122,7 +122,7 @@ async def get_lang_blocks(ctx, chat_id: int) -> list[BlockedLanguage]:
     """
     Retrieve all blocked languages for a specific chat, with caching.
 
-    Caches the results in Redis for 24 hours to reduce database load.
+    Caches the results in Cache for 24 hours to reduce database load.
 
     Args:
         ctx (Context): The application context.
