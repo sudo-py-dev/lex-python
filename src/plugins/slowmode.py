@@ -10,7 +10,7 @@ from src.core.plugin import Plugin, register
 from src.db.repositories.slowmode import clear_slowmode, get_slowmode, set_slowmode
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
-from src.utils.permissions import is_admin
+from src.utils.moderation import resolve_sender
 from src.utils.time_parser import parse_time
 
 
@@ -53,7 +53,11 @@ async def slowmode_handler(client: Client, message: Message) -> None:
 @safe_handler
 async def slowmode_interceptor(client: Client, message: Message) -> None:
     """Intercept messages and enforce slowmode if enabled."""
-    if not message.from_user or getattr(message, "command", None):
+    if getattr(message, "command", None):
+        return
+
+    user_id, _, is_white = await resolve_sender(client, message)
+    if not user_id or is_white:
         return
 
     ctx = get_context()
@@ -61,10 +65,7 @@ async def slowmode_interceptor(client: Client, message: Message) -> None:
     if interval <= 0:
         return
 
-    if await is_admin(client, message.chat.id, message.from_user.id):
-        return
-
-    key = CacheKeys.slowmode(message.chat.id, message.from_user.id)
+    key = CacheKeys.slowmode(message.chat.id, user_id)
 
     if await ctx.cache.get(key):
         with contextlib.suppress(Exception):

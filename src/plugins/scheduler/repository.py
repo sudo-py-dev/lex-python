@@ -53,7 +53,6 @@ class SchedulerRepository:
             if not settings:
                 return None, None, None, None
 
-            # Fetch related models
             stmt = select(Reminder).where(Reminder.chatId == chat_id, Reminder.isActive)
             reminders = (await session.execute(stmt)).scalars().all()
 

@@ -11,6 +11,7 @@ from src.db.repositories.approvals import (
     is_user_approved,
     remove_approval,
 )
+from src.utils.approved_cache import invalidate_approved_cache
 from src.utils.decorators import admin_only, resolve_target, safe_handler
 from src.utils.i18n import at
 
@@ -33,6 +34,7 @@ async def approve_handler(client: Client, message: Message, target_user: User) -
     """Approve a user to bypass certain restrictions."""
     ctx = get_context()
     await add_approval(ctx, message.chat.id, target_user.id, message.from_user.id)
+    await invalidate_approved_cache(message.chat.id)
     await message.reply(await at(message.chat.id, "approval.approved", mention=target_user.mention))
 
 
@@ -45,6 +47,7 @@ async def unapprove_handler(client: Client, message: Message, target_user: User)
     ctx = get_context()
     success = await remove_approval(ctx, message.chat.id, target_user.id)
     if success:
+        await invalidate_approved_cache(message.chat.id)
         await message.reply(
             await at(message.chat.id, "approval.unapproved", mention=target_user.mention)
         )
@@ -77,6 +80,7 @@ async def unapproveall_handler(client: Client, message: Message) -> None:
     """Remove all user approvals in the current group."""
     ctx = get_context()
     await clear_all_approvals(ctx, message.chat.id)
+    await invalidate_approved_cache(message.chat.id)
     await message.reply(await at(message.chat.id, "approval.unapproveall_done"))
 
 

@@ -22,7 +22,6 @@ class NotesPlugin(Plugin):
         pass
 
 
-# Repository Functions
 async def add_note(chat_id: int, name: str, content: str, is_private: bool = False) -> Note:
     """Add or update a note for a chat."""
     ctx = get_context()
@@ -76,7 +75,6 @@ async def get_all_notes(chat_id: int) -> list[Note]:
         return list(result.scalars().all())
 
 
-# Handlers
 @bot.on_message(filters.command("save") & filters.group)
 @safe_handler
 @admin_only

@@ -84,7 +84,6 @@ async def _handle_reminder_message_capture(
     client, message, user_id, chat_id, value, prompt_msg_id, page
 ):
     r = get_cache()
-    # If text input (value is string), extract_message_data still works on message
     data = await extract_message_data(message)
 
     await r.set(f"temp_rem_data:{user_id}", json.dumps(data), ttl=300)

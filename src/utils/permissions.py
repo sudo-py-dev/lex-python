@@ -7,6 +7,7 @@ from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import ChatMember, ChatPermissions
 
 from .admin_cache import is_admin as cached_is_admin
+from .approved_cache import is_approved as cached_is_approved
 
 _BOT_ID: int | None = None
 
@@ -56,6 +57,20 @@ async def is_admin(client: Client, chat_id: int | None, user_id: int | None) -> 
     if chat_id is None or user_id is None:
         return False
     return await cached_is_admin(client, chat_id, user_id)
+
+
+async def is_whitelisted(client: Client, chat_id: int | None, user_id: int | None) -> bool:
+    """Check if user is admin OR approved. Uses local caches."""
+    if chat_id is None or user_id is None:
+        return False
+
+    if user_id == chat_id:
+        return True
+
+    if await is_admin(client, chat_id, user_id):
+        return True
+
+    return await cached_is_approved(chat_id, user_id)
 
 
 async def has_permission(client: Client, chat_id: int | None, permission: Permission) -> bool:

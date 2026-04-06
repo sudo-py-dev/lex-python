@@ -132,10 +132,9 @@ async def run_group_cleaner(chat_id: int) -> None:
                 ):
                     continue
 
-                # Skip if joined very recently (safety margin: 7 days)
                 if member.joined_date:
                     join_delta = datetime.now(UTC) - member.joined_date.replace(tzinfo=UTC)
-                    if join_delta.days < 7:
+                    if join_delta.days < 14:
                         continue
 
                 should_kick = False

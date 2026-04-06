@@ -9,7 +9,7 @@ from src.core.constants import CacheKeys
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.utils.decorators import safe_handler
-from src.utils.permissions import is_admin
+from src.utils.moderation import resolve_sender
 
 
 class AntispamPlugin(Plugin):
@@ -26,20 +26,16 @@ class AntispamPlugin(Plugin):
 @safe_handler
 async def antispam_handler(client: Client, message: Message) -> None:
     """Detect duplicate text and delete if user is spamming within a short window."""
-    if (
-        not message.text
-        or not message.from_user
-        or message.from_user.is_bot
-        or getattr(message, "command", None)
-    ):
+    if not message.text or getattr(message, "command", None):
         return
 
-    if await is_admin(client, message.chat.id, message.from_user.id):
+    user_id, _, is_white = await resolve_sender(client, message)
+    if not user_id or is_white:
         return
 
     ctx = get_context()
     text_hash = hashlib.md5(message.text.encode()).hexdigest()
-    key = CacheKeys.antispam(message.chat.id, message.from_user.id)
+    key = CacheKeys.antispam(message.chat.id, user_id)
 
     last_hash = await ctx.cache.get(key)
     if last_hash and last_hash == text_hash:

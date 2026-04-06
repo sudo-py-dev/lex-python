@@ -65,7 +65,7 @@ class Reminder(Base):
     )
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
     fileId: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    additionalData: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON (polls, etc.)
+    additionalData: Mapped[str | None] = mapped_column(Text, nullable=True)
     sendTime: Mapped[str] = mapped_column(
         String(5), default="12:00", server_default=sa_text("'12:00'")
     )

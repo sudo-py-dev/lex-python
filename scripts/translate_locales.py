@@ -167,7 +167,6 @@ class ScanVisitor(ast.NodeVisitor):
         self.lines = content.splitlines()
 
     def is_logger_call(self, node: ast.Call) -> bool:
-        # Handle logger.info(...), log.debug(...), etc.
         if (
             isinstance(node.func, ast.Attribute)
             and isinstance(node.func.value, ast.Name)
@@ -184,7 +183,6 @@ class ScanVisitor(ast.NodeVisitor):
                 "success",
             ]:
                 return True
-        # Handle info(...), debug(...) if imported directly
         elif isinstance(node.func, ast.Name) and node.func.id in [
             "debug",
             "info",

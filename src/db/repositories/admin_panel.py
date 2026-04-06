@@ -54,6 +54,18 @@ async def update_chat_setting(ctx: AppContext, chat_id: int, field: str, value: 
         await session.commit()
 
 
+async def update_chat_title(ctx: AppContext, chat_id: int, title: str) -> None:
+    """Update the persistent group title in the database."""
+    async with ctx.db() as session:
+        settings = await session.get(GroupSettings, chat_id)
+        if not settings:
+            settings = GroupSettings(id=chat_id)
+        
+        settings.title = title
+        session.add(settings)
+        await session.commit()
+
+
 async def toggle_service_type(ctx: AppContext, chat_id: int, service_type: str) -> None:
     """Toggle a service message type in the cleanServiceTypes JSON array."""
     async with ctx.db() as session:
@@ -91,18 +103,13 @@ async def get_user_admin_groups(
     results = []
     semaphore = asyncio.Semaphore(10)
 
-    async def check(chat_id: int):
+    async def check(chat_id: int, stored_title: str | None):
         async with semaphore:
             if await is_admin(client, chat_id, user_id):
-                try:
-                    chat = await client.get_chat(chat_id)
-                    title = chat.title or await at(user_id, "panel.unknown_chat", id=chat_id)
-                    results.append((chat_id, title))
-                except Exception:
-                    title = await at(user_id, "panel.unknown_chat", id=chat_id)
-                    results.append((chat_id, title))
+                title = stored_title or await at(user_id, "panel.unknown_chat", id=chat_id)
+                results.append((chat_id, title))
 
-    tasks = [check(int(s.id)) for s in all_settings]
+    tasks = [check(int(s.id), s.title) for s in all_settings]
     await asyncio.gather(*tasks)
     return results
 

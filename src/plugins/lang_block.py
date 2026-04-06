@@ -221,7 +221,7 @@ async def lang_block_interceptor(client: Client, message: Message) -> None:
         violation_key="langblock.violation",
         lang=violated_block.langCode.upper(),
     )
-    await message.stop_propagation()
+
 
 
 register(LangBlockPlugin())

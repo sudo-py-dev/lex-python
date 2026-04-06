@@ -13,6 +13,7 @@ from src.db.repositories.warns import (
     reset_all_chat_warns,
     reset_warns,
 )
+from src.plugins.logging import log_event
 from src.utils.decorators import admin_only, resolve_target, safe_handler
 from src.utils.i18n import at
 from src.utils.permissions import RESTRICTED_PERMISSIONS, Permission, has_permission
@@ -71,6 +72,16 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
                 )
 
             await reset_warns(ctx, message.chat.id, target_user.id)
+            await log_event(
+                ctx,
+                client,
+                message.chat.id,
+                f"warn_limit_{action}",
+                target_user,
+                client.me,
+                reason=await at(message.chat.id, "logging.warn_limit_reason", limit=settings.warnLimit),
+                chat_title=message.chat.title,
+            )
             await message.reply(
                 await at(
                     message.chat.id,
@@ -82,15 +93,25 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
         except Exception:
             pass
     else:
-        await message.reply(
-            await at(
-                message.chat.id,
-                "warn.added",
-                mention=target_user.mention,
-                count=count,
-                limit=settings.warnLimit,
+            await message.reply(
+                await at(
+                    message.chat.id,
+                    "warn.added",
+                    mention=target_user.mention,
+                    count=count,
+                    limit=settings.warnLimit,
+                )
             )
-        )
+            await log_event(
+                ctx,
+                client,
+                message.chat.id,
+                "warn",
+                target_user,
+                message.from_user,
+                reason=reason,
+                chat_title=message.chat.title,
+            )
 
 
 @bot.on_message(filters.command("unwarn") & filters.group)

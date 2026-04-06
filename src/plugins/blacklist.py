@@ -13,7 +13,8 @@ from src.db.repositories.group_settings import get_settings
 from src.db.repositories.warns import add_warn, reset_warns
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
-from src.utils.permissions import RESTRICTED_PERMISSIONS, Permission, has_permission
+from src.utils.moderation import resolve_sender
+from src.utils.permissions import RESTRICTED_PERMISSIONS
 
 
 class BlacklistPlugin(Plugin):
@@ -95,11 +96,9 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
     if not message.text and not message.caption:
         return
 
-    if message.from_user and await has_permission(client, message.chat.id, Permission.CAN_BAN):
-        from src.utils.admin_cache import is_admin
-
-        if await is_admin(client, message.chat.id, message.from_user.id):
-            return
+    user_id, mention, is_white = await resolve_sender(client, message)
+    if not user_id or is_white:
+        return
 
     ctx = get_context()
     blacklist = await get_all_blacklist(ctx, message.chat.id)
@@ -130,21 +129,21 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
             await message.delete()
             if action == "mute":
                 await client.restrict_chat_member(
-                    message.chat.id, message.from_user.id, RESTRICTED_PERMISSIONS
+                    message.chat.id, user_id, RESTRICTED_PERMISSIONS
                 )
             elif action == "kick":
                 await client.ban_chat_member(
                     message.chat.id,
-                    message.from_user.id,
+                    user_id,
                     until_date=datetime.now() + timedelta(minutes=1),
                 )
             elif action == "ban":
-                await client.ban_chat_member(message.chat.id, message.from_user.id)
+                await client.ban_chat_member(message.chat.id, user_id)
             elif action == "warn":
                 count = await add_warn(
                     ctx,
                     message.chat.id,
-                    message.from_user.id,
+                    user_id,
                     client.me.id,
                     await at(message.chat.id, "blacklist.reason"),
                 )
@@ -155,22 +154,22 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
                     elif w_action == "kick":
                         await client.ban_chat_member(
                             message.chat.id,
-                            message.from_user.id,
+                            user_id,
                             until_date=datetime.now() + timedelta(minutes=1),
                         )
                     elif w_action == "mute":
                         await client.restrict_chat_member(
                             message.chat.id,
-                            message.from_user.id,
+                            user_id,
                             RESTRICTED_PERMISSIONS,
                         )
 
-                    await reset_warns(ctx, message.chat.id, message.from_user.id)
+                    await reset_warns(ctx, message.chat.id, user_id)
                     await message.reply(
                         await at(
                             message.chat.id,
                             "warn.limit_reached",
-                            mention=message.from_user.mention,
+                            mention=mention,
                             action=await at(message.chat.id, f"action.{w_action}"),
                         )
                     )
@@ -179,7 +178,7 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
                         await at(
                             message.chat.id,
                             "warn.added",
-                            mention=message.from_user.mention,
+                            mention=mention,
                             count=count,
                             limit=settings.warnLimit,
                         )

@@ -57,7 +57,6 @@ def generate_image_captcha(lang: str = "en"):
     image = Image.new("RGB", (width, height), color=bg_color)
     draw = ImageDraw.Draw(image)
 
-    # Robust path discovery relative to the project root
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     assets_dir = os.path.join(base_dir, "assets")
     emoji_font_path = os.path.join(assets_dir, "fonts", "NotoColorEmoji.ttf")

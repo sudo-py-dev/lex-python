@@ -167,7 +167,6 @@ async def entity_block_interceptor(client: Client, message: Message) -> None:
         violation_key="entityblock.violation",
         type=type_label,
     )
-    await message.stop_propagation()
 
 
 register(EntityBlockPlugin())

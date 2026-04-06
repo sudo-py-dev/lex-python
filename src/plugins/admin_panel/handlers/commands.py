@@ -10,7 +10,6 @@ from src.utils.permissions import is_admin
 
 from .. import get_ctx
 from ..decorators import AdminPanelContext, admin_panel_context
-from ..repository import get_chat_settings
 from .keyboards import main_menu_kb, my_groups_kb
 
 
@@ -45,17 +44,9 @@ async def open_settings_panel(client: Client, message: Message, chat_id: int) ->
             await message.reply(await at(user_id, "panel.my_groups_title"), reply_markup=kb)
         return
 
-    settings = await get_chat_settings(ctx, chat_id)
-    text = await at(
-        chat_id,
-        "panel.settings_header",
-        flood_threshold=settings.floodThreshold,
-        flood_window=settings.floodWindow,
-        flood_action=settings.floodAction,
-        warn_limit=settings.warnLimit,
-        warn_action=settings.warnAction,
-    )
     is_pm = message.chat.type == ChatType.PRIVATE
     await client.send_message(
-        user_id, text, reply_markup=await main_menu_kb(chat_id, user_id if is_pm else None)
+        user_id,
+        await at(user_id if is_pm else chat_id, "panel.main_text"),
+        reply_markup=await main_menu_kb(chat_id, user_id if is_pm else None)
     )

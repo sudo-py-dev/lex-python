@@ -10,9 +10,11 @@ from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.actions import log_action
 from src.db.repositories.group_settings import get_settings, update_settings
+from src.plugins.logging import log_event
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
-from src.utils.permissions import RESTRICTED_PERMISSIONS, can_restrict_members, is_admin
+from src.utils.moderation import resolve_sender
+from src.utils.permissions import RESTRICTED_PERMISSIONS, can_restrict_members
 
 
 class FloodPlugin(Plugin):
@@ -71,10 +73,11 @@ async def set_flood_handler(client: Client, message: Message) -> None:
 @safe_handler
 async def flood_interceptor(client: Client, message: Message) -> None:
     """Intercept messages and enforce flood protection."""
-    if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
+    if getattr(message, "command", None):
         return
 
-    if await is_admin(client, message.chat.id, message.from_user.id):
+    user_id, mention, is_white = await resolve_sender(client, message)
+    if not user_id or is_white:
         return
 
     ctx = get_context()
@@ -86,7 +89,7 @@ async def flood_interceptor(client: Client, message: Message) -> None:
     if settings.floodThreshold <= 0:
         return
 
-    count = await increment_flood(ctx, message.chat.id, message.from_user.id, settings.floodWindow)
+    count = await increment_flood(ctx, message.chat.id, user_id, settings.floodWindow)
     if count == settings.floodThreshold + 1:
         if not await can_restrict_members(client, message.chat.id):
             return
@@ -94,29 +97,44 @@ async def flood_interceptor(client: Client, message: Message) -> None:
         action = settings.floodAction.lower()
         try:
             if action == "ban":
-                await client.ban_chat_member(message.chat.id, message.from_user.id)
+                await client.ban_chat_member(message.chat.id, user_id)
             elif action == "kick":
                 await client.ban_chat_member(
                     message.chat.id,
-                    message.from_user.id,
+                    user_id,
                     until_date=datetime.now() + timedelta(minutes=1),
                 )
             else:
                 await client.restrict_chat_member(
-                    message.chat.id, message.from_user.id, RESTRICTED_PERMISSIONS
+                    message.chat.id, user_id, RESTRICTED_PERMISSIONS
                 )
 
             await message.reply(
                 await at(
                     message.chat.id,
                     "flood.triggered",
-                    mention=message.from_user.mention,
+                    mention=mention,
                     action=action,
                 )
             )
 
             await log_action(
-                ctx, message.chat.id, client.me.id, message.from_user.id, f"flood_{action}"
+                ctx, message.chat.id, client.me.id, user_id, f"flood_{action}"
+            )
+            await log_event(
+                ctx,
+                client,
+                message.chat.id,
+                f"flood_{action}",
+                user_id,
+                client.me,
+                reason=await at(
+                    message.chat.id,
+                    "logging.flood_reason",
+                    threshold=settings.floodThreshold,
+                    window=settings.floodWindow,
+                ),
+                chat_title=message.chat.title,
             )
         except Exception:
             pass

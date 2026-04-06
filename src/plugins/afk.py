@@ -65,7 +65,6 @@ async def afk_interceptor(client: Client, message: Message) -> None:
     ctx = get_context()
     user_id = message.from_user.id
 
-    # Check if the sender is returning from AFK
     afk_key = CacheKeys.afk(user_id)
     afk_raw = await ctx.cache.get(afk_key)
     if afk_raw:
@@ -83,7 +82,6 @@ async def afk_interceptor(client: Client, message: Message) -> None:
             )
         )
 
-    # Check for mentions of AFK users
     entities = message.entities or message.caption_entities
     if entities:
         text = message.text or message.caption or ""

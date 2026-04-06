@@ -42,7 +42,6 @@ async def dispatch_admin_input(client: Client, message: Message) -> None:
     else:
         return
 
-    # Delete state before processing to prevent loops
     await r.delete(f"panel_input:{user_id}")
 
     if not await is_admin(client, chat_id, user_id):
@@ -50,10 +49,8 @@ async def dispatch_admin_input(client: Client, message: Message) -> None:
         return
 
     ctx = get_ctx()
-    # Specialized handling for reminder message capture
     value = message.text if message.text else message
 
-    # Dispatch to specialized handlers
     handled = await input_registry.dispatch(
         client, message, ctx, chat_id, field, value, prompt_msg_id, page
     )

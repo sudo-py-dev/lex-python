@@ -1,5 +1,12 @@
 from pyrogram.enums import MessageEntityType
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.types import (
+    ChatPrivileges,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    KeyboardButtonRequestChat,
+    ReplyKeyboardMarkup,
+)
 
 from src.utils.i18n import at
 
@@ -336,35 +343,35 @@ async def user_warns_kb(
 
 
 async def log_channel_picker_kb(
-    ctx, client, chat_id: int, page: int = 0, user_id: int | None = None
-) -> InlineKeyboardMarkup:
-    from pyrogram.enums import ChatType
-
+    ctx, chat_id: int, user_id: int | None = None
+) -> ReplyKeyboardMarkup:
+    """Returns a ReplyKeyboardMarkup to request a logging channel from the user."""
     at_id = user_id if user_id else chat_id
 
-    # Get dialogs (limited to avoid performance issues)
-    dialogs = []
-    async for dialog in client.get_dialogs(limit=100):
-        if dialog.chat.type in (ChatType.CHANNEL, ChatType.SUPERGROUP, ChatType.GROUP):
-            # For simplicity, we show all chats the bot is in.
-            # Usually the user wants their own channels.
-            dialogs.append((dialog.chat.id, dialog.chat.title))
-
-    PAGE_SIZE = 10
-    total_count = len(dialogs)
-    start = page * PAGE_SIZE
-    end = start + PAGE_SIZE
-    chunk = dialogs[start:end]
-
-    buttons = []
-    for cid, title in chunk:
-        buttons.append([InlineKeyboardButton(title, callback_data=f"panel:logging_set:{cid}")])
-
-    nav = await get_pager(page, total_count, PAGE_SIZE, "panel:logging_picker")
-    if nav:
-        buttons.append(nav)
-
-    buttons.append(
-        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:logging")]
+    return ReplyKeyboardMarkup(
+        [
+            [
+                KeyboardButton(
+                    await at(at_id, "panel.btn_select_log_channel"),
+                    request_chat=KeyboardButtonRequestChat(
+                        button_id=4,
+                        chat_is_channel=True,
+                        bot_is_member=True,
+                        user_administrator_rights=ChatPrivileges(
+                            can_edit_messages=True,
+                            can_post_messages=True,
+                            can_invite_users=True,
+                        ),
+                        bot_administrator_rights=ChatPrivileges(
+                            can_edit_messages=True,
+                            can_post_messages=True,
+                            can_invite_users=True,
+                        ),
+                    ),
+                ),
+            ],
+            [KeyboardButton(await at(at_id, "panel.btn_cancel"))],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
     )
-    return InlineKeyboardMarkup(buttons)

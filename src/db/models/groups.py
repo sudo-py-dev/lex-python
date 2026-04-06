@@ -24,6 +24,7 @@ class GroupSettings(TimestampMixin, Base):
     __tablename__ = "groupsettings"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
     floodThreshold: Mapped[int] = mapped_column(default=5, server_default=sa_text("5"))
     floodWindow: Mapped[int] = mapped_column(default=5, server_default=sa_text("5"))
     floodAction: Mapped[str] = mapped_column(

@@ -108,15 +108,4 @@ async def pm_settings_handler(client: Client, message: Message) -> None:
     await open_settings_panel(client, message, chat_id)
 
 
-@bot.on_message(filters.private & filters.command(["filters", "notes", "rules"]), group=-3)
-@safe_handler
-async def connection_interceptor(client: Client, message: Message) -> None:
-    """Pass-through for specific commands that require an active connection."""
-    ctx = get_context()
-    chat_id = await get_active_chat(ctx, message.from_user.id)
-    if chat_id:
-        # Implementation depends on individual plugins
-        pass
-
-
 register(ConnectionsPlugin())

@@ -1,3 +1,8 @@
+import asyncio
+import contextlib
+import time
+from collections import defaultdict
+
 from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.types import Message, User
@@ -5,20 +10,101 @@ from pyrogram.types import Message, User
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
-from src.plugins.admin_panel.repository import get_chat_settings, update_chat_setting
+from src.plugins.admin_panel.repository import (
+    get_chat_settings,
+    update_chat_setting,
+)
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
 
 
 class LoggingPlugin(Plugin):
-    """Plugin to send administrative audit logs to a designated channel."""
+    """Plugin to send administrative audit logs with rate-limiting and intelligent batching."""
 
     name = "logging"
     priority = 90
 
-    async def setup(self, client: Client, ctx) -> None:
-        pass
+    def __init__(self):
+        super().__init__()
+        self.log_queue = asyncio.Queue()
+        self._worker_task = None
+        self._batch_buffers = defaultdict(list)
+        self._batch_last_flush = defaultdict(float)
+        self._chat_title_cache = {}
 
+    async def setup(self, client: Client, ctx) -> None:
+        """Initialize the logging worker."""
+        if self._worker_task is None:
+            self._worker_task = asyncio.create_task(self._log_worker(client, ctx))
+            logger.info("Logging: Batched worker started.")
+
+    async def teardown(self) -> None:
+        """Cancel the worker task on plugin unloading."""
+        if self._worker_task:
+            self._worker_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._worker_task
+            self._worker_task = None
+            logger.info("Logging: Batched worker stopped.")
+
+    async def _log_worker(self, client: Client, ctx) -> None:
+        """Worker that batches moderation events and flushes them periodically."""
+        while True:
+            try:
+                try:
+                    event_data = await asyncio.wait_for(self.log_queue.get(), timeout=2.0)
+                    chat_id = event_data["chat_id"]
+                    self._batch_buffers[chat_id].append(event_data)
+                    self.log_queue.task_done()
+                except TimeoutError:
+                    pass
+
+                now = time.time()
+                for chat_id, buffer in list(self._batch_buffers.items()):
+                    if not buffer:
+                        continue
+                    
+                    if now - self._batch_last_flush[chat_id] > 5.0 or len(buffer) >= 5:
+                        await self._flush_chat_batch(client, ctx, chat_id, buffer)
+                        self._batch_buffers[chat_id] = []
+                        self._batch_last_flush[chat_id] = now
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Logging: Worker encountered an error: {e}")
+                await asyncio.sleep(2.0)
+
+    async def _flush_chat_batch(self, client: Client, ctx, chat_id: int, events: list[dict]) -> None:
+        """Combine and send a batch of events for a specific chat."""
+        settings = await get_chat_settings(ctx, chat_id)
+        if not settings or not settings.logChannelId:
+            return
+
+        chat_title = self._chat_title_cache.get(chat_id, f"Chat {chat_id}")
+        
+        header = await at(chat_id, "logging.batch_header", chat=chat_title)
+        
+        items = []
+        for ev in events:
+            reason_str = f"\n{await at(chat_id, 'logging.reason_label')} {ev['reason']}" if ev['reason'] else ""
+            item = await at(
+                chat_id,
+                "logging.batch_item",
+                action=ev["action"].upper(),
+                target=ev["target_mention"],
+                actor=ev["actor_mention"],
+                reason=reason_str
+            )
+            items.append(item)
+
+        final_text = header + "".join(items)
+
+        try:
+            await client.send_message(settings.logChannelId, final_text)
+            await asyncio.sleep(0.5)
+        except Exception as e:
+            logger.error(f"Logging: Failed to flush batch to {settings.logChannelId}: {e}")
 
 @bot.on_message(filters.command("setlog") & filters.group)
 @safe_handler
@@ -39,7 +125,6 @@ async def set_log_handler(client: Client, message: Message) -> None:
     await update_chat_setting(ctx, message.chat.id, "logChannelId", channel_id)
     await message.reply(await at(message.chat.id, "log.set"))
 
-
 @bot.on_message(filters.command("unsetlog") & filters.group)
 @safe_handler
 @admin_only
@@ -49,34 +134,42 @@ async def unset_log_handler(client: Client, message: Message) -> None:
     await update_chat_setting(ctx, message.chat.id, "logChannelId", None)
     await message.reply(await at(message.chat.id, "log.unset"))
 
-
 async def log_event(
     ctx,
     client: Client,
     chat_id: int,
     action: str,
-    target: User,
-    actor: User,
+    target: User | str,
+    actor: User | str,
     reason: str | None = None,
+    chat_title: str | None = None,
 ) -> None:
-    """Helper method used by other plugins to push events to the designated log channel."""
-    settings = await get_chat_settings(ctx, chat_id)
-    if not settings.logChannelId:
+    """Helper method used by other plugins to push events to the batched log queue."""
+    plugin: LoggingPlugin = client.get_plugin("logging")
+    if not plugin:
         return
-    chat = await client.get_chat(chat_id)
-    text = await at(
-        chat_id,
-        "log.action",
-        action=action.upper(),
-        chat=chat.title,
-        target=target.mention,
-        actor=actor.mention,
-        reason=f"\n{await at(chat_id, 'logging.reason_label')} {reason}" if reason else "",
-    )
-    try:
-        await client.send_message(settings.logChannelId, text)
-    except Exception as e:
-        logger.warning(f"Failed to send log to channel {settings.logChannelId}: {e}")
 
+    if chat_title:
+        plugin._chat_title_cache[chat_id] = chat_title
+    elif chat_id not in plugin._chat_title_cache:
+        settings = await get_chat_settings(ctx, chat_id)
+        if settings and settings.title:
+            plugin._chat_title_cache[chat_id] = settings.title
+        else:
+            plugin._chat_title_cache[chat_id] = f"Chat {chat_id}"
+
+    target_mention = target.mention if isinstance(target, User) else f"`{target}`"
+    actor_mention = actor.mention if isinstance(actor, User) else f"`{actor}`"
+
+    event_data = {
+        "chat_id": chat_id,
+        "action": action,
+        "target_mention": target_mention,
+        "actor_mention": actor_mention,
+        "reason": reason,
+        "timestamp": time.time()
+    }
+
+    await plugin.log_queue.put(event_data)
 
 register(LoggingPlugin())

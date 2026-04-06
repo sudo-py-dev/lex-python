@@ -54,7 +54,6 @@ async def is_url_malicious(urls: list[str], api_key: str, lang: str = "en") -> s
 
             result = response.json()
             if result.get("matches"):
-                # Return the first match's threat type
                 match = result["matches"][0]
                 threat_type = match.get("threatType")
                 return t(lang, f"threat_types.{threat_type}")

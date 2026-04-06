@@ -6,6 +6,7 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.group_settings import get_settings, update_settings
+from src.plugins.logging import log_event
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
 from src.utils.permissions import RESTRICTED_PERMISSIONS
@@ -53,6 +54,21 @@ async def raid_interceptor(client: Client, message: Message) -> None:
     if count >= settings.raidThreshold:
         if settings.raidAction == "lock":
             await client.set_chat_permissions(message.chat.id, RESTRICTED_PERMISSIONS)
+            await log_event(
+                ctx,
+                client,
+                message.chat.id,
+                "raid_lock",
+                "Group",
+                client.me,
+                reason=await at(
+                    message.chat.id,
+                    "logging.raid_reason",
+                    threshold=settings.raidThreshold,
+                    window=settings.raidWindow,
+                ),
+                chat_title=message.chat.title,
+            )
 
         await message.reply(await at(message.chat.id, "raid.detected"))
 

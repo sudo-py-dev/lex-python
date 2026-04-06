@@ -48,14 +48,15 @@ async def main() -> None:
             logger.error(f"Failed to initialize plugin {plugin.name}: {e}")
 
     try:
-        async with bot:
-            logger.info(f"{config.BOT_NAME} is running!")
-            await asyncio.Event().wait()
+        await bot.start()
+        logger.info(f"{config.BOT_NAME} is running!")
+        await asyncio.Event().wait()
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.warning(f"{config.BOT_NAME} is shutting down...")
     except Exception as e:
         logger.exception(f"{config.BOT_NAME} execution failed: {e}")
     finally:
+        logger.debug("Synchronizing shutdown...")
         for plugin in reversed(get_plugins()):
             try:
                 await asyncio.wait_for(plugin.teardown(), timeout=5.0)
@@ -69,11 +70,11 @@ async def main() -> None:
         if bot.is_connected:
             try:
                 logger.debug("Closing Telegram connection...")
-                await asyncio.wait_for(bot.stop(block=False), timeout=10.0)
-            except (TimeoutError, Exception) as e:
-                logger.warning(f"Forced Telegram connection closure after timeout: {e}")
+                await bot.stop()
+            except Exception as e:
+                logger.warning(f"Error during Telegram connection closure: {e}")
 
-        logger.debug(f"{config.BOT_NAME} shutdown complete.")
+        logger.info(f"{config.BOT_NAME} shutdown complete.")
 
 
 if __name__ == "__main__":

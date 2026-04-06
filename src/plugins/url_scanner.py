@@ -1,3 +1,4 @@
+from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
@@ -8,6 +9,7 @@ from src.core.plugin import Plugin, register
 from src.db.repositories.group_settings import get_settings
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
+from src.utils.moderation import resolve_sender
 from src.utils.url_scanner import is_url_malicious
 
 
@@ -15,7 +17,7 @@ class UrlScannerPlugin(Plugin):
     """Plugin to detect and delete phishing/malicious links."""
 
     name = "url_scanner"
-    priority = 50  # Run before most content filters
+    priority = 50
 
     async def setup(self, client: Client, ctx) -> None:
         pass
@@ -25,7 +27,11 @@ class UrlScannerPlugin(Plugin):
 @safe_handler
 async def url_scanner_handler(client: Client, message: Message) -> None:
     """Intersects messages containing links and scans them if enabled."""
-    if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
+    if getattr(message, "command", None):
+        return
+
+    user_id, mention, is_white = await resolve_sender(client, message)
+    if not user_id or is_white:
         return
 
     ctx = get_context()
@@ -34,12 +40,10 @@ async def url_scanner_handler(client: Client, message: Message) -> None:
     if not settings.urlScannerEnabled:
         return
 
-    # Use group-specific API key
     api_key = settings.gsbKey
     if not api_key:
+        logger.warning("URL Scanner: No API key found for chat {}", message.chat.id)
         return
-
-    # Extract URLs from entities
     urls = []
     entities = message.entities or message.caption_entities or []
     text = message.text or message.caption or ""
@@ -53,19 +57,16 @@ async def url_scanner_handler(client: Client, message: Message) -> None:
     if not urls:
         return
 
-    # Scan URLs
     lang = settings.language
     threat_text = await is_url_malicious(urls, api_key, lang=lang)
 
     if threat_text:
-        # Delete malicious message
         try:
             await message.delete()
-            # Send warning
             warn_msg = await at(
                 message.chat.id,
                 "url_scanner.malicious_detected",
-                user=message.from_user.mention,
+                user=mention,
                 threat=threat_text,
             )
             await client.send_message(message.chat.id, warn_msg)

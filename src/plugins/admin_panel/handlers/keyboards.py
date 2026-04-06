@@ -381,7 +381,6 @@ async def timezone_picker_kb(
 
     row = []
     for tz in chunk:
-        # Display short city name for better fit in two columns
         display_name = tz.split("/")[-1].replace("_", " ") if "/" in tz else tz
         btn_text = f"✅ {display_name}" if tz == current_tz else display_name
         row.append(InlineKeyboardButton(btn_text, callback_data=f"panel:set_tz:{tz}"))

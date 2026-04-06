@@ -13,19 +13,22 @@ from src.utils.permissions import (
     Permission,
     can_restrict_members,
     has_permission,
-    is_admin,
+    is_whitelisted,
 )
 
 
 async def resolve_sender(client: Client, message: Message) -> tuple[int | None, str, bool]:
     """
-    Resolve the sender's ID, mention string, and admin status.
+    Resolve the sender's ID, mention string, and whitelist status.
     Supports regular users, channels, and anonymous admins.
+    Returns (None, ..., False) for bots or unresolvable senders.
     """
     user_id = None
     mention = "Unknown"
 
     if message.from_user:
+        if message.from_user.is_bot:
+            return None, mention, False
         user_id = message.from_user.id
         mention = message.from_user.mention
     elif message.sender_chat:
@@ -36,8 +39,8 @@ async def resolve_sender(client: Client, message: Message) -> tuple[int | None, 
         unknown_label = await at(message.chat.id, "common.unknown")
         return None, unknown_label, False
 
-    is_adm = await is_admin(client, message.chat.id, user_id)
-    return user_id, mention, is_adm
+    is_white = await is_whitelisted(client, message.chat.id, user_id)
+    return user_id, mention, is_white
 
 
 async def execute_moderation_action(
@@ -53,8 +56,8 @@ async def execute_moderation_action(
     Perform a moderation action: delete, punish, and notify.
     Returns True if an action was taken and propagation should stop.
     """
-    user_id, mention, is_adm = await resolve_sender(client, message)
-    if not user_id or is_adm:
+    user_id, mention, is_white = await resolve_sender(client, message)
+    if not user_id or is_white:
         return False
 
     action = action.lower()

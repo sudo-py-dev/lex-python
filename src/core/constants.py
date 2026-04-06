@@ -49,8 +49,8 @@ class CacheKeys:
         return f"fsub_grace:{chat_id}:{user_id}"
 
     @staticmethod
-    def approval(chat_id: int, message_id: int) -> str:
-        return f"approval:{chat_id}:{message_id}"
+    def approved(chat_id: int) -> str:
+        return f"approved:{chat_id}"
 
     @staticmethod
     def antispam(chat_id: int, user_id: int) -> str:

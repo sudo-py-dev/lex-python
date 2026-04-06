@@ -63,20 +63,10 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
         if len(data) >= 3:
             new_chat_id = int(data[2])
             await set_active_chat(ctx, user_id, new_chat_id)
-            settings = await get_chat_settings(ctx, new_chat_id)
             is_pm = callback.message.chat.type == ChatType.PRIVATE
             at_id = user_id if is_pm else new_chat_id
-            text = await at(
-                at_id,
-                "panel.settings_header",
-                flood_threshold=settings.floodThreshold,
-                flood_window=settings.floodWindow,
-                flood_action=settings.floodAction,
-                warn_limit=settings.warnLimit,
-                warn_action=settings.warnAction,
-            )
             await callback.message.edit_text(
-                text,
+                await at(at_id, "panel.main_text"),
                 reply_markup=await main_menu_kb(new_chat_id, user_id=user_id if is_pm else None),
             )
             await callback.answer(await at(at_id, "panel.switch_chat"))
@@ -411,13 +401,17 @@ async def protected_panel_callback_handler(
     elif action == "logging_picker":
         from .moderation_kbs import log_channel_picker_kb
 
-        page = int(data[2]) if len(data) > 2 else 0
-        kb = await log_channel_picker_kb(
-            ctx, client, chat_id, page, user_id=user_id if is_pm else None
+        kb = await log_channel_picker_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+
+        cache = get_cache()
+        await cache.set(f"ap:logging_picker:{user_id}", chat_id, ttl=300)
+
+        await client.send_message(
+            user_id if is_pm else callback.message.chat.id,
+            await at(at_id, "panel.logging_picker_text"),
+            reply_markup=kb,
         )
-        await callback.message.edit_text(
-            await at(at_id, "panel.logging_picker_text"), reply_markup=kb
-        )
+        await callback.message.delete()
         await callback.answer()
     elif action == "logging_set":
         from ..repository import update_chat_setting
@@ -426,7 +420,6 @@ async def protected_panel_callback_handler(
         await update_chat_setting(ctx, chat_id, "logChannelId", new_log_id)
         await callback.answer(await at(at_id, "panel.setting_updated"))
 
-        # Show main logging menu again
         s = await get_chat_settings(ctx, chat_id)
         kb = await logging_kb(ctx, chat_id, user_id=user_id if is_pm else None)
         await callback.message.edit_text(

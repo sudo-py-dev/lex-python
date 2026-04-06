@@ -106,7 +106,6 @@ async def ai_message_handler(client: Client, message: Message):
 
         if response_text:
             clean_response = response_text.strip()
-            # Extremely robust check for control tokens
             token_match = (
                 clean_response.upper()
                 .replace("[", "")

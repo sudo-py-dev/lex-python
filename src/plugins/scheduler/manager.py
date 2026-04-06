@@ -26,7 +26,6 @@ class SchedulerManager:
             logger.info("Scheduler: Syncing all jobs...")
             now = datetime.now(UTC).replace(tzinfo=None)
 
-            # Fetch all timezones for groups
             tz_map = await SchedulerRepository.get_all_group_settings(ctx)
 
             # 1. Timed Actions (Temp bans/mutes)
@@ -64,10 +63,8 @@ class SchedulerManager:
         if tz is None:
             return
 
-        # Clear existing jobs for this chat before rescheduling
         cls.clear_group_jobs(ctx, chat_id)
 
-        # Reschedule everything
         if reminders:
             for rem in reminders:
                 cls.schedule_reminder(ctx, chat_id, rem.id, rem.sendTime, tz)
