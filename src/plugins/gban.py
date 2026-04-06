@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, User
 
 from src.core.bot import bot
-from src.core.context import AppContext
+from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.gban import (
     add_gban,
@@ -14,36 +14,31 @@ from src.db.repositories.gban import (
 from src.utils.decorators import resolve_target, safe_handler
 from src.utils.i18n import at
 
-_ctx: AppContext | None = None
-
-
-def get_ctx() -> AppContext:
-    if _ctx is None:
-        raise RuntimeError("Gban plugin not initialized")
-    return _ctx
-
 
 class GbanPlugin(Plugin):
     name = "gban"
     priority = 60
 
-    async def setup(self, client: Client, ctx: AppContext) -> None:
-        global _ctx
-        _ctx = ctx
+    async def setup(self, client: Client, ctx) -> None:
+        pass
 
 
 @bot.on_message(filters.command("gban") & filters.private)
 @safe_handler
 @resolve_target
 async def gban_handler(client: Client, message: Message, target_user: User) -> None:
-    if not await is_sudo(get_ctx(), message.from_user.id):
+    if not message.from_user:
+        return
+
+    ctx = get_context()
+    if not await is_sudo(ctx, message.from_user.id):
         return
 
     reason = "No reason provided"
     if len(message.command) > 2:
         reason = " ".join(message.command[2:])
 
-    await add_gban(get_ctx(), target_user.id, reason, message.from_user.id)
+    await add_gban(ctx, target_user.id, reason, message.from_user.id)
     await message.reply(
         await at(message.chat.id, "gban.success", mention=target_user.mention, reason=reason)
     )
@@ -53,9 +48,13 @@ async def gban_handler(client: Client, message: Message, target_user: User) -> N
 @safe_handler
 @resolve_target
 async def ungban_handler(client: Client, message: Message, target_user: User) -> None:
-    if not await is_sudo(get_ctx(), message.from_user.id):
+    if not message.from_user:
         return
-    success = await remove_gban(get_ctx(), target_user.id)
+
+    ctx = get_context()
+    if not await is_sudo(ctx, message.from_user.id):
+        return
+    success = await remove_gban(ctx, target_user.id)
     if success:
         await message.reply(
             await at(message.chat.id, "gban.ungban_success", mention=target_user.mention)
@@ -66,15 +65,23 @@ async def ungban_handler(client: Client, message: Message, target_user: User) ->
 @safe_handler
 @resolve_target
 async def addsudo_handler(client: Client, message: Message, target_user: User) -> None:
-    await add_sudo(get_ctx(), target_user.id, message.from_user.id)
+    if not message.from_user:
+        return
+
+    ctx = get_context()
+    await add_sudo(ctx, target_user.id, message.from_user.id)
     await message.reply(await at(message.chat.id, "gban.addsudo", mention=target_user.mention))
 
 
 @bot.on_message(filters.group & filters.new_chat_members, group=6)
 @safe_handler
 async def gban_interceptor(client: Client, message: Message) -> None:
+    if not message.from_user or message.from_user.is_bot:
+        return
+
+    ctx = get_context()
     for member in message.new_chat_members:
-        if await is_gbanned(get_ctx(), member.id):
+        if await is_gbanned(ctx, member.id):
             try:
                 await client.ban_chat_member(message.chat.id, member.id)
                 await message.reply(

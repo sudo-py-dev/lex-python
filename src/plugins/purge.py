@@ -4,7 +4,6 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 
 from src.core.bot import bot
-from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at

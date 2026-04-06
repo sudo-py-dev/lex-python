@@ -9,6 +9,7 @@ from src.core.plugin import Plugin, register
 from src.db.models import MediaFilter
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
+from src.utils.permissions import is_admin
 
 
 class MediaFilterPlugin(Plugin):
@@ -87,6 +88,12 @@ async def mediafilter_handler(client: Client, message: Message) -> None:
 @safe_handler
 async def media_filter_interceptor(client: Client, message: Message) -> None:
     """Intercept and delete messages containing blocked media types."""
+    if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
+        return
+
+    if await is_admin(client, message.chat.id, message.from_user.id):
+        return
+
     mf = await get_media_filter(message.chat.id)
     if not mf:
         return

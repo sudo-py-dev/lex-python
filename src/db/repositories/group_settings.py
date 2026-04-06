@@ -1,5 +1,3 @@
-from sqlalchemy import select
-
 from src.core.context import AppContext
 from src.db.models import GroupSettings
 

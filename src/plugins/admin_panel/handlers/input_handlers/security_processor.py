@@ -6,7 +6,7 @@ from pyrogram.types import Message
 from src.core.context import AppContext
 from src.plugins.admin_panel.handlers.keyboards import flood_kb
 from src.plugins.admin_panel.handlers.moderation_kbs import slowmode_kb, warns_kb
-from src.plugins.admin_panel.handlers.security_kbs import captcha_kb, raid_kb
+from src.plugins.admin_panel.handlers.security_kbs import captcha_kb, raid_kb, url_scanner_kb
 from src.plugins.admin_panel.repository import get_chat_settings, update_chat_setting
 from src.utils.i18n import at
 
@@ -71,6 +71,40 @@ async def numeric_security_processor(
     )
 
 
+@input_registry.register(["gsbKey"])
+async def string_security_processor(
+    client: Client,
+    message: Message,
+    ctx: AppContext,
+    chat_id: int,
+    field: str,
+    value: Any,
+    prompt_msg_id: int | None,
+    page: int,
+) -> None:
+    user_id = message.from_user.id
+    str_value = str(value).strip()
+
+    if not str_value:
+        await message.reply(await at(user_id, "panel.input_invalid_string"))
+        return
+
+    await update_chat_setting(ctx, chat_id, field, str_value)
+
+    kb, text_id = await _get_security_ui(ctx, chat_id, field, page)
+    main_text = await _format_security_text(ctx, chat_id, text_id, str_value)
+
+    success_text = await at(user_id, "panel.input_success")
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        prompt_msg_id,
+        f"**{success_text}**\n\n{main_text}",
+        kb,
+    )
+
+
 async def _handle_purge(client: Client, chat_id: int, count: int):
     import asyncio
     import contextlib
@@ -102,6 +136,8 @@ async def _get_security_ui(ctx: AppContext, chat_id: int, field: str, page: int)
         return await captcha_kb(ctx, chat_id), "panel.captcha_text"
     if field == "slowmode":
         return await slowmode_kb(ctx, chat_id), "panel.slowmode_text"
+    if field == "gsbKey":
+        return await url_scanner_kb(ctx, chat_id), "panel.urlscanner_text"
     if field == "warnLimit":
         return await warns_kb(ctx, chat_id), "panel.warns_text"
     if field == "purgeMessagesCount":
@@ -148,5 +184,16 @@ async def _format_security_text(ctx: AppContext, chat_id: int, text_id: str, val
             mode=s.captchaMode.capitalize(),
             timeout=s.captchaTimeout,
             action=await at(chat_id, "action.ban"),
+        )
+    if text_id == "panel.urlscanner_text":
+        s = await get_chat_settings(ctx, chat_id)
+        status = await at(
+            chat_id, "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled"
+        )
+        return await at(
+            chat_id,
+            text_id,
+            status=status,
+            key="********" if s.gsbKey else await at(chat_id, "panel.not_set"),
         )
     return await at(chat_id, text_id)

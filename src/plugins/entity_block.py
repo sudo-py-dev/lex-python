@@ -110,6 +110,9 @@ async def remove_blocked_entity(ctx, chat_id: int, entity_type: str) -> None:
 @safe_handler
 async def entity_block_interceptor(client: Client, message: Message) -> None:
     """Interceptor to check messages for blocked entities and take moderation action."""
+    if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
+        return
+
     user_id, _, is_adm = await resolve_sender(client, message)
     if not user_id or is_adm:
         return

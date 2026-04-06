@@ -26,7 +26,7 @@ class AntispamPlugin(Plugin):
 @safe_handler
 async def antispam_handler(client: Client, message: Message) -> None:
     """Detect duplicate text and delete if user is spamming within a short window."""
-    if not message.text or not message.from_user or getattr(message, "command", None):
+    if not message.text or not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
         return
 
     if await is_admin(client, message.chat.id, message.from_user.id):

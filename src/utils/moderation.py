@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from datetime import datetime, timedelta
 
 from loguru import logger
 from pyrogram import Client
@@ -97,9 +98,7 @@ async def execute_moderation_action(
         if apply_punishment == "ban":
             await client.ban_chat_member(message.chat.id, user_id)
         elif apply_punishment == "kick":
-            await client.ban_chat_member(message.chat.id, user_id)
-            await asyncio.sleep(1)
-            await client.unban_chat_member(message.chat.id, user_id)
+            await client.ban_chat_member(message.chat.id, user_id, until_date=datetime.now() + timedelta(minutes=1))
         elif apply_punishment == "mute":
             await client.restrict_chat_member(message.chat.id, user_id, RESTRICTED_PERMISSIONS)
 

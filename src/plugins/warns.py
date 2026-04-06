@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from pyrogram import Client, filters
 from pyrogram.types import Message, User
 
@@ -58,8 +60,7 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
             if action == "ban":
                 await client.ban_chat_member(message.chat.id, target_user.id)
             elif action == "kick":
-                await client.ban_chat_member(message.chat.id, target_user.id)
-                await client.unban_chat_member(message.chat.id, target_user.id)
+                await client.ban_chat_member(message.chat.id, target_user.id, until_date=datetime.now() + timedelta(minutes=1))
             elif action == "mute":
                 await client.restrict_chat_member(
                     message.chat.id, target_user.id, RESTRICTED_PERMISSIONS

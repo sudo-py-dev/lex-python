@@ -3,47 +3,42 @@ from pyrogram.types import Message
 
 from src.cache.local_cache import get_cache
 from src.core.bot import bot
-from src.core.context import AppContext
+from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.group_settings import get_settings, update_settings
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
 from src.utils.permissions import RESTRICTED_PERMISSIONS
 
-_ctx: AppContext | None = None
-
-
-def get_ctx() -> AppContext:
-    if _ctx is None:
-        raise RuntimeError("Raid plugin not initialized")
-    return _ctx
-
 
 class RaidPlugin(Plugin):
     name = "raid"
     priority = 100
 
-    async def setup(self, client: Client, ctx: AppContext) -> None:
-        global _ctx
-        _ctx = ctx
+    async def setup(self, client: Client, ctx) -> None:
+        pass
 
 
 @bot.on_message(filters.command("raid") & filters.group)
 @safe_handler
 @admin_only
 async def raid_handler(client: Client, message: Message) -> None:
-    if len(message.command) < 2:
+    if not message.from_user or len(message.command) < 2:
         return
     mode = message.command[1].lower() in ("on", "yes", "true")
 
-    await update_settings(get_ctx(), message.chat.id, raidEnabled=mode)
+    ctx = get_context()
+    await update_settings(ctx, message.chat.id, raidEnabled=mode)
     await message.reply(await at(message.chat.id, f"raid.{'enabled' if mode else 'disabled'}"))
 
 
 @bot.on_message(filters.group & filters.new_chat_members, group=11)
 @safe_handler
 async def raid_interceptor(client: Client, message: Message) -> None:
-    ctx = get_ctx()
+    if not message.from_user or message.from_user.is_bot:
+        return
+
+    ctx = get_context()
     settings = await get_settings(ctx, message.chat.id)
     if not settings.raidEnabled:
         return

@@ -26,6 +26,9 @@ class AFKPlugin(Plugin):
 @safe_handler
 async def afk_handler(client: Client, message: Message) -> None:
     """Set the user's AFK status with an optional reason."""
+    if not message.from_user:
+        return
+
     ctx = get_context()
     reason = " ".join(message.command[1:]) if len(message.command) > 1 else ""
     user_id = message.from_user.id
@@ -56,7 +59,7 @@ async def afk_handler(client: Client, message: Message) -> None:
 @safe_handler
 async def afk_interceptor(client: Client, message: Message) -> None:
     """Intercept messages to detect users returning from AFK or mentioning AFK users."""
-    if not message.from_user or getattr(message, "command", None):
+    if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
         return
 
     ctx = get_context()
@@ -81,18 +84,23 @@ async def afk_interceptor(client: Client, message: Message) -> None:
         )
 
     # Check for mentions of AFK users
-    if message.entities:
-        for ent in message.entities:
+    entities = message.entities or message.caption_entities
+    if entities:
+        text = message.text or message.caption or ""
+        mentioned_ids = set()
+
+        for ent in entities:
             target_id = None
             if ent.type == enums.MessageEntityType.TEXT_MENTION:
                 target_id = ent.user.id
             elif ent.type == enums.MessageEntityType.MENTION:
-                username = message.text[ent.offset : ent.offset + ent.length].lstrip("@")
+                username = text[ent.offset : ent.offset + ent.length].lstrip("@")
                 target_id_raw = await ctx.cache.get(CacheKeys.afk_username(username))
                 if target_id_raw:
                     target_id = int(target_id_raw)
 
-            if target_id:
+            if target_id and target_id not in mentioned_ids:
+                mentioned_ids.add(target_id)
                 afk_raw = await ctx.cache.get(CacheKeys.afk(target_id))
                 if afk_raw:
                     afk_data = json.loads(afk_raw)

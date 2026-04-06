@@ -13,12 +13,13 @@ from src.utils.permissions import (
     deserialize_permissions,
     serialize_permissions,
 )
+from src.utils.telegram_storage import send_stored_message
 
 
 async def _execute_lift_action(chat_id: int, user_id: int, action: str) -> None:
-    from . import get_ctx
+    from src.core.context import get_context
 
-    ctx = get_ctx()
+    ctx = get_context()
     try:
         if action == "tban":
             await bot.unban_chat_member(chat_id, user_id)
@@ -44,24 +45,31 @@ async def _execute_lift_action(chat_id: int, user_id: int, action: str) -> None:
 
 
 async def execute_reminder(chat_id: int, reminder_id: int) -> None:
-    from . import get_ctx
+    from src.core.context import get_context
 
-    ctx = get_ctx()
+    ctx = get_context()
     async with ctx.db() as session:
         reminder = await session.get(Reminder, reminder_id)
         if not reminder or not reminder.isActive:
             return
 
         try:
-            await bot.send_message(chat_id, reminder.text)
+            await send_stored_message(
+                bot,
+                chat_id,
+                message_type=reminder.messageType,
+                text=reminder.text,
+                file_id=reminder.fileId,
+                additional_data=reminder.additionalData,
+            )
         except Exception as e:
             logger.error("Failed to send reminder {} in {}: {}", reminder_id, chat_id, e)
 
 
 async def apply_night_lock(chat_id: int) -> None:
-    from . import get_ctx
+    from src.core.context import get_context
 
-    ctx = get_ctx()
+    ctx = get_context()
     async with ctx.db() as session:
         lock = await session.get(NightLock, chat_id)
         if not lock or not lock.isEnabled:
@@ -81,9 +89,9 @@ async def apply_night_lock(chat_id: int) -> None:
 
 
 async def lift_night_lock(chat_id: int) -> None:
-    from . import get_ctx
+    from src.core.context import get_context
 
-    ctx = get_ctx()
+    ctx = get_context()
     async with ctx.db() as session:
         lock = await session.get(NightLock, chat_id)
         if not lock or not lock.isEnabled:
@@ -102,9 +110,9 @@ async def lift_night_lock(chat_id: int) -> None:
 
 
 async def run_group_cleaner(chat_id: int) -> None:
-    from . import get_ctx
+    from src.core.context import get_context
 
-    ctx = get_ctx()
+    ctx = get_context()
     async with ctx.db() as session:
         cleaner = await session.get(GroupCleaner, chat_id)
         if not cleaner:

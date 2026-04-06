@@ -30,7 +30,7 @@ from .keyboards import (
     welcome_kb,
 )
 from .moderation_kbs import logging_kb, slowmode_kb, user_warns_kb, warns_kb
-from .security_kbs import captcha_kb, raid_kb
+from .security_kbs import captcha_kb, raid_kb, url_scanner_kb
 from .service_cleaner import service_cleaner_kb, service_cleaner_types_kb
 
 
@@ -356,6 +356,23 @@ async def protected_panel_callback_handler(
             reply_markup=kb,
         )
         await callback.answer()
+    elif action == "urlscanner":
+        s = await get_chat_settings(ctx, chat_id)
+        kb = await url_scanner_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+        status = await at(
+            at_id, "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled"
+        )
+        with contextlib.suppress(MessageNotModified):
+            await callback.message.edit_text(
+                await at(
+                    at_id,
+                    "panel.urlscanner_text",
+                    status=status,
+                    key="********" if s.gsbKey else await at(at_id, "panel.not_set"),
+                ),
+                reply_markup=kb,
+            )
+        await callback.answer()
     elif action == "warns":
         s = await get_chat_settings(ctx, chat_id)
         kb = await warns_kb(ctx, chat_id, user_id=user_id if is_pm else None)
@@ -383,7 +400,41 @@ async def protected_panel_callback_handler(
         s = await get_chat_settings(ctx, chat_id)
         kb = await logging_kb(ctx, chat_id, user_id=user_id if is_pm else None)
         await callback.message.edit_text(
-            await at(at_id, "panel.logging_text", channel=s.logChannelId or "None"),
+            await at(
+                at_id,
+                "panel.logging_text",
+                channel=s.logChannelId or await at(at_id, "panel.not_set"),
+            ),
+            reply_markup=kb,
+        )
+        await callback.answer()
+    elif action == "logging_picker":
+        from .moderation_kbs import log_channel_picker_kb
+
+        page = int(data[2]) if len(data) > 2 else 0
+        kb = await log_channel_picker_kb(
+            ctx, client, chat_id, page, user_id=user_id if is_pm else None
+        )
+        await callback.message.edit_text(
+            await at(at_id, "panel.logging_picker_text"), reply_markup=kb
+        )
+        await callback.answer()
+    elif action == "logging_set":
+        from ..repository import update_chat_setting
+
+        new_log_id = int(data[2])
+        await update_chat_setting(ctx, chat_id, "logChannelId", new_log_id)
+        await callback.answer(await at(at_id, "panel.setting_updated"))
+
+        # Show main logging menu again
+        s = await get_chat_settings(ctx, chat_id)
+        kb = await logging_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+        await callback.message.edit_text(
+            await at(
+                at_id,
+                "panel.logging_text",
+                channel=s.logChannelId or await at(at_id, "panel.not_set"),
+            ),
             reply_markup=kb,
         )
         await callback.answer()
@@ -517,6 +568,22 @@ async def protected_panel_callback_handler(
                         mode=await at(at_id, f"mode.{s.captchaMode.lower()}"),
                         timeout=s.captchaTimeout,
                         action=await at(at_id, "action.ban"),
+                    ),
+                    reply_markup=kb,
+                )
+                return
+            elif field == "urlScannerEnabled":
+                kb = await url_scanner_kb(ctx, chat_id, user_id=user_id if is_pm else None)
+                s = await get_chat_settings(ctx, chat_id)
+                status = await at(
+                    at_id, "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled"
+                )
+                await callback.message.edit_text(
+                    await at(
+                        at_id,
+                        "panel.urlscanner_text",
+                        status=status,
+                        key="********" if s.gsbKey else "None",
                     ),
                     reply_markup=kb,
                 )

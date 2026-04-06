@@ -208,6 +208,9 @@ async def remove_lang_block(ctx, chat_id: int, lang_code: str) -> None:
 @safe_handler
 async def lang_block_interceptor(client: Client, message: Message) -> None:
     """Interceptor to analyze incoming text against language blocks."""
+    if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
+        return
+
     text = message.text or message.caption
     if not text or len(text) < 2:
         return

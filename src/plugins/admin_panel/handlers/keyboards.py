@@ -69,6 +69,11 @@ async def security_category_kb(chat_id: int, user_id: int | None = None) -> Inli
                     await at(chat_id, "panel.btn_captcha"), callback_data="panel:captcha"
                 ),
             ],
+            [
+                InlineKeyboardButton(
+                    await at(chat_id, "panel.btn_urlscanner"), callback_data="panel:urlscanner"
+                ),
+            ],
             [InlineKeyboardButton(await at(chat_id, "panel.btn_back"), callback_data="panel:main")],
         ]
     )
@@ -360,7 +365,7 @@ async def timezone_picker_kb(
         )
         return InlineKeyboardMarkup(buttons)
 
-    page_size = 10
+    page_size = 20
     start = page * page_size
     end = start + page_size
     chunk = tzs[start:end]
@@ -374,9 +379,18 @@ async def timezone_picker_kb(
         ]
     )
 
+    row = []
     for tz in chunk:
-        btn_text = f"✅ {tz}" if tz == current_tz else tz
-        buttons.append([InlineKeyboardButton(btn_text, callback_data=f"panel:set_tz:{tz}")])
+        # Display short city name for better fit in two columns
+        display_name = tz.split("/")[-1].replace("_", " ") if "/" in tz else tz
+        btn_text = f"✅ {display_name}" if tz == current_tz else display_name
+        row.append(InlineKeyboardButton(btn_text, callback_data=f"panel:set_tz:{tz}"))
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+
+    if row:
+        buttons.append(row)
 
     cb_prefix = (
         f"panel:timezone_region:{region}" if region else f"panel:timezone_filter:{filter_query}"

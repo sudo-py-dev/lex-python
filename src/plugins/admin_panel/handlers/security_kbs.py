@@ -81,3 +81,35 @@ async def captcha_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKey
             ],
         ]
     )
+
+
+async def url_scanner_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
+    settings = await get_chat_settings(ctx, chat_id)
+    status = await at(
+        chat_id, "panel.status_enabled" if settings.urlScannerEnabled else "panel.status_disabled"
+    )
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    await at(chat_id, "panel.btn_urlscanner_toggle", status=status),
+                    callback_data="panel:tgs:urlScannerEnabled",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(chat_id, "panel.btn_set_gsb_key"),
+                    callback_data="panel:input:gsbKey",
+                ),
+                InlineKeyboardButton(
+                    await at(chat_id, "panel.btn_get_gsb_key"),
+                    url="https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(chat_id, "panel.btn_back"), callback_data="panel:category:security"
+                )
+            ],
+        ]
+    )

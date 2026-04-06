@@ -51,6 +51,7 @@ dev = [
     "factory-boy",
     "mypy",
     "ruff",
+    "aiosqlite>=0.22.1",
 ]
 
 [tool.ruff]

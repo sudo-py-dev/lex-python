@@ -60,7 +60,12 @@ class Reminder(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("groupsettings.id"), index=True)
-    text: Mapped[str] = mapped_column(Text)
+    messageType: Mapped[str] = mapped_column(
+        String(50), default="text", server_default=sa_text("'text'")
+    )
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fileId: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    additionalData: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON (polls, etc.)
     sendTime: Mapped[str] = mapped_column(
         String(5), default="12:00", server_default=sa_text("'12:00'")
     )

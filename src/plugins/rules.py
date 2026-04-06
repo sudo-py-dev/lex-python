@@ -50,7 +50,8 @@ async def rules_handler(client: Client, message: Message) -> None:
         await message.reply(await at(message.chat.id, "rules.not_set"))
         return
 
-    text = (await at(message.chat.id, "rules.header")) + rules.content
+    header = await at(message.chat.id, "rules.header")
+    text = f"{header}\n\n{rules.content}"
     if rules.privateMode:
         try:
             await client.send_message(message.from_user.id, text)

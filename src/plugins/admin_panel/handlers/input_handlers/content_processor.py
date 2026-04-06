@@ -1,3 +1,5 @@
+import contextlib
+import json
 import re
 
 from pyrogram import Client
@@ -9,6 +11,7 @@ from src.db.models import Reminder
 from src.plugins.admin_panel.handlers.keyboards import reminders_menu_kb, rules_kb
 from src.plugins.admin_panel.handlers.moderation_kbs import blacklist_kb
 from src.utils.i18n import at
+from src.utils.telegram_storage import extract_message_data
 
 from .dispatch_logic import finalize_input_capture, input_registry
 
@@ -57,7 +60,7 @@ async def content_settings_processor(
         text_id = "panel.blacklist_text"
 
     elif field == "reminderText":
-        await _handle_reminder_text_capture(
+        await _handle_reminder_message_capture(
             client, message, user_id, chat_id, value, prompt_msg_id, page
         )
         return
@@ -77,12 +80,16 @@ async def content_settings_processor(
     )
 
 
-async def _handle_reminder_text_capture(
+async def _handle_reminder_message_capture(
     client, message, user_id, chat_id, value, prompt_msg_id, page
 ):
     r = get_cache()
-    await r.set(f"temp_rem_text:{user_id}", str(value), ttl=300)
+    # If text input (value is string), extract_message_data still works on message
+    data = await extract_message_data(message)
+
+    await r.set(f"temp_rem_data:{user_id}", json.dumps(data), ttl=300)
     await r.set(f"panel_input:{user_id}", f"{chat_id}:reminderTime:{prompt_msg_id}:{page}", ttl=300)
+
     prompt_text = await at(user_id, "panel.input_prompt_reminderTime")
     kb = InlineKeyboardMarkup(
         [
@@ -98,23 +105,31 @@ async def _handle_reminder_text_capture(
         await client.edit_message_text(user_id, prompt_msg_id, prompt_text, reply_markup=kb)
     else:
         await message.reply(prompt_text, reply_markup=kb)
-    import contextlib
 
     with contextlib.suppress(Exception):
         await message.delete()
 
 
 async def _handle_reminder_time_save(ctx, user_id, chat_id, time_value):
-    r = get_cache()
+    import json
 
-    text = await r.get(f"temp_rem_text:{user_id}")
-    if not text:
+    r = get_cache()
+    data_str = await r.get(f"temp_rem_data:{user_id}")
+    if not data_str:
         return
+    data = json.loads(data_str)
     async with ctx.db() as session:
-        rem = Reminder(chatId=chat_id, text=text, sendTime=time_value)
+        rem = Reminder(
+            chatId=chat_id,
+            messageType=data["type"],
+            text=data.get("text"),
+            fileId=data.get("file_id"),
+            additionalData=data.get("additional_data"),
+            sendTime=time_value,
+        )
         session.add(rem)
         await session.commit()
         from src.plugins.scheduler.manager import SchedulerManager
 
         await SchedulerManager.sync_group(ctx, chat_id)
-    await r.delete(f"temp_rem_text:{user_id}")
+    await r.delete(f"temp_rem_data:{user_id}")

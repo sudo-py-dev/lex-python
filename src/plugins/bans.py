@@ -89,8 +89,7 @@ async def kick_handler(client: Client, message: Message, target_user: User) -> N
 
     ctx = get_context()
     try:
-        await client.ban_chat_member(message.chat.id, target_user.id)
-        await client.unban_chat_member(message.chat.id, target_user.id)
+        await client.ban_chat_member(message.chat.id, target_user.id, until_date=datetime.now() + dt_module.timedelta(minutes=1))
         await log_action(ctx, message.chat.id, message.from_user.id, target_user.id, "kick")
         await message.reply(await at(message.chat.id, "kick.success", mention=target_user.mention))
     except Exception:

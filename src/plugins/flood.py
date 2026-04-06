@@ -1,4 +1,5 @@
 import contextlib
+from datetime import datetime, timedelta
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -70,7 +71,7 @@ async def set_flood_handler(client: Client, message: Message) -> None:
 @safe_handler
 async def flood_interceptor(client: Client, message: Message) -> None:
     """Intercept messages and enforce flood protection."""
-    if not message.from_user:
+    if not message.from_user or message.from_user.is_bot or getattr(message, "command", None):
         return
 
     if await is_admin(client, message.chat.id, message.from_user.id):
@@ -95,8 +96,7 @@ async def flood_interceptor(client: Client, message: Message) -> None:
             if action == "ban":
                 await client.ban_chat_member(message.chat.id, message.from_user.id)
             elif action == "kick":
-                await client.ban_chat_member(message.chat.id, message.from_user.id)
-                await client.unban_chat_member(message.chat.id, message.from_user.id)
+                await client.ban_chat_member(message.chat.id, message.from_user.id, until_date=datetime.now() + timedelta(minutes=1))
             else:
                 await client.restrict_chat_member(
                     message.chat.id, message.from_user.id, RESTRICTED_PERMISSIONS

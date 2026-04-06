@@ -16,7 +16,7 @@ from .security_processor import numeric_security_processor
 from .system_processor import system_settings_processor
 
 
-@bot.on_message(filters.private & filters.text & ~filters.regex(r"^/.*"))
+@bot.on_message(filters.private & ~filters.regex(r"^/.*"))
 async def dispatch_admin_input(client: Client, message: Message) -> None:
     """
     Main entry point for Admin Panel input capture.
@@ -50,7 +50,8 @@ async def dispatch_admin_input(client: Client, message: Message) -> None:
         return
 
     ctx = get_ctx()
-    value = message.text
+    # Specialized handling for reminder message capture
+    value = message.text if message.text else message
 
     # Dispatch to specialized handlers
     handled = await input_registry.dispatch(

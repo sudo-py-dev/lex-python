@@ -79,13 +79,17 @@ async def slowmode_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKe
 
 async def logging_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
     settings = await get_chat_settings(ctx, chat_id)
-    channel_display = settings.logChannelId if settings.logChannelId else "None"
+    channel_display = (
+        settings.logChannelId
+        if settings.logChannelId
+        else await at(chat_id, "panel.not_set")
+    )
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
                     await at(chat_id, "panel.btn_logging_channel", channel=channel_display),
-                    callback_data="panel:input:logChannelId",
+                    callback_data="panel:logging_picker:0",
                 )
             ],
             [
@@ -332,4 +336,39 @@ async def user_warns_kb(
         [InlineKeyboardButton(await at(chat_id, "panel.btn_back"), callback_data="panel:warns")]
     )
 
-    return InlineKeyboardMarkup(kb)
+
+async def log_channel_picker_kb(
+    ctx, client, chat_id: int, page: int = 0, user_id: int | None = None
+) -> InlineKeyboardMarkup:
+    from pyrogram.enums import ChatType
+
+    at_id = user_id if user_id else chat_id
+    
+    # Get dialogs (limited to avoid performance issues)
+    dialogs = []
+    async for dialog in client.get_dialogs(limit=100):
+        if dialog.chat.type in (ChatType.CHANNEL, ChatType.SUPERGROUP, ChatType.GROUP):
+            # For simplicity, we show all chats the bot is in.
+            # Usually the user wants their own channels.
+            dialogs.append((dialog.chat.id, dialog.chat.title))
+
+    PAGE_SIZE = 10
+    total_count = len(dialogs)
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    chunk = dialogs[start:end]
+
+    buttons = []
+    for cid, title in chunk:
+        buttons.append(
+            [InlineKeyboardButton(title, callback_data=f"panel:logging_set:{cid}")]
+        )
+
+    nav = await get_pager(page, total_count, PAGE_SIZE, "panel:logging_picker")
+    if nav:
+        buttons.append(nav)
+
+    buttons.append(
+        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:logging")]
+    )
+    return InlineKeyboardMarkup(buttons)

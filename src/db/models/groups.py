@@ -66,6 +66,8 @@ class GroupSettings(TimestampMixin, Base):
     timezone: Mapped[str] = mapped_column(
         String(50), default="UTC", server_default=sa_text("'UTC'")
     )
+    urlScannerEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    gsbKey: Mapped[str | None] = mapped_column(Text, nullable=True)
     isActive: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
 
     warns: Mapped[list["UserWarn"]] = relationship(back_populates="group", lazy="raise")
