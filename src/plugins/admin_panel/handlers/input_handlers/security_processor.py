@@ -212,9 +212,7 @@ async def _format_security_text(ctx: AppContext, chat_id: int, text_id: str, val
         from src.db.repositories.ai_guard import get_ai_guard_settings
 
         s = await get_ai_guard_settings(ctx, chat_id)
-        status_label = await at(
-            chat_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}"
-        )
+        status_label = await at(chat_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}")
         action_label = await at(chat_id, f"action.{s.action}")
 
         return await at(

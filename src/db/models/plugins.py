@@ -91,19 +91,3 @@ class ScheduledMessage(Base):
     createdAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
-
-
-class ForceSub(Base):
-    __tablename__ = "forcesub"
-
-    chatId: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    channelId: Mapped[int] = mapped_column(BigInteger)
-    muteMode: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    grace: Mapped[int] = mapped_column(default=0, server_default=sa_text("0"))
-    updatedAt: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
-        nullable=False,
-    )

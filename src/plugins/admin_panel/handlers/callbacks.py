@@ -31,7 +31,11 @@ from .keyboards import (
     welcome_kb,
 )
 from .moderation_kbs import logging_kb, slowmode_kb, user_warns_kb, warns_kb
-from .security_kbs import captcha_kb, raid_kb, url_scanner_kb
+from .security_kbs import (
+    captcha_kb,
+    raid_kb,
+    url_scanner_kb,
+)
 from .service_cleaner import service_cleaner_kb, service_cleaner_types_kb
 
 
@@ -138,7 +142,9 @@ async def protected_panel_callback_handler(
                 from .keyboards import ai_security_kb
 
                 s = await get_ai_guard_settings(ctx, chat_id)
-                status_label = await at(at_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}")
+                status_label = await at(
+                    at_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}"
+                )
                 action_label = await at(at_id, f"action.{s.action}")
 
                 await callback.message.edit_text(
@@ -151,6 +157,7 @@ async def protected_panel_callback_handler(
                     ),
                     reply_markup=await ai_security_kb(ctx, chat_id, user_id),
                 )
+
             await callback.answer()
 
     elif action == "toggle_ai_guard":
@@ -159,12 +166,9 @@ async def protected_panel_callback_handler(
         from .keyboards import ai_security_kb
 
         s = await get_ai_guard_settings(ctx, chat_id)
-        
+
         if not s.isEnabled and not s.apiKey:
-            await callback.answer(
-                await at(user_id, "panel.ai_guard_key_required"),
-                show_alert=True
-            )
+            await callback.answer(await at(user_id, "panel.ai_guard_key_required"), show_alert=True)
             return
 
         await update_ai_guard_settings(ctx, chat_id, isEnabled=not s.isEnabled)
@@ -216,14 +220,19 @@ async def protected_panel_callback_handler(
     elif action == "set_groq_key":
         from .input_handlers.dispatch_logic import capture_next_input
 
-        await capture_next_input(
-            user_id, chat_id, "groqKey", prompt_msg_id=callback.message.id
-        )
+        await capture_next_input(user_id, chat_id, "groqKey", prompt_msg_id=callback.message.id)
         await callback.message.edit_text(
             await at(at_id, "panel.input_prompt_groqKey"),
             reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton(await at(at_id, "common.btn_cancel"), callback_data="panel:category:ai_security")]]
-            )
+                [
+                    [
+                        InlineKeyboardButton(
+                            await at(at_id, "common.btn_cancel"),
+                            callback_data="panel:category:ai_security",
+                        )
+                    ]
+                ]
+            ),
         )
         await callback.answer()
 
@@ -765,9 +774,7 @@ async def protected_panel_callback_handler(
             if localized_type == label_key:
                 localized_type = service_type.replace("_", " ").title()
 
-            await callback.answer(
-                await at(at_id, "common.btn_action", type=localized_type)
-            )
+            await callback.answer(await at(at_id, "common.btn_action", type=localized_type))
     elif action == "tgs":
         if len(data) >= 3:
             field = data[2]
@@ -799,6 +806,7 @@ async def protected_panel_callback_handler(
                 status = await at(
                     at_id, "panel.status_enabled" if s.captchaEnabled else "panel.status_disabled"
                 )
+            elif field in ("isEnabled",):
                 await callback.message.edit_text(
                     await at(
                         at_id,

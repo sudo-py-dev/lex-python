@@ -1,4 +1,7 @@
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 
 from src.utils.i18n import at
 

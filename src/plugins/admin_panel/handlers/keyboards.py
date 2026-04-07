@@ -73,8 +73,10 @@ async def security_category_kb(chat_id: int, user_id: int | None = None) -> Inli
                 InlineKeyboardButton(
                     await at(chat_id, "panel.btn_urlscanner"), callback_data="panel:urlscanner"
                 ),
+            ],
+            [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_ai_guard_toggle").split(":")[0],
+                    (await at(chat_id, "panel.btn_ai_guard_toggle")).split(":")[0],
                     callback_data="panel:ai_security",
                 ),
             ],
@@ -638,7 +640,11 @@ async def ai_security_kb(ctx, chat_id: int, user_id: int) -> InlineKeyboardMarku
                     callback_data="panel:ai_guard_setup",
                 )
             ],
-            [InlineKeyboardButton(await at(user_id, "panel.btn_back"), callback_data="panel:category:security")],
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_back"), callback_data="panel:category:security"
+                )
+            ],
         ]
     )
 

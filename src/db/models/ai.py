@@ -46,7 +46,9 @@ class AIGuardSettings(Base):
     isEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     apiKey: Mapped[str | None] = mapped_column(Text, nullable=True)
     modelId: Mapped[str] = mapped_column(
-        String(100), default="llama-3.1-8b-instant", server_default=sa_text("'llama-3.1-8b-instant'")
+        String(100),
+        default="llama-3.1-8b-instant",
+        server_default=sa_text("'llama-3.1-8b-instant'"),
     )
     action: Mapped[str] = mapped_column(
         String(50), default="delete", server_default=sa_text("'delete'")

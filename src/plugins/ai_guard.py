@@ -45,7 +45,6 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
         return
 
     text = message.text or message.caption
-    
 
     try:
         response_text = await AIService.call_ai(
@@ -57,21 +56,25 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
             messages=[{"role": "user", "content": AI_GUARD_TASK_PROMPT.format(user_input=text)}],
             response_format={"type": "json_object"},
         )
-        
+
         try:
             result = json.loads(response_text)
             classification = str(result.get("classification", "HAM")).upper()
             confidence = float(result.get("confidence_score", 0))
             reason = result.get("reason", "Unknown AI Detection")
         except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.warning(f"AI Guard: Invalid JSON response from AI: {e}. Defaulting to HAM to avoid false positives.")
+            logger.warning(
+                f"AI Guard: Invalid JSON response from AI: {e}. Defaulting to HAM to avoid false positives."
+            )
             classification = "HAM"
             confidence = 0.0
             reason = "ai_parse_error"
 
         if classification == "SPAM" and confidence >= 0.7:
-            logger.info(f"AI Guard: Spam detected in {message.chat.id} from {user_id}. Reason: {reason}")
-            
+            logger.debug(
+                f"AI Guard: Spam detected in {message.chat.id} from {user_id}. Reason: {reason}"
+            )
+
             await execute_moderation_action(
                 client=client,
                 message=message,
@@ -85,11 +88,11 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
     except AIServiceError as e:
         error_str = str(e)
         logger.error(f"AI Guard Service Error: {error_str}")
-        
+
         if "authentication" in error_str.lower():
             logger.debug(f"AI Guard: Authentication failed in {message.chat.id}. Disabling guard.")
             await update_ai_guard_settings(ctx, message.chat.id, isEnabled=False, apiKey=None)
-            
+
     except Exception as e:
         logger.error(f"AI Guard Unexpected Error: {e}")
 

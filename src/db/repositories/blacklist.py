@@ -14,7 +14,6 @@ async def add_blacklist(
 ) -> Blacklist | None:
     """Add a pattern to the blacklist for a chat. Limits to 200 entries."""
     async with ctx.db() as session:
-
         count_stmt = select(func.count()).select_from(Blacklist).where(Blacklist.chatId == chat_id)
         count_result = await session.execute(count_stmt)
         count = count_result.scalar() or 0

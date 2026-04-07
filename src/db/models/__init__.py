@@ -20,7 +20,7 @@ from .moderation import (
     SlowmodeSetting,
     UserWarn,
 )
-from .plugins import Filter, ForceSub, Note, Reminder, ScheduledMessage
+from .plugins import Filter, Note, Reminder, ScheduledMessage
 
 __all__ = [
     "TimestampMixin",
@@ -41,7 +41,6 @@ __all__ = [
     "FedAdmin",
     "FedBan",
     "FedSubscription",
-    "ForceSub",
     "GroupRules",
     "GlobalBan",
     "SudoUser",

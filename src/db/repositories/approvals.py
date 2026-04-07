@@ -15,8 +15,9 @@ async def add_approval(ctx: AppContext, chat_id: int, user_id: int, granted_by: 
             approval.grantedBy = granted_by
             session.add(approval)
         else:
-
-            count_stmt = select(func.count()).select_from(Approval).where(Approval.chatId == chat_id)
+            count_stmt = (
+                select(func.count()).select_from(Approval).where(Approval.chatId == chat_id)
+            )
             count_result = await session.execute(count_stmt)
             count = count_result.scalar() or 0
             if count >= 1000:

@@ -51,7 +51,9 @@ async def approve_handler(client: Client, message: Message, target_user: User) -
     try:
         await add_approval(ctx, message.chat.id, target_user.id, message.from_user.id)
         await invalidate_approved_cache(message.chat.id)
-        await message.reply(await at(message.chat.id, "approval.approved", mention=target_user.mention))
+        await message.reply(
+            await at(message.chat.id, "approval.approved", mention=target_user.mention)
+        )
     except ValueError as e:
         if str(e) == "approval_limit_reached":
             await message.reply(await at(message.chat.id, "approval.limit_reached"))
