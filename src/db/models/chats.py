@@ -27,9 +27,8 @@ class ChatSettings(TimestampMixin, Base):
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
     chatType: Mapped[str] = mapped_column(
         String(50), default="supergroup", server_default=sa_text("'supergroup'")
-    )  # pyrogram.enums.ChatType
+    )
 
-    # Group Specific fields
     floodThreshold: Mapped[int] = mapped_column(default=5, server_default=sa_text("5"))
     floodWindow: Mapped[int] = mapped_column(default=5, server_default=sa_text("5"))
     floodAction: Mapped[str] = mapped_column(
@@ -79,7 +78,6 @@ class ChatSettings(TimestampMixin, Base):
     )
     isActive: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
 
-    # Channel Specific fields
     reactionsEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     reactions: Mapped[str] = mapped_column(Text, default="👍", server_default=sa_text("'👍'"))
     reactionMode: Mapped[str] = mapped_column(Text, default="all", server_default=sa_text("'all'"))
@@ -88,7 +86,6 @@ class ChatSettings(TimestampMixin, Base):
     signatureEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     signatureText: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Relationships
     warns: Mapped[list["UserWarn"]] = relationship(back_populates="chat", lazy="raise")
     filters: Mapped[list["Filter"]] = relationship(back_populates="chat", lazy="raise")
     notes: Mapped[list["Note"]] = relationship(back_populates="chat", lazy="raise")

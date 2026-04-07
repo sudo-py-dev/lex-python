@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import errno
+import json
 import os
 import random
 import tempfile
@@ -11,6 +12,7 @@ from typing import TYPE_CHECKING
 from collections.abc import Awaitable, Callable
 
 from PIL import Image, UnidentifiedImageError
+from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
 from pyrogram.types import InputMediaPhoto, Message
@@ -31,7 +33,6 @@ class WatermarkOptions:
     text: str
     color: str
     style: str
-    location: str
 
 
 @dataclass(slots=True)
@@ -146,7 +147,6 @@ class ChannelsPlugin(Plugin):
         self, media_group_id: str, anchor_message: Message
     ) -> None:
         try:
-            # Debounce until Telegram has delivered the full album.
             await asyncio.sleep(self.ALBUM_DEBOUNCE_SECONDS)
             ctx = get_context()
             settings: ChatSettings | None = await get_chat_settings(ctx, anchor_message.chat.id)
@@ -198,14 +198,10 @@ class ChannelsPlugin(Plugin):
 
     def _get_watermark_options(self, settings: ChatSettings) -> WatermarkOptions:
         cfg = parse_watermark_config(settings.watermarkText)
-        text = cfg.get("text", "")
-        if cfg.get("type") == "username" and text and not text.startswith("@"):
-            text = f"@{text.lstrip('@')}"
         return WatermarkOptions(
-            text=text,
-            color=cfg.get("color", "white"),
-            style=cfg.get("style", "shadow"),
-            location=cfg.get("location", "bottom_right"),
+            text=cfg.text,
+            color=cfg.color,
+            style=cfg.style,
         )
 
     async def _build_content_plan(
@@ -243,7 +239,6 @@ class ChannelsPlugin(Plugin):
         limit = 1024 if is_media else 4096
         sig = f"\n\n{settings.signatureText}"
 
-        # Only apply if not already present and fits limit
         if sig not in current and len(current) + len(sig) <= limit:
             return f"{current}{sig}"
 
@@ -264,7 +259,6 @@ class ChannelsPlugin(Plugin):
         if not reactions:
             return
 
-        # Telegram limits bots to ONE reaction per message - Mode 'all' defaults to first emoji
         target_reaction = (
             reactions[0] if settings.reactionMode == "all" else random.choice(reactions)
         )
@@ -309,8 +303,6 @@ class ChannelsPlugin(Plugin):
         try:
             await self._run_with_retry(message.chat.id, self.METHOD_EDIT, do_edit)
         except Exception as e:
-            from loguru import logger
-
             logger.error(f"Error adding signature to message {message.id}: {e}")
 
     async def _handle_watermarking(
@@ -322,8 +314,6 @@ class ChannelsPlugin(Plugin):
         """
         Downloads the image, applies the watermark and the final caption, then updates the post.
         """
-        from loguru import logger
-
         with tempfile.TemporaryDirectory() as temp_dir:
             input_path = os.path.join(temp_dir, "input.jpg")
             output_path = os.path.join(temp_dir, "output.jpg")
@@ -353,7 +343,6 @@ class ChannelsPlugin(Plugin):
                 output_path,
                 color=wm.color,
                 style=wm.style,
-                location=wm.location,
             ):
                 return
 
@@ -394,7 +383,6 @@ class ChannelsPlugin(Plugin):
 
     async def _on_floodwait(self, chat_id: int, method: str, seconds: float) -> None:
         chat_key = str(chat_id)
-        # Feed wait signal back to all relevant limiters to avoid retry storms.
         await self._global_mutation_limiter.penalize("global", seconds)
         await self._chat_mutation_limiter.penalize(chat_key, seconds)
         if method == self.METHOD_EDIT:
@@ -429,7 +417,6 @@ class ChannelsPlugin(Plugin):
             return False
 
 
-# Define an instance of the plugin to store state
 channels_plugin = ChannelsPlugin()
 
 
@@ -437,6 +424,34 @@ channels_plugin = ChannelsPlugin()
 async def channel_post_handler(client: Client, message: Message) -> None:
     """EntryPoint for channel posts: push to queue for sequential processing."""
     await channels_plugin.queue.put(message)
+    await message.continue_propagation()
+
+
+@bot.on_message(filters.channel & filters.service)
+async def channel_service_handler(client: Client, message: Message) -> None:
+    """Delete channel service messages based on service cleaner settings."""
+    ctx = get_context()
+    settings: ChatSettings | None = await get_chat_settings(ctx, message.chat.id)
+    if not settings:
+        await message.continue_propagation()
+        return
+
+    should_delete = False
+    if settings.cleanAllServices:
+        should_delete = True
+    else:
+        try:
+            enabled_types = set(json.loads(settings.cleanServiceTypes or "[]"))
+        except (json.JSONDecodeError, TypeError):
+            enabled_types = set()
+        service_type = getattr(message, "service", None)
+        if service_type and hasattr(service_type, "name"):
+            should_delete = service_type.name in enabled_types
+
+    if should_delete:
+        with contextlib.suppress(Exception):
+            await message.delete()
+
     await message.continue_propagation()
 
 

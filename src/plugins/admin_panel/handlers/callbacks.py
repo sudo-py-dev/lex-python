@@ -11,6 +11,7 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.db.models import ChatCleaner, ChatNightLock, Reminder
 from src.plugins.ai_assistant.repository import AIRepository
+from src.utils.media import build_watermark_config, parse_watermark_config
 from src.utils.i18n import at
 from src.utils.permissions import is_admin
 
@@ -52,7 +53,11 @@ from .security_kbs import (
     raid_kb,
     url_scanner_kb,
 )
-from .service_cleaner import service_cleaner_kb, service_cleaner_types_kb
+from .service_cleaner import (
+    get_available_service_types,
+    service_cleaner_kb,
+    service_cleaner_types_kb,
+)
 
 
 AI_PROVIDERS = ["openai", "gemini", "deepseek", "groq", "qwen", "anthropic"]
@@ -120,6 +125,29 @@ def _plain(text: str) -> str:
         .replace("||", "")
         .replace("[", "")
         .replace("]", "")
+    )
+
+
+async def _render_channel_watermark_panel(
+    callback: CallbackQuery,
+    ctx,
+    channel_id: int,
+    user_id: int,
+    ui_id: int,
+) -> None:
+    settings = await get_chat_settings(ctx, channel_id)
+    cfg = parse_watermark_config(settings.watermarkText)
+    status = await at(ui_id, "panel.status_enabled" if settings.watermarkEnabled else "panel.status_disabled")
+    await callback.message.edit_text(
+        await at(
+            ui_id,
+            "panel.channel_watermark_text",
+            status=status,
+            text=cfg.text or "-",
+            color=await at(ui_id, f"panel.wm_color_{cfg.color}"),
+            style=await at(ui_id, f"panel.wm_style_{cfg.style}"),
+        ),
+        reply_markup=await channel_watermark_kb(ctx, channel_id, user_id),
     )
 
 
@@ -202,10 +230,33 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
         # User personal language picker — no active chat needed
         from src.plugins.language import language_picker_kb
 
+        page = int(data[3]) if len(data) >= 4 and data[3].isdigit() else 0
+
         await callback.message.edit_text(
             await at(ui_id, "language.user_picker_header"),
-            reply_markup=await language_picker_kb(ctx, user_id, scope="user"),
+            reply_markup=await language_picker_kb(ctx, user_id, scope="user", page=page),
         )
+        await callback.answer()
+        return
+
+    if action == "language_page" and len(data) >= 5 and data[2] == "user":
+        from src.plugins.language import language_picker_kb
+
+        target_id = int(data[3])
+        page = int(data[4]) if data[4].isdigit() else 0
+        await callback.message.edit_text(
+            await at(ui_id, "language.user_picker_header"),
+            reply_markup=await language_picker_kb(ctx, target_id, scope="user", page=page),
+        )
+        await callback.answer()
+        return
+
+    if action == "language_search" and len(data) >= 4 and data[2] == "user":
+        from src.plugins.language import begin_language_search
+
+        target_id = int(data[3])
+        await begin_language_search(user_id, "user", target_id, prompt_msg_id=callback.message.id)
+        await callback.message.edit_text(await at(ui_id, "language.search_prompt"))
         await callback.answer()
         return
 
@@ -251,33 +302,122 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
                     await at(ui_id, "error.no_membership_admin"), show_alert=True
                 )
                 return
-            s = await get_chat_settings(ctx, channel_id)
-            cfg = {}
-            if s.watermarkText and str(s.watermarkText).lstrip().startswith("{"):
-                with contextlib.suppress(Exception):
-                    cfg = json.loads(s.watermarkText)
-            wm_text = (cfg.get("text") if isinstance(cfg, dict) else None) or s.watermarkText or "-"
-            wm_type = (cfg.get("type") if isinstance(cfg, dict) else None) or "text"
-            wm_color = (cfg.get("color") if isinstance(cfg, dict) else None) or "white"
-            wm_style = (cfg.get("style") if isinstance(cfg, dict) else None) or "shadow"
-            wm_location = (
-                (cfg.get("location") if isinstance(cfg, dict) else None) or "bottom_right"
+            await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, ui_id)
+            await callback.answer()
+        return
+
+    if action == "chs":
+        if len(data) >= 3:
+            channel_id = int(data[2])
+            if not await is_admin(client, channel_id, user_id):
+                await callback.answer(
+                    await at(ui_id, "error.no_membership_admin"), show_alert=True
+                )
+                return
+            kb = await service_cleaner_kb(
+                ctx,
+                channel_id,
+                user_id=user_id,
+                back_callback=f"panel:channel_settings:{channel_id}",
+                types_callback=f"panel:chsp:{channel_id}:0",
+                toggle_callback=f"panel:chsg:{channel_id}",
             )
-            status = await at(ui_id, "panel.status_enabled" if s.watermarkEnabled else "panel.status_disabled")
             await callback.message.edit_text(
-                await at(
-                    ui_id,
-                    "panel.channel_watermark_text",
-                    status=status,
-                    text=wm_text,
-                    type=await at(ui_id, f"panel.wm_type_{wm_type}"),
-                    color=await at(ui_id, f"panel.wm_color_{wm_color}"),
-                    style=await at(ui_id, f"panel.wm_style_{wm_style}"),
-                    location=await at(ui_id, f"panel.wm_location_{wm_location}"),
-                ),
-                reply_markup=await channel_watermark_kb(ctx, channel_id, user_id),
+                await at(ui_id, "panel.service_cleaner_text"), reply_markup=kb
             )
             await callback.answer()
+        return
+
+    if action == "chsg":
+        if len(data) >= 3:
+            channel_id = int(data[2])
+            if not await is_admin(client, channel_id, user_id):
+                await callback.answer(
+                    await at(ui_id, "error.no_membership_admin"), show_alert=True
+                )
+                return
+            from src.db.repositories.chats import (
+                toggle_setting as toggle_ch_setting,
+            )
+
+            await toggle_ch_setting(ctx, channel_id, "cleanAllServices")
+            kb = await service_cleaner_kb(
+                ctx,
+                channel_id,
+                user_id=user_id,
+                back_callback=f"panel:channel_settings:{channel_id}",
+                types_callback=f"panel:chsp:{channel_id}:0",
+                toggle_callback=f"panel:chsg:{channel_id}",
+            )
+            with contextlib.suppress(MessageNotModified):
+                await callback.message.edit_reply_markup(reply_markup=kb)
+            await callback.answer(_plain(await at(ui_id, "panel.setting_updated")))
+        return
+
+    if action == "chsp":
+        if len(data) >= 4:
+            channel_id = int(data[2])
+            page = int(data[3])
+            if not await is_admin(client, channel_id, user_id):
+                await callback.answer(
+                    await at(ui_id, "error.no_membership_admin"), show_alert=True
+                )
+                return
+            kb = await service_cleaner_types_kb(
+                ctx,
+                channel_id,
+                page,
+                user_id=user_id,
+                page_callback_prefix=f"panel:chsp:{channel_id}",
+                toggle_callback_prefix=f"panel:chst:{channel_id}",
+                back_callback=f"panel:chs:{channel_id}",
+                toggle_mode="index",
+            )
+            total = __import__("math").ceil(
+                len(get_available_service_types("channel"))
+                / 10
+            )
+            text = await at(
+                ui_id, "panel.service_cleaner_types_text", page=page + 1, total=max(1, total)
+            )
+            await callback.message.edit_text(text, reply_markup=kb)
+            await callback.answer()
+        return
+
+    if action == "chst":
+        if len(data) >= 5:
+            channel_id = int(data[2])
+            service_idx = int(data[3])
+            page = int(data[4])
+            if not await is_admin(client, channel_id, user_id):
+                await callback.answer(
+                    await at(ui_id, "error.no_membership_admin"), show_alert=True
+                )
+                return
+            settings = await get_chat_settings(ctx, channel_id)
+            all_types = get_available_service_types(settings.chatType or "channel")
+            if service_idx < 0 or service_idx >= len(all_types):
+                await callback.answer(_plain(await at(ui_id, "panel.error_generic")), show_alert=True)
+                return
+            service_type = all_types[service_idx]
+            await toggle_service_type(ctx, channel_id, service_type)
+            kb = await service_cleaner_types_kb(
+                ctx,
+                channel_id,
+                page,
+                user_id=user_id,
+                page_callback_prefix=f"panel:chsp:{channel_id}",
+                toggle_callback_prefix=f"panel:chst:{channel_id}",
+                back_callback=f"panel:chs:{channel_id}",
+                toggle_mode="index",
+            )
+            with contextlib.suppress(MessageNotModified):
+                await callback.message.edit_reply_markup(reply_markup=kb)
+            label_key = f"panel.service_type_{service_type}"
+            localized_type = await at(ui_id, label_key)
+            if localized_type == label_key:
+                localized_type = service_type.replace("_", " ").title()
+            await callback.answer(_plain(await at(ui_id, "common.btn_action", type=localized_type)))
         return
 
     if action == "toggle_ch":
@@ -306,6 +446,12 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
             else:
                 await toggle_ch_setting(ctx, channel_id, field)
 
+            if field == "watermarkEnabled":
+                with contextlib.suppress(MessageNotModified):
+                    await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, ui_id)
+                await callback.answer(_plain(await at(ui_id, "panel.setting_updated")))
+                return
+
             kb = await channel_settings_kb(ctx, channel_id, user_id)
             with contextlib.suppress(MessageNotModified):
                 await callback.message.edit_reply_markup(reply_markup=kb)
@@ -329,61 +475,31 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
             )
 
             s = await get_ch_settings(ctx, channel_id)
-            cfg = {
-                "text": s.watermarkText or "",
-                "type": "text",
-                "color": "white",
-                "style": "shadow",
-                "location": "bottom_right",
-            }
-            if s.watermarkText and str(s.watermarkText).lstrip().startswith("{"):
-                with contextlib.suppress(Exception):
-                    loaded = json.loads(s.watermarkText)
-                    if isinstance(loaded, dict):
-                        cfg.update({k: str(v) for k, v in loaded.items() if k in cfg})
+            cfg = parse_watermark_config(s.watermarkText)
 
-            if mode == "type":
-                cycle = ["text", "username"]
-            elif mode == "color":
+            if mode == "color":
                 cycle = ["white", "black", "red", "blue", "gold"]
-            elif mode == "location":
-                cycle = [
-                    "top_left",
-                    "top_center",
-                    "top_right",
-                    "center",
-                    "bottom_left",
-                    "bottom_center",
-                    "bottom_right",
-                ]
             else:
-                cycle = ["shadow", "outline", "plain"]
+                # Modern style presets only.
+                cycle = ["soft_shadow", "outline", "clean", "pattern_grid", "pattern_diagonal"]
 
-            current = cfg.get(
-                mode if mode in ("type", "color", "style", "location") else "style", cycle[0]
-            )
+            current = cfg.color if mode == "color" else cfg.style
             try:
                 nxt = cycle[(cycle.index(current) + 1) % len(cycle)]
             except ValueError:
                 nxt = cycle[0]
-            cfg[mode if mode in ("type", "color", "style", "location") else "style"] = nxt
-            await update_ch_setting(ctx, channel_id, "watermarkText", json.dumps(cfg))
+            if mode == "color":
+                cfg.color = nxt
+            else:
+                cfg.style = nxt
 
-            s = await get_chat_settings(ctx, channel_id)
-            status = await at(ui_id, "panel.status_enabled" if s.watermarkEnabled else "panel.status_disabled")
-            await callback.message.edit_text(
-                await at(
-                    ui_id,
-                    "panel.channel_watermark_text",
-                    status=status,
-                    text=cfg.get("text") or "-",
-                    type=await at(ui_id, f"panel.wm_type_{cfg.get('type', 'text')}"),
-                    color=await at(ui_id, f"panel.wm_color_{cfg.get('color', 'white')}"),
-                    style=await at(ui_id, f"panel.wm_style_{cfg.get('style', 'shadow')}"),
-                    location=await at(ui_id, f"panel.wm_location_{cfg.get('location', 'bottom_right')}"),
-                ),
-                reply_markup=await channel_watermark_kb(ctx, channel_id, user_id),
+            await update_ch_setting(
+                ctx,
+                channel_id,
+                "watermarkText",
+                build_watermark_config(cfg.text, color=cfg.color, style=cfg.style),
             )
+            await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, ui_id)
             await callback.answer()
         return
 
@@ -644,11 +760,33 @@ async def protected_panel_callback_handler(
         # Only chat scope reaches here; user scope is intercepted in the unprotected handler
         from src.plugins.language import language_picker_kb
 
+        page = int(data[3]) if len(data) >= 4 and data[3].isdigit() else 0
         await callback.message.edit_text(
             await at(at_id, "language.group_picker_header"),
-            reply_markup=await language_picker_kb(ctx, chat_id, scope="chat"),
+            reply_markup=await language_picker_kb(ctx, chat_id, scope="chat", page=page),
         )
         await callback.answer()
+
+    elif action == "language_page":
+        if len(data) >= 5 and data[2] == "chat":
+            from src.plugins.language import language_picker_kb
+
+            target_id = int(data[3])
+            page = int(data[4]) if data[4].isdigit() else 0
+            await callback.message.edit_text(
+                await at(at_id, "language.group_picker_header"),
+                reply_markup=await language_picker_kb(ctx, target_id, scope="chat", page=page),
+            )
+            await callback.answer()
+
+    elif action == "language_search":
+        if len(data) >= 4 and data[2] == "chat":
+            from src.plugins.language import begin_language_search
+
+            target_id = int(data[3])
+            await begin_language_search(user_id, "chat", target_id, prompt_msg_id=callback.message.id)
+            await callback.message.edit_text(await at(at_id, "language.search_prompt"))
+            await callback.answer()
 
     elif action == "set_lang":
         # Only chat scope reaches here; user scope is intercepted in the unprotected handler

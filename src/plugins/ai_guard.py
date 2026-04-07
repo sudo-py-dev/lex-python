@@ -11,6 +11,7 @@ from src.db.repositories.ai_guard import get_ai_guard_settings, update_ai_guard_
 from src.plugins.ai_assistant.prompts import AI_GUARD_SYSTEM_PROMPT, AI_GUARD_TASK_PROMPT
 from src.plugins.ai_assistant.service import AIService, AIServiceError
 from src.utils.decorators import safe_handler
+from src.utils.i18n import at
 from src.utils.moderation import execute_moderation_action, resolve_sender
 
 
@@ -61,7 +62,7 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
             result = json.loads(response_text)
             classification = str(result.get("classification", "HAM")).upper()
             confidence = float(result.get("confidence_score", 0))
-            reason = result.get("reason", "Unknown AI Detection")
+            reason = result.get("reason") or await at(message.chat.id, "ai_guard.unknown_detection")
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             logger.warning(
                 f"AI Guard: Invalid JSON response from AI: {e}. Defaulting to HAM to avoid false positives."

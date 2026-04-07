@@ -133,7 +133,6 @@ async def get_user_admin_chats(
             if await is_admin(client, chat_id, user_id):
                 try:
                     chat = await client.get_chat(chat_id)
-                    # Sync type if it's different or unknown
                     if chat.type.name.lower() != stored_type:
                         await update_chat_setting(ctx, chat_id, "chatType", chat.type.name.lower())
 
@@ -158,14 +157,12 @@ async def get_chat_info(ctx: AppContext, chat_id: int) -> tuple[ChatType, str]:
         with contextlib.suppress(KeyError, AttributeError):
             chat_type = ChatType[settings.chatType.upper()]
 
-    # Fallback to Pyrogram for real-time data if title is missing
     from src.core.bot import bot
 
     try:
         chat = await bot.get_chat(chat_id)
         chat_type = chat.type
         title = chat.title or chat.first_name or title
-        # Update DB with latest title if changed
         if title != settings.title:
             await update_chat_title(ctx, chat_id, title)
     except Exception:

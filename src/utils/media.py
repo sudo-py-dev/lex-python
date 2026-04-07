@@ -1,7 +1,26 @@
-import os
 import json
+import os
+from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
+
+DEFAULT_WATERMARK_COLOR = "white"
+DEFAULT_WATERMARK_STYLE = "soft_shadow"
+SUPPORTED_WATERMARK_COLORS = {"white", "black", "red", "blue", "gold"}
+SUPPORTED_WATERMARK_STYLES = {
+    "soft_shadow",
+    "outline",
+    "clean",
+    "pattern_grid",
+    "pattern_diagonal",
+}
+
+
+@dataclass(slots=True)
+class WatermarkConfig:
+    text: str = ""
+    color: str = DEFAULT_WATERMARK_COLOR
+    style: str = DEFAULT_WATERMARK_STYLE
 
 
 def _detect_script(text: str) -> str:
@@ -55,51 +74,43 @@ def _font_candidates(script: str) -> list[str]:
     return project_fonts.get(script, []) + project_fonts["latin"] + common_fallbacks
 
 
-def parse_watermark_config(raw_value: str | None) -> dict[str, str]:
-    """Parse legacy/plain watermark text or JSON config."""
-    default = {
-        "text": raw_value or "",
-        "type": "text",
-        "color": "white",
-        "style": "shadow",
-        "location": "bottom_right",
-    }
+def parse_watermark_config(raw_value: str | None) -> WatermarkConfig:
+    """Parse strict JSON watermark config into typed fields."""
     if not raw_value:
-        return default
+        return WatermarkConfig()
+
     try:
-        if str(raw_value).lstrip().startswith("{"):
-            payload = json.loads(str(raw_value))
-            return {
-                "text": str(payload.get("text", "")),
-                "type": str(payload.get("type", "text")),
-                "color": str(payload.get("color", "white")),
-                "style": str(payload.get("style", "shadow")),
-                "location": str(payload.get("location", "bottom_right")),
-            }
-    except Exception:
-        pass
-    return default
+        payload = json.loads(raw_value)
+    except (TypeError, json.JSONDecodeError):
+        return WatermarkConfig()
+
+    if not isinstance(payload, dict):
+        return WatermarkConfig()
+
+    color = str(payload.get("color", DEFAULT_WATERMARK_COLOR))
+    style = str(payload.get("style", DEFAULT_WATERMARK_STYLE))
+    return WatermarkConfig(
+        text=str(payload.get("text", "")),
+        color=color if color in SUPPORTED_WATERMARK_COLORS else DEFAULT_WATERMARK_COLOR,
+        style=style if style in SUPPORTED_WATERMARK_STYLES else DEFAULT_WATERMARK_STYLE,
+    )
 
 
 def build_watermark_config(
     text: str,
-    wm_type: str = "text",
-    color: str = "white",
-    style: str = "shadow",
-    location: str = "bottom_right",
+    color: str = DEFAULT_WATERMARK_COLOR,
+    style: str = DEFAULT_WATERMARK_STYLE,
 ) -> str:
-    return json.dumps(
-        {"text": text, "type": wm_type, "color": color, "style": style, "location": location}
-    )
+    payload = {"text": text, "color": color, "style": style}
+    return json.dumps(payload)
 
 
 def apply_watermark(
     image_path: str,
     text: str,
     output_path: str,
-    color: str = "white",
-    style: str = "shadow",
-    location: str = "bottom_right",
+    color: str = DEFAULT_WATERMARK_COLOR,
+    style: str = DEFAULT_WATERMARK_STYLE,
 ) -> bool:
     """
     Apply a text watermark to an image.
@@ -110,17 +121,13 @@ def apply_watermark(
     """
     try:
         with Image.open(image_path) as img:
-            # Convert to RGB if necessary (e.g. RGBA or Palette)
-            if img.mode != "RGB":
-                img = img.convert("RGB")
+            if img.mode != "RGBA":
+                img = img.convert("RGBA")
 
-            draw = ImageDraw.Draw(img)
             width, height = img.size
 
-            # Adaptive font size (3% of image width)
             font_size = max(20, int(width * 0.04))
 
-            # Prefer project-managed fonts, then system fallback.
             try:
                 script = _detect_script(text)
                 font_paths = _font_candidates(script)
@@ -134,22 +141,14 @@ def apply_watermark(
             except Exception:
                 font = ImageFont.load_default()
 
-            # Measure text size using textbbox (Pillow 9.2.0+)
-            left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
-            text_width = right - left
-            text_height = bottom - top
+            measure_draw = ImageDraw.Draw(img)
+            left, top, right, bottom = measure_draw.textbbox((0, 0), text, font=font)
+            text_width = max(1, right - left)
+            text_height = max(1, bottom - top)
 
             margin = int(width * 0.02)
-            positions = {
-                "top_left": (margin, margin),
-                "top_center": ((width - text_width) // 2, margin),
-                "top_right": (width - text_width - margin, margin),
-                "center": ((width - text_width) // 2, (height - text_height) // 2),
-                "bottom_left": (margin, height - text_height - margin),
-                "bottom_center": ((width - text_width) // 2, height - text_height - margin),
-                "bottom_right": (width - text_width - margin, height - text_height - margin),
-            }
-            x, y = positions.get(location, positions["bottom_right"])
+            x = width - text_width - margin
+            y = height - text_height - margin
 
             palette = {
                 "white": (255, 255, 255),
@@ -160,18 +159,44 @@ def apply_watermark(
             }
             fill_color = palette.get(color, palette["white"])
             shadow_offset = max(1, int(font_size * 0.05))
-            if style in ("shadow", "outline"):
-                draw.text((x + shadow_offset, y + shadow_offset), text, font=font, fill=(0, 0, 0))
-            if style == "outline":
-                draw.text((x - shadow_offset, y), text, font=font, fill=(0, 0, 0))
-                draw.text((x + shadow_offset, y), text, font=font, fill=(0, 0, 0))
-                draw.text((x, y - shadow_offset), text, font=font, fill=(0, 0, 0))
-                draw.text((x, y + shadow_offset), text, font=font, fill=(0, 0, 0))
+            overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            main_fill = (*fill_color, 190)
+            shadow_fill = (0, 0, 0, 145)
 
-            # Draw main text
-            draw.text((x, y), text, font=font, fill=fill_color)
+            def draw_text_effect(target_draw: ImageDraw.ImageDraw, px: int, py: int, st: str) -> None:
+                if st in ("soft_shadow", "pattern_grid", "pattern_diagonal", "outline"):
+                    target_draw.text((px + shadow_offset, py + shadow_offset), text, font=font, fill=shadow_fill)
+                if st == "outline":
+                    target_draw.text((px - shadow_offset, py), text, font=font, fill=shadow_fill)
+                    target_draw.text((px + shadow_offset, py), text, font=font, fill=shadow_fill)
+                    target_draw.text((px, py - shadow_offset), text, font=font, fill=shadow_fill)
+                    target_draw.text((px, py + shadow_offset), text, font=font, fill=shadow_fill)
+                target_draw.text((px, py), text, font=font, fill=main_fill)
 
-            img.save(output_path, "JPEG", quality=90)
+            if style in ("pattern_grid", "pattern_diagonal"):
+                step_x = max(text_width + margin * 2, int(width * 0.2))
+                step_y = max(text_height + margin * 2, int(height * 0.15))
+                offset = step_x // 2 if style == "pattern_diagonal" else 0
+                yy = -step_y
+                row = 0
+                while yy < height + step_y:
+                    xx = -step_x + (offset if row % 2 else 0)
+                    while xx < width + step_x:
+                        draw_text_effect(draw, xx, yy, style)
+                        xx += step_x
+                    yy += step_y
+                    row += 1
+            else:
+                draw_text_effect(
+                    draw,
+                    x,
+                    y,
+                    style if style in ("soft_shadow", "outline", "clean") else "soft_shadow",
+                )
+
+            out = Image.alpha_composite(img, overlay).convert("RGB")
+            out.save(output_path, "JPEG", quality=90)
             return True
     except Exception as e:
         print(f"Error applying watermark: {e}")

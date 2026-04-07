@@ -14,10 +14,7 @@ async def main_menu_kb(
     chat_id: int, user_id: int | None = None, chat_type: ChatType | str | None = None
 ) -> InlineKeyboardMarkup:
     at_id = user_id if user_id else chat_id
-    # If chat_id > 0, it's a private chat, but for the panel we care about the target chat.
-    # In groups/channels, ID is negative.
     buttons = []
-    # Groups specific layout - Grid style 2x2
     buttons.append(
         [
             InlineKeyboardButton(
@@ -42,7 +39,6 @@ async def main_menu_kb(
             ),
         ]
     )
-    # AI Assistant gets its own special row
     buttons.append(
         [
             InlineKeyboardButton(
@@ -52,7 +48,6 @@ async def main_menu_kb(
         ]
     )
 
-    # Management & Close row
     last_row = []
     if user_id:
         last_row.append(
@@ -78,11 +73,12 @@ async def my_chats_menu_kb(user_id: int) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     await at(user_id, "panel.btn_list_groups"), callback_data="panel:list_groups"
-                ),
+                )
+            ],
+            [
                 InlineKeyboardButton(
-                    await at(user_id, "panel.btn_list_channels"),
-                    callback_data="panel:list_channels",
-                ),
+                    await at(user_id, "panel.btn_list_channels"), callback_data="panel:list_channels"
+                )
             ],
             [
                 InlineKeyboardButton(
@@ -280,7 +276,17 @@ async def general_category_kb(
 
 
 async def my_groups_kb(ctx, client, user_id: int) -> InlineKeyboardMarkup:
-    groups = await get_user_admin_chats(ctx, client, user_id, chat_type=ChatType.SUPERGROUP)
+    # Include both legacy groups and supergroups.
+    supergroups = await get_user_admin_chats(
+        ctx, client, user_id, chat_type=ChatType.SUPERGROUP
+    )
+    groups_basic = await get_user_admin_chats(ctx, client, user_id, chat_type=ChatType.GROUP)
+
+    # De-duplicate by chat_id while preserving first-seen title.
+    merged: dict[int, str] = {}
+    for chat_id, title in [*supergroups, *groups_basic]:
+        merged.setdefault(chat_id, title)
+    groups = [(chat_id, title) for chat_id, title in merged.items()]
     buttons = []
     for chat_id, title in groups:
         buttons.append(
@@ -410,7 +416,6 @@ async def filters_menu_kb(
 
     buttons = []
 
-    # Add Filter Button
     buttons.append(
         [
             InlineKeyboardButton(
@@ -432,7 +437,6 @@ async def filters_menu_kb(
             ]
         )
 
-    # Pagination
     nav = await get_pager(page, total_count, page_size, "panel:filters")
     if nav:
         buttons.append(nav)
@@ -565,7 +569,7 @@ async def timezone_picker_kb(
         buttons = [
             [
                 InlineKeyboardButton(
-                    await at(at_id, "panel.btn_timezone_search"),
+                    await at(at_id, "common.btn_search"),
                     callback_data="panel:timezone_search",
                 )
             ]
@@ -597,7 +601,7 @@ async def timezone_picker_kb(
     buttons.append(
         [
             InlineKeyboardButton(
-                await at(at_id, "panel.btn_timezone_search"), callback_data="panel:timezone_search"
+                await at(at_id, "common.btn_search"), callback_data="panel:timezone_search"
             )
         ]
     )
@@ -815,14 +819,12 @@ async def filter_options_kb(ctx, chat_id: int, user_id: int, page: int) -> Inlin
 
     settings = json.loads(settings_raw) if settings_raw else {}
 
-    # Defaults from settings dict
     match_mode = settings.get("matchMode", "contains")
     case_sensitive = settings.get("caseSensitive", False)
     is_admin_only = settings.get("isAdminOnly", False)
 
     buttons = []
 
-    # Admin Only Toggle
     admin_btn_key = (
         "panel.btn_filter_admins_only" if is_admin_only else "panel.btn_filter_all_users"
     )
@@ -926,8 +928,12 @@ async def channel_settings_kb(ctx, channel_id: int, user_id: int) -> InlineKeybo
     s = await get_channel_settings(ctx, channel_id)
     r_status = "✅" if s.reactionsEnabled else "❌"
     r_mode_label = await at(user_id, f"reaction_mode_{s.reactionMode}")
-    w_status = "✅" if s.watermarkEnabled else "❌"
     sig_status = "✅" if s.signatureEnabled else "❌"
+    wm_menu_label = await at(user_id, "panel.btn_watermark_menu")
+    if wm_menu_label == "panel.btn_watermark_menu":
+        # Backward-compatible fallback for locales that don't have the new menu-only key yet.
+        wm_menu_label = await at(user_id, "panel.btn_watermark", status="")
+        wm_menu_label = wm_menu_label.strip().rstrip(":").rstrip("：").strip()
 
     return InlineKeyboardMarkup(
         [
@@ -949,7 +955,7 @@ async def channel_settings_kb(ctx, channel_id: int, user_id: int) -> InlineKeybo
             # Watermark Row
             [
                 InlineKeyboardButton(
-                    await at(user_id, "panel.btn_watermark", status=w_status),
+                    wm_menu_label,
                     callback_data=f"panel:channel_watermark:{channel_id}",
                 ),
             ],
@@ -966,6 +972,12 @@ async def channel_settings_kb(ctx, channel_id: int, user_id: int) -> InlineKeybo
             ],
             [
                 InlineKeyboardButton(
+                    await at(user_id, "common.service_cleaner"),
+                    callback_data=f"panel:chs:{channel_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     await at(user_id, "panel.btn_back"), callback_data="panel:list_channels"
                 )
             ],
@@ -978,10 +990,8 @@ async def channel_watermark_kb(ctx, channel_id: int, user_id: int) -> InlineKeyb
 
     s = await get_channel_settings(ctx, channel_id)
     cfg = parse_watermark_config(s.watermarkText)
-    wm_type = cfg.get("type", "text")
-    wm_color = cfg.get("color", "white")
-    wm_style = cfg.get("style", "shadow")
-    wm_location = cfg.get("location", "bottom_right")
+    wm_color = cfg.color
+    wm_style = cfg.style
     status = "✅" if s.watermarkEnabled else "❌"
 
     return InlineKeyboardMarkup(
@@ -1001,14 +1011,6 @@ async def channel_watermark_kb(ctx, channel_id: int, user_id: int) -> InlineKeyb
             [
                 InlineKeyboardButton(
                     await at(
-                        user_id, "panel.btn_wm_type", value=await at(user_id, f"panel.wm_type_{wm_type}")
-                    ),
-                    callback_data=f"panel:cycle_wm:type:{channel_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(
                         user_id,
                         "panel.btn_wm_color",
                         value=await at(user_id, f"panel.wm_color_{wm_color}"),
@@ -1023,16 +1025,6 @@ async def channel_watermark_kb(ctx, channel_id: int, user_id: int) -> InlineKeyb
                     ),
                     callback_data=f"panel:cycle_wm:style:{channel_id}",
                 ),
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(
-                        user_id,
-                        "panel.btn_wm_location",
-                        value=await at(user_id, f"panel.wm_location_{wm_location}"),
-                    ),
-                    callback_data=f"panel:cycle_wm:location:{channel_id}",
-                )
             ],
             [
                 InlineKeyboardButton(
