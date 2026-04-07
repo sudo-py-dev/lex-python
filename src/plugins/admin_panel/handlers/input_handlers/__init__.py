@@ -17,7 +17,7 @@ from .security_processor import numeric_security_processor
 from .system_processor import system_settings_processor
 
 
-@bot.on_message(filters.private & ~filters.regex(r"^/.*"))
+@bot.on_message(filters.private, group=-2)
 async def dispatch_admin_input(client: Client, message: Message) -> None:
     """
     Main entry point for Admin Panel input capture.
@@ -28,6 +28,8 @@ async def dispatch_admin_input(client: Client, message: Message) -> None:
     state = await r.get(f"panel_input:{user_id}")
     if not state:
         return
+    # This handler is state-gated and runs with high priority to avoid
+    # other private handlers consuming admin panel input first.
 
     parts = state.split(":")
     if len(parts) >= 3:
@@ -43,25 +45,38 @@ async def dispatch_admin_input(client: Client, message: Message) -> None:
     else:
         return
 
-    await r.delete(f"panel_input:{user_id}")
-
-    if not await is_admin(client, chat_id, user_id):
-        await message.reply(await at(user_id, "panel.error_not_admin"))
-        return
-
-    ctx = get_context()
-    value = message.text if message.text else message
-
-    handled = await input_registry.dispatch(
-        client, message, ctx, chat_id, field, value, prompt_msg_id, page
+    logger.debug(
+        "admin_input received: user_id={} chat_id={} field={} text_present={}",
+        user_id,
+        chat_id,
+        field,
+        bool(message.text),
     )
 
-    if not handled:
-        logger.warning(f"No input processor registered for field: {field}")
-        from src.plugins.admin_panel.handlers.keyboards import main_menu_kb
+    try:
+        if not await is_admin(client, chat_id, user_id):
+            await r.delete(f"panel_input:{user_id}")
+            await message.reply(await at(user_id, "panel.error_not_admin"))
+            return
 
-        kb = await main_menu_kb(chat_id, user_id)
-        await message.reply(await at(user_id, "panel.error_generic"), reply_markup=kb)
+        ctx = get_context()
+        value = message.text if message.text else message
+
+        handled = await input_registry.dispatch(
+            client, message, ctx, chat_id, field, value, prompt_msg_id, page
+        )
+        await r.delete(f"panel_input:{user_id}")
+
+        if not handled:
+            logger.warning(f"No input processor registered for field: {field}")
+            from src.plugins.admin_panel.handlers.keyboards import main_menu_kb
+
+            kb = await main_menu_kb(chat_id, user_id)
+            await message.reply(await at(user_id, "panel.error_generic"), reply_markup=kb)
+    except Exception as e:
+        logger.error(f"dispatch_admin_input failed for field={field}: {e}")
+        await r.delete(f"panel_input:{user_id}")
+        await message.reply(await at(user_id, "panel.error_generic"))
 
 
 __all__ = ["input_registry", "dispatch_admin_input", "capture_next_input"]

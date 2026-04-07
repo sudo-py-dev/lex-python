@@ -54,24 +54,29 @@ async def finalize_input_capture(
     message: Message,
     user_id: int,
     prompt_msg_id: int | None,
-    combined_text: str,
+    panel_text: str,
     kb: InlineKeyboardMarkup,
+    success_text: str | None = None,
 ) -> None:
-    """Helper to finalize the input capture UI."""
+    """Finalize input flow: optional success reply + clean panel render."""
     import contextlib
 
     with contextlib.suppress(Exception):
         await message.delete()
 
+    if success_text:
+        with contextlib.suppress(Exception):
+            await client.send_message(user_id, success_text)
+
     if prompt_msg_id:
         try:
             await client.edit_message_text(
-                chat_id=user_id, message_id=prompt_msg_id, text=combined_text, reply_markup=kb
+                chat_id=user_id, message_id=prompt_msg_id, text=panel_text, reply_markup=kb
             )
         except Exception:
-            await message.reply(combined_text, reply_markup=kb)
+            await message.reply(panel_text, reply_markup=kb)
     else:
-        await message.reply(combined_text, reply_markup=kb)
+        await message.reply(panel_text, reply_markup=kb)
 
 
 async def capture_next_input(
@@ -83,3 +88,11 @@ async def capture_next_input(
     r = get_cache()
     msg_id = prompt_msg_id or 0
     await r.set(f"panel_input:{user_id}", f"{chat_id}:{field}:{msg_id}:{page}", ttl=300)
+    logger.debug(
+        "capture_next_input armed: user_id={} chat_id={} field={} prompt_msg_id={} page={}",
+        user_id,
+        chat_id,
+        field,
+        msg_id,
+        page,
+    )

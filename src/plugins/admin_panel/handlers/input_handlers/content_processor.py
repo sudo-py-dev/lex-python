@@ -6,6 +6,7 @@ from pyrogram import Client
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.cache.local_cache import get_cache
+from src.config import config
 from src.core.context import AppContext
 from src.db.models import Reminder
 from src.plugins.admin_panel.handlers.keyboards import reminders_menu_kb, rules_kb, welcome_kb
@@ -89,7 +90,7 @@ async def content_settings_processor(
     main_text = await at(user_id, text_id)
     success_text = await at(user_id, "panel.input_success")
     await finalize_input_capture(
-        client, message, user_id, prompt_msg_id, f"**{success_text}**\n\n{main_text}", kb
+        client, message, user_id, prompt_msg_id, main_text, kb, success_text=success_text
     )
 
 
@@ -179,7 +180,7 @@ async def channel_settings_processor(
     elif field == "watermarkText":
         s = await get_channel_settings(ctx, channel_id)
         cfg = parse_watermark_config(s.watermarkText)
-        cfg["text"] = str(value).strip()
+        cfg.text = str(value).strip()
         await update_channel_setting(
             ctx,
             channel_id,
@@ -188,6 +189,9 @@ async def channel_settings_processor(
                 cfg.text,
                 color=cfg.color,
                 style=cfg.style,
+                video_enabled=cfg.video_enabled,
+                video_quality=cfg.video_quality,
+                video_motion=cfg.video_motion,
             ),
         )
 
@@ -209,11 +213,31 @@ async def channel_settings_processor(
             text=cfg.text or "-",
             color=await at(user_id, f"panel.wm_color_{cfg.color}"),
             style=await at(user_id, f"panel.wm_style_{cfg.style}"),
+            video_status=await at(
+                user_id, "panel.status_enabled" if cfg.video_enabled else "panel.status_disabled"
+            ),
+            video_quality=await at(user_id, f"panel.wm_quality_{cfg.video_quality}"),
+            video_motion=await at(user_id, f"panel.wm_motion_{cfg.video_motion}"),
+            video_available=await at(
+                user_id,
+                "panel.wm_video_available_yes"
+                if config.ENABLE_VIDEO_WATERMARK
+                else "panel.wm_video_available_no",
+            ),
+            video_limit_note=(
+                await at(
+                    user_id,
+                    "panel.wm_video_limit_note",
+                    size_mb=config.VIDEO_WATERMARK_MAX_SIZE_MB,
+                )
+                if config.ENABLE_VIDEO_WATERMARK
+                else ""
+            ),
         )
         kb = await channel_watermark_kb(ctx, channel_id, user_id)
     else:
         main_text = await at(user_id, "panel.channel_settings_text", title=title, id=channel_id)
 
     await finalize_input_capture(
-        client, message, user_id, prompt_msg_id, f"**{success_text}**\n\n{main_text}", kb
+        client, message, user_id, prompt_msg_id, main_text, kb, success_text=success_text
     )

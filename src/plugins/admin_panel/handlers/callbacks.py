@@ -7,6 +7,7 @@ from pyrogram.errors import MessageNotModified
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.cache.local_cache import get_cache
+from src.config import config
 from src.core.bot import bot
 from src.core.context import get_context
 from src.db.models import ChatCleaner, ChatNightLock, Reminder
@@ -76,10 +77,18 @@ async def _render_ai_panel(callback: CallbackQuery, ctx, chat_id: int, at_id: in
     provider = (s.provider if s else "openai").upper()
     is_enabled = s.isEnabled if s else False
     model = (s.modelId if s else "N/A") or "N/A"
+    api_key = "****" if (s and s.apiKey) else await at(at_id, "panel.not_set")
     status_text = await at(at_id, f"panel.status_{'enabled' if is_enabled else 'disabled'}")
     kb = await ai_menu_kb(chat_id, user_id=user_id)
     await callback.message.edit_text(
-        await at(at_id, "panel.ai_text", status=status_text, provider=provider, model=model),
+        await at(
+            at_id,
+            "panel.ai_text",
+            status=status_text,
+            provider=provider,
+            model=model,
+            api_key=api_key,
+        ),
         reply_markup=kb,
     )
 
@@ -138,6 +147,11 @@ async def _render_channel_watermark_panel(
     settings = await get_chat_settings(ctx, channel_id)
     cfg = parse_watermark_config(settings.watermarkText)
     status = await at(ui_id, "panel.status_enabled" if settings.watermarkEnabled else "panel.status_disabled")
+    video_limit_note = (
+        await at(ui_id, "panel.wm_video_limit_note", size_mb=config.VIDEO_WATERMARK_MAX_SIZE_MB)
+        if config.ENABLE_VIDEO_WATERMARK
+        else ""
+    )
     await callback.message.edit_text(
         await at(
             ui_id,
@@ -146,6 +160,18 @@ async def _render_channel_watermark_panel(
             text=cfg.text or "-",
             color=await at(ui_id, f"panel.wm_color_{cfg.color}"),
             style=await at(ui_id, f"panel.wm_style_{cfg.style}"),
+            video_status=await at(
+                ui_id, "panel.status_enabled" if cfg.video_enabled else "panel.status_disabled"
+            ),
+            video_quality=await at(ui_id, f"panel.wm_quality_{cfg.video_quality}"),
+            video_motion=await at(ui_id, f"panel.wm_motion_{cfg.video_motion}"),
+            video_available=await at(
+                ui_id,
+                "panel.wm_video_available_yes"
+                if config.ENABLE_VIDEO_WATERMARK
+                else "panel.wm_video_available_no",
+            ),
+            video_limit_note=video_limit_note,
         ),
         reply_markup=await channel_watermark_kb(ctx, channel_id, user_id),
     )
@@ -479,17 +505,32 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
 
             if mode == "color":
                 cycle = ["white", "black", "red", "blue", "gold"]
+            elif mode == "video_quality":
+                cycle = ["high", "medium", "low"]
+            elif mode == "video_motion":
+                cycle = ["static", "float", "scroll_lr", "scroll_rl"]
             else:
                 # Modern style presets only.
                 cycle = ["soft_shadow", "outline", "clean", "pattern_grid", "pattern_diagonal"]
 
-            current = cfg.color if mode == "color" else cfg.style
+            if mode == "color":
+                current = cfg.color
+            elif mode == "video_quality":
+                current = cfg.video_quality
+            elif mode == "video_motion":
+                current = cfg.video_motion
+            else:
+                current = cfg.style
             try:
                 nxt = cycle[(cycle.index(current) + 1) % len(cycle)]
             except ValueError:
                 nxt = cycle[0]
             if mode == "color":
                 cfg.color = nxt
+            elif mode == "video_quality":
+                cfg.video_quality = nxt
+            elif mode == "video_motion":
+                cfg.video_motion = nxt
             else:
                 cfg.style = nxt
 
@@ -497,10 +538,53 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
                 ctx,
                 channel_id,
                 "watermarkText",
-                build_watermark_config(cfg.text, color=cfg.color, style=cfg.style),
+                build_watermark_config(
+                    cfg.text,
+                    color=cfg.color,
+                    style=cfg.style,
+                    video_enabled=cfg.video_enabled,
+                    video_quality=cfg.video_quality,
+                    video_motion=cfg.video_motion,
+                ),
             )
             await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, ui_id)
             await callback.answer()
+        return
+
+    if action == "toggle_wm_video":
+        if len(data) >= 3:
+            channel_id = int(data[2])
+            if not await is_admin(client, channel_id, user_id):
+                await callback.answer(await at(ui_id, "error.no_membership_admin"), show_alert=True)
+                return
+            if not config.ENABLE_VIDEO_WATERMARK:
+                await callback.answer(await at(ui_id, "panel.wm_video_unavailable"), show_alert=True)
+                return
+            from src.db.repositories.chats import (
+                get_chat_settings as get_ch_settings,
+            )
+            from src.db.repositories.chats import (
+                update_chat_setting as update_ch_setting,
+            )
+
+            s = await get_ch_settings(ctx, channel_id)
+            cfg = parse_watermark_config(s.watermarkText)
+            cfg.video_enabled = not cfg.video_enabled
+            await update_ch_setting(
+                ctx,
+                channel_id,
+                "watermarkText",
+                build_watermark_config(
+                    cfg.text,
+                    color=cfg.color,
+                    style=cfg.style,
+                    video_enabled=cfg.video_enabled,
+                    video_quality=cfg.video_quality,
+                    video_motion=cfg.video_motion,
+                ),
+            )
+            await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, ui_id)
+            await callback.answer(_plain(await at(ui_id, "panel.setting_updated")))
         return
 
     # ── Flow B: Group-level actions — requires an active connected chat ────────
@@ -1703,10 +1787,40 @@ async def protected_panel_callback_handler(
                 await capture_next_input(
                     user_id, chat_id, field, prompt_msg_id=callback.message.id, page=page
                 )
-                cancel_cb = "panel:main"
+                # Keep cancel scoped to the same section to avoid jarring jumps.
+                cancel_map = {
+                    "floodThreshold": "panel:flood",
+                    "floodWindow": "panel:flood",
+                    "welcomeText": "panel:welcome",
+                    "rulesText": "panel:rules",
+                    "warnLimit": "panel:warns",
+                    "slowmode": "panel:slowmode",
+                    "raidThreshold": "panel:raid",
+                    "raidWindow": "panel:raid",
+                    "captchaTimeout": "panel:captcha",
+                    "gsbKey": "panel:urlscanner",
+                    "reminderText": "panel:reminders",
+                    "chatnightlockStart": "panel:chatnightlock",
+                    "chatnightlockEnd": "panel:chatnightlock",
+                    "cleanerInactive": "panel:cleaner",
+                    "purgeMessagesCount": "panel:category:moderation",
+                }
+                if field.startswith("ai"):
+                    cancel_cb = "panel:category:ai"
+                elif field == "blacklistInput":
+                    cancel_cb = f"panel:blacklist:{page}"
+                elif field == "langblockInput":
+                    cancel_cb = f"panel:langblock:{page}"
+                else:
+                    cancel_cb = cancel_map.get(field, "panel:main")
 
             prompt_key = f"panel.input_prompt_{field}"
-            prompt_text = await at(user_id, prompt_key)
+            if field == "aiApiKey":
+                settings = await AIRepository.get_settings(ctx, chat_id)
+                provider = (settings.provider if settings else "openai").upper()
+                prompt_text = await at(user_id, prompt_key, provider=provider)
+            else:
+                prompt_text = await at(user_id, prompt_key)
 
             kb = InlineKeyboardMarkup(
                 [

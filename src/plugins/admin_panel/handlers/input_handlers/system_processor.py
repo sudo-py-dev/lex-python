@@ -93,7 +93,7 @@ async def system_settings_processor(
     )
     success_text = await at(user_id, "panel.input_success")
     await finalize_input_capture(
-        client, message, user_id, prompt_msg_id, f"**{success_text}**\n\n{main_text}", kb
+        client, message, user_id, prompt_msg_id, main_text, kb, success_text=success_text
     )
 
 

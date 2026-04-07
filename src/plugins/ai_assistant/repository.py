@@ -7,6 +7,11 @@ from src.db.models.ai import AIChatContext, AISettings
 
 
 class AIRepository:
+    _CONTEXT_DB_LIMIT = 40
+    _CONTEXT_TOTAL_CHAR_BUDGET = 9000
+    _CONTEXT_USER_MSG_MAX_CHARS = 900
+    _CONTEXT_ASSISTANT_MSG_MAX_CHARS = 1200
+
     @staticmethod
     async def get_settings(ctx: AppContext, chat_id: int) -> AISettings | None:
         async with ctx.db() as session:
@@ -63,18 +68,25 @@ class AIRepository:
                 select(AIChatContext)
                 .where(AIChatContext.chatId == chat_id)
                 .order_by(AIChatContext.timestamp.desc())
-                .limit(50)
+                .limit(AIRepository._CONTEXT_DB_LIMIT)
             )
             result = await session.execute(stmt)
             msgs = result.scalars().all()
 
             ai_messages = []
-            budget = 30000
+            budget = AIRepository._CONTEXT_TOTAL_CHAR_BUDGET
             current_chars = 0
 
             for m in msgs:
                 role = "assistant" if m.userId == bot_id else "user"
                 content = m.text if role == "assistant" else f"[{m.userName}]: {m.text}"
+                msg_max = (
+                    AIRepository._CONTEXT_ASSISTANT_MSG_MAX_CHARS
+                    if role == "assistant"
+                    else AIRepository._CONTEXT_USER_MSG_MAX_CHARS
+                )
+                if len(content) > msg_max:
+                    content = content[:msg_max] + "..."
 
                 if current_chars + len(content) > budget:
                     remaining = budget - current_chars

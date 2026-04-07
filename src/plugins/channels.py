@@ -7,6 +7,7 @@ import json
 import os
 import random
 import tempfile
+import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from collections.abc import Awaitable, Callable
@@ -15,13 +16,14 @@ from PIL import Image, UnidentifiedImageError
 from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
-from pyrogram.types import InputMediaPhoto, Message
+from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 
+from src.config import config
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.plugins.admin_panel.repository import get_chat_settings
-from src.utils.media import apply_watermark, parse_watermark_config
+from src.utils.media import apply_video_watermark, apply_watermark, parse_watermark_config
 from src.utils.rate_limit import TokenBucketLimiter
 
 if TYPE_CHECKING:
@@ -33,6 +35,9 @@ class WatermarkOptions:
     text: str
     color: str
     style: str
+    video_enabled: bool
+    video_quality: str
+    video_motion: str
 
 
 @dataclass(slots=True)
@@ -113,15 +118,35 @@ class ChannelsPlugin(Plugin):
         ctx = get_context()
         settings: ChatSettings | None = await get_chat_settings(ctx, message.chat.id)
         if not settings:
+            logger.debug(f"[channels] No settings found for chat={message.chat.id}, skipping message={message.id}")
             return
 
         await self._handle_reactions(settings, message)
 
         plan = await self._build_content_plan(settings, message)
         wm = self._get_watermark_options(settings)
+        logger.debug(
+            "[channels] message={} chat={} media={} photo={} video={} wm_enabled={} wm_text={} video_wm={} "
+            "video_quality={} video_motion={} signature_enabled={}",
+            message.id,
+            message.chat.id,
+            plan.is_media,
+            bool(message.photo),
+            bool(message.video),
+            settings.watermarkEnabled,
+            bool(wm.text),
+            wm.video_enabled,
+            wm.video_quality,
+            wm.video_motion,
+            settings.signatureEnabled,
+        )
 
         if plan.is_media and message.photo and settings.watermarkEnabled and wm.text:
+            logger.debug(f"[channels] Applying image watermark for message={message.id}")
             if message.media_group_id:
+                logger.debug(
+                    f"[channels] Deferring image watermark to album worker for media_group={message.media_group_id}"
+                )
                 self._schedule_album_job(message)
                 return
 
@@ -132,13 +157,40 @@ class ChannelsPlugin(Plugin):
             )
             return
 
+        if (
+            plan.is_media
+            and message.video
+            and settings.watermarkEnabled
+            and wm.text
+            and wm.video_enabled
+            and config.ENABLE_VIDEO_WATERMARK
+        ):
+            logger.debug(
+                f"[channels] Applying video watermark for message={message.id} quality={wm.video_quality}"
+            )
+            await self._handle_video_watermarking(
+                message,
+                plan.target_content or message.caption,
+                wm,
+            )
+            return
+        if plan.is_media and message.video and settings.watermarkEnabled and wm.text:
+            logger.debug(
+                "[channels] Video watermark skipped for message={} (channel_video={}, developer_video={})",
+                message.id,
+                wm.video_enabled,
+                config.ENABLE_VIDEO_WATERMARK,
+            )
+
         if plan.target_content is not None:
+            logger.debug(f"[channels] Applying signature update for message={message.id}")
             await self._handle_signature(message, plan.target_content, plan.is_media)
 
     def _schedule_album_job(self, message: Message) -> None:
         media_group_id = message.media_group_id
         if not media_group_id or media_group_id in self._album_jobs:
             return
+        logger.debug(f"[channels] Scheduling album watermark job media_group={media_group_id}")
         self._album_jobs[media_group_id] = asyncio.create_task(
             self._process_album_after_debounce(media_group_id, message)
         )
@@ -154,6 +206,10 @@ class ChannelsPlugin(Plugin):
                 return
             wm = self._get_watermark_options(settings)
             if not (settings.watermarkEnabled and wm.text):
+                logger.debug(
+                    f"[channels] Album watermark skipped media_group={media_group_id} "
+                    f"(enabled={settings.watermarkEnabled}, has_text={bool(wm.text)})"
+                )
                 return
             with contextlib.suppress(Exception):
                 group = await anchor_message.get_media_group()
@@ -170,6 +226,9 @@ class ChannelsPlugin(Plugin):
                     photo_items = self._select_album_photos(group, caption_host)
                     if not photo_items:
                         return
+                    logger.debug(
+                        f"[channels] Album watermark media_group={media_group_id} photos_to_edit={len(photo_items)}"
+                    )
 
                     for item in photo_items:
                         item_caption = final_caption if item.id == caption_host.id else None
@@ -202,6 +261,9 @@ class ChannelsPlugin(Plugin):
             text=cfg.text,
             color=cfg.color,
             style=cfg.style,
+            video_enabled=cfg.video_enabled,
+            video_quality=cfg.video_quality,
+            video_motion=cfg.video_motion,
         )
 
     async def _build_content_plan(
@@ -314,9 +376,10 @@ class ChannelsPlugin(Plugin):
         """
         Downloads the image, applies the watermark and the final caption, then updates the post.
         """
+        logger.debug(f"[channels] Start image watermark pipeline message={message.id}")
         with tempfile.TemporaryDirectory() as temp_dir:
-            input_path = os.path.join(temp_dir, "input.jpg")
-            output_path = os.path.join(temp_dir, "output.jpg")
+            input_path = self._safe_temp_media_path(temp_dir, "img_input", ".jpg")
+            output_path = self._safe_temp_media_path(temp_dir, "img_output", ".jpg")
             try:
                 photo_path = await message.download(file_name=input_path)
             except OSError as e:
@@ -344,6 +407,7 @@ class ChannelsPlugin(Plugin):
                 color=wm.color,
                 style=wm.style,
             ):
+                logger.debug(f"[channels] Image watermark renderer returned false message={message.id}")
                 return
 
             if not self._is_real_image(output_path):
@@ -362,6 +426,7 @@ class ChannelsPlugin(Plugin):
 
             try:
                 await self._run_with_retry(message.chat.id, self.METHOD_EDIT, do_edit_media)
+                logger.debug(f"[channels] Image watermark edit success message={message.id}")
             except OSError as e:
                 if e.errno == errno.ENOSPC:
                     logger.error(
@@ -371,6 +436,101 @@ class ChannelsPlugin(Plugin):
                 logger.error(f"OS error watermarking message {message.id}: {e}")
             except Exception as e:
                 logger.error(f"Error watermarking message {message.id}: {e}")
+
+    async def _handle_video_watermarking(
+        self,
+        message: Message,
+        final_caption: str | None,
+        wm: WatermarkOptions,
+    ) -> None:
+        logger.debug(
+            f"[channels] Start video watermark pipeline message={message.id} "
+            f"quality={wm.video_quality} motion={wm.video_motion}"
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_path = self._safe_temp_media_path(temp_dir, "video_input", ".mp4")
+            output_path = self._safe_temp_media_path(temp_dir, "video_output", ".mp4")
+            # Developer-side hard limit to protect low-resource servers.
+            max_size_bytes = max(1, int(config.VIDEO_WATERMARK_MAX_SIZE_MB)) * 1024 * 1024
+            source_size = int(getattr(message.video, "file_size", 0) or 0)
+            if source_size > max_size_bytes:
+                logger.debug(
+                    "[channels] Skip video watermark (over size limit) message={} size={} limit={}",
+                    message.id,
+                    self._human_size(source_size),
+                    self._human_size(max_size_bytes),
+                )
+                return
+            try:
+                video_path = await message.download(file_name=input_path)
+            except OSError as e:
+                if e.errno == errno.ENOSPC:
+                    logger.error(
+                        f"Storage full while downloading video for message {message.id}; skipping watermark."
+                    )
+                    return
+                logger.error(f"OS error downloading video for message {message.id}: {e}")
+                return
+            except Exception as e:
+                logger.error(f"Error downloading video for message {message.id}: {e}")
+                return
+
+            if not video_path or not os.path.exists(video_path):
+                return
+
+            if not apply_video_watermark(
+                video_path,
+                wm.text,
+                output_path,
+                color=wm.color,
+                style=wm.style,
+                quality=wm.video_quality,
+                motion=wm.video_motion,
+            ):
+                logger.debug(f"[channels] Video watermark renderer returned false message={message.id}")
+                return
+
+            with contextlib.suppress(OSError):
+                input_size = os.path.getsize(video_path)
+                output_size = os.path.getsize(output_path)
+                delta = output_size - input_size
+                sign = "+" if delta > 0 else "-"
+                delta_abs = abs(delta)
+                ratio = (delta / input_size * 100.0) if input_size > 0 else 0.0
+                logger.debug(
+                    "[channels] Video size change message={} quality={} motion={} input={} output={} delta={}{} ({:+.2f}%)",
+                    message.id,
+                    wm.video_quality,
+                    wm.video_motion,
+                    self._human_size(input_size),
+                    self._human_size(output_size),
+                    sign,
+                    self._human_size(delta_abs),
+                    ratio,
+                )
+
+            async def do_edit_media() -> None:
+                await message.edit_media(
+                    media=InputMediaVideo(
+                        media=output_path,
+                        caption=final_caption,
+                        caption_entities=message.caption_entities,
+                        parse_mode=None,
+                    )
+                )
+
+            try:
+                await self._run_with_retry(message.chat.id, self.METHOD_EDIT, do_edit_media)
+                logger.debug(f"[channels] Video watermark edit success message={message.id}")
+            except OSError as e:
+                if e.errno == errno.ENOSPC:
+                    logger.error(
+                        f"Storage full while editing video for message {message.id}; skipping update."
+                    )
+                    return
+                logger.error(f"OS error video watermarking message {message.id}: {e}")
+            except Exception as e:
+                logger.error(f"Error video watermarking message {message.id}: {e}")
 
     async def _throttle_operation(self, chat_id: int, method: str) -> None:
         chat_key = str(chat_id)
@@ -415,6 +575,28 @@ class ChannelsPlugin(Plugin):
             return True
         except (UnidentifiedImageError, OSError, ValueError):
             return False
+
+    def _safe_temp_media_path(self, temp_dir: str, stem: str, ext: str) -> str:
+        """
+        Build a bot-controlled temp path and ensure it stays inside temp_dir.
+        Prevents any path/name influence from untrusted sources.
+        """
+        safe_name = f"lex_{stem}_{uuid.uuid4().hex}{ext}"
+        candidate = os.path.realpath(os.path.join(temp_dir, safe_name))
+        temp_root = os.path.realpath(temp_dir)
+        if os.path.commonpath([candidate, temp_root]) != temp_root:
+            raise ValueError("Unsafe temp media path generated")
+        return candidate
+
+    def _human_size(self, size_bytes: int) -> str:
+        """Format byte size using human-readable binary units."""
+        units = ("B", "KB", "MB", "GB", "TB")
+        size = float(max(0, size_bytes))
+        unit_idx = 0
+        while size >= 1024.0 and unit_idx < len(units) - 1:
+            size /= 1024.0
+            unit_idx += 1
+        return f"{size:.2f} {units[unit_idx]}"
 
 
 channels_plugin = ChannelsPlugin()

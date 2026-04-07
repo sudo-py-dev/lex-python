@@ -77,8 +77,9 @@ async def numeric_security_processor(
         message,
         user_id,
         prompt_msg_id,
-        f"**{success_text}**\n\n{main_text}",
+        main_text,
         kb,
+        success_text=success_text,
     )
 
 
@@ -130,8 +131,9 @@ async def string_security_processor(
         message,
         user_id,
         prompt_msg_id,
-        f"**{success_text}**\n\n{main_text}",
+        main_text,
         kb,
+        success_text=success_text,
     )
 
 

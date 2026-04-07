@@ -21,6 +21,10 @@ async def ai_settings_processor(
     page: int,
 ) -> None:
     user_id = message.from_user.id
+    value_text = str(value).strip()
+    if not value_text:
+        await message.reply(await at(user_id, "panel.input_invalid_string"))
+        return
 
     mapping = {
         "aiApiKey": "apiKey",
@@ -30,7 +34,7 @@ async def ai_settings_processor(
     }
     db_field = mapping.get(field, field)
 
-    update_data = {db_field: str(value)}
+    update_data = {db_field: value_text}
     await AIRepository.update_settings(ctx, chat_id, **update_data)
 
     kb = await ai_menu_kb(chat_id, user_id=user_id)
@@ -38,18 +42,27 @@ async def ai_settings_processor(
     is_enabled = s.isEnabled if s else False
     provider = (s.provider if s else "openai").upper()
     model = (s.modelId if s else "N/A") or "N/A"
+    api_key = "****" if (s and s.apiKey) else await at(user_id, "panel.not_set")
 
     status_text = await at(user_id, f"panel.status_{'enabled' if is_enabled else 'disabled'}")
     main_text = await at(
-        user_id, "panel.ai_text", status=status_text, provider=provider, model=model
+        user_id,
+        "panel.ai_text",
+        status=status_text,
+        provider=provider,
+        model=model,
+        api_key=api_key,
     )
 
     success_text = await at(user_id, "panel.input_success")
+    if field == "aiModelId":
+        success_text = await at(user_id, "panel.ai_model_set", model=model)
     await finalize_input_capture(
         client,
         message,
         user_id,
         prompt_msg_id,
-        f"**{success_text}**\n\n{main_text}",
+        main_text,
         kb,
+        success_text=success_text,
     )

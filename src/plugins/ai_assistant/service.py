@@ -90,7 +90,12 @@ class AIService:
                 return data["choices"][0]["message"]["content"]
             except httpx.HTTPStatusError as e:
                 error_body = e.response.text
-                logger.error(f"API error from {url}: {error_body}")
+                status = e.response.status_code
+                body_l = error_body.lower()
+                if status == 413 or "request_too_large" in body_l:
+                    logger.warning(f"API payload too large from {url}: {error_body}")
+                else:
+                    logger.error(f"API error from {url}: {error_body}")
                 raise AIServiceError(f"API Error ({e.response.status_code}): {error_body}") from e
             except Exception as e:
                 logger.error(f"Request failed for {url}: {e}")

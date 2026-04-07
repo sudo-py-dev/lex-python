@@ -2,6 +2,7 @@ from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select
 
+from src.config import config
 from src.db.models import Reminder
 from src.utils.i18n import at
 from src.utils.media import parse_watermark_config
@@ -992,45 +993,84 @@ async def channel_watermark_kb(ctx, channel_id: int, user_id: int) -> InlineKeyb
     cfg = parse_watermark_config(s.watermarkText)
     wm_color = cfg.color
     wm_style = cfg.style
+    video_status = "✅" if cfg.video_enabled else "❌"
     status = "✅" if s.watermarkEnabled else "❌"
 
-    return InlineKeyboardMarkup(
+    buttons = [
         [
-            [
-                InlineKeyboardButton(
-                    await at(user_id, "panel.btn_watermark", status=status),
-                    callback_data=f"panel:toggle_ch:watermarkEnabled:{channel_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(user_id, "panel.btn_set_watermark"),
-                    callback_data=f"panel:input:watermarkText:{channel_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(
-                        user_id,
-                        "panel.btn_wm_color",
-                        value=await at(user_id, f"panel.wm_color_{wm_color}"),
-                    ),
-                    callback_data=f"panel:cycle_wm:color:{channel_id}",
+            InlineKeyboardButton(
+                await at(user_id, "panel.btn_watermark", status=status),
+                callback_data=f"panel:toggle_ch:watermarkEnabled:{channel_id}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                await at(user_id, "panel.btn_set_watermark"),
+                callback_data=f"panel:input:watermarkText:{channel_id}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                await at(
+                    user_id,
+                    "panel.btn_wm_color",
+                    value=await at(user_id, f"panel.wm_color_{wm_color}"),
                 ),
-                InlineKeyboardButton(
-                    await at(
-                        user_id,
-                        "panel.btn_wm_style",
-                        value=await at(user_id, f"panel.wm_style_{wm_style}"),
-                    ),
-                    callback_data=f"panel:cycle_wm:style:{channel_id}",
+                callback_data=f"panel:cycle_wm:color:{channel_id}",
+            ),
+            InlineKeyboardButton(
+                await at(
+                    user_id,
+                    "panel.btn_wm_style",
+                    value=await at(user_id, f"panel.wm_style_{wm_style}"),
                 ),
-            ],
+                callback_data=f"panel:cycle_wm:style:{channel_id}",
+            ),
+        ],
+    ]
+
+    if config.ENABLE_VIDEO_WATERMARK:
+        buttons.extend(
             [
-                InlineKeyboardButton(
-                    await at(user_id, "panel.btn_back"),
-                    callback_data=f"panel:channel_settings:{channel_id}",
-                )
-            ],
+                [
+                    InlineKeyboardButton(
+                        await at(user_id, "panel.wm_video_section_title"),
+                        callback_data="panel:noop",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        await at(user_id, "panel.btn_wm_video", status=video_status),
+                        callback_data=f"panel:toggle_wm_video:{channel_id}",
+                    ),
+                    InlineKeyboardButton(
+                        await at(
+                            user_id,
+                            "panel.btn_wm_video_quality",
+                            value=await at(user_id, f"panel.wm_quality_{cfg.video_quality}"),
+                        ),
+                        callback_data=f"panel:cycle_wm:video_quality:{channel_id}",
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        await at(
+                            user_id,
+                            "panel.btn_wm_video_motion",
+                            value=await at(user_id, f"panel.wm_motion_{cfg.video_motion}"),
+                        ),
+                        callback_data=f"panel:cycle_wm:video_motion:{channel_id}",
+                    )
+                ],
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                await at(user_id, "panel.btn_back"),
+                callback_data=f"panel:channel_settings:{channel_id}",
+            )
         ]
     )
+    return InlineKeyboardMarkup(buttons)
