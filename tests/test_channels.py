@@ -1,0 +1,142 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from src.db.repositories.channels import get_channel_settings, update_channel_setting
+
+from src.plugins.channels import ChannelsPlugin
+from tests.factories import ChannelSettingsFactory
+
+
+@pytest.fixture
+def mock_ctx(db_session):
+    """Mock AppContext to work with repository functions."""
+    ctx = MagicMock()
+    # Mock the 'async with ctx.db() as session:' pattern
+    ctx.db.return_value.__aenter__.return_value = db_session
+    return ctx
+
+
+@pytest.mark.asyncio
+async def test_channel_settings_creation(mock_ctx, db_session):
+    """Test that ChannelSettings can be created and retrieved."""
+    # Create via factory
+    settings = ChannelSettingsFactory.build(id=-1001, reactions="❤️ 🔥")
+    db_session.add(settings)
+    await db_session.flush()
+
+    # Retrieve via repository
+    fetched = await get_channel_settings(mock_ctx, -1001)
+    assert fetched is not None
+    assert fetched.id == -1001
+    assert fetched.reactions == "❤️ 🔥"
+
+
+@pytest.mark.asyncio
+async def test_update_channel_setting(mock_ctx, db_session):
+    """Test updating a specific channel setting."""
+    settings = ChannelSettingsFactory.build(id=-1002, reactionsEnabled=False)
+    db_session.add(settings)
+    await db_session.flush()
+
+    # Update via repository
+    await update_channel_setting(mock_ctx, -1002, "reactionsEnabled", True)
+
+    # Verify
+    fetched = await get_channel_settings(mock_ctx, -1002)
+    assert fetched.reactionsEnabled is True
+
+
+@pytest.mark.asyncio
+async def test_reaction_logic_all_mode():
+    """Unit test for the reaction logic (All mode)."""
+    plugin = ChannelsPlugin()
+    settings = MagicMock()
+    settings.reactionsEnabled = True
+    settings.reactions = "👍 ❤️"
+    settings.reactionMode = "all"
+
+    message = AsyncMock()
+
+    await plugin._handle_reactions(settings, message)
+
+    # Should react with the FIRST emoji in 'all' mode (since bot limit is 1)
+    message.react.assert_called_once_with("👍")
+
+
+@pytest.mark.asyncio
+async def test_signature_length_limit():
+    """Test that signatures are not added if they exceed the limit."""
+    plugin = ChannelsPlugin()
+    settings = MagicMock()
+    settings.signatureEnabled = True
+    settings.signatureText = "My Awesome Bot"
+
+    # Text message limit is 4096. Try a message that is 4090 chars long.
+    message = AsyncMock()
+    message.text = "A" * 4090
+    message.caption = None
+
+    # Calculate target (should be None because 4090 + 16 > 4096)
+    result = plugin._calculate_target_content(
+        settings, message, is_media=False, is_caption_host=True
+    )
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_combined_watermark_and_signature():
+    """Test the unified flow for both enhancements on a photo."""
+    plugin = ChannelsPlugin()
+    settings = MagicMock()
+    settings.watermarkEnabled = True
+    settings.watermarkText = "@MyChannel"
+    settings.signatureEnabled = True
+    settings.signatureText = "Visit us!"
+    settings.reactionsEnabled = False
+
+    message = AsyncMock()
+    message.photo = MagicMock()
+    message.caption = "Hello world"
+    message.media_group_id = None
+
+    # We should see _handle_watermarking called with the combined caption
+    with (
+        patch.object(plugin, "_handle_watermarking", new_callable=AsyncMock) as mock_water,
+        patch.object(plugin, "_is_caption_host", return_value=True),
+        patch("src.plugins.channels.get_context", return_value=mock_ctx),
+        patch("src.plugins.channels.get_channel_settings", return_value=settings),
+    ):
+        await plugin._process_message(AsyncMock(), message)
+
+        # Signature should be appended: "Hello world\n\nVisit us!"
+        expected_caption = "Hello world\n\nVisit us!"
+        mock_water.assert_called_once()
+        args = mock_water.call_args[0]
+        assert args[2] == expected_caption
+
+
+@pytest.mark.asyncio
+async def test_album_non_host_skips_watermarking(mock_ctx):
+    """Test that non-caption host messages in an album skip the watermarking flow."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    plugin = ChannelsPlugin()
+    settings = MagicMock()
+    settings.watermarkEnabled = True
+    settings.watermarkText = "@MyChannel"
+    settings.reactionsEnabled = False
+
+    message = AsyncMock()
+    message.photo = MagicMock()
+    message.media_group_id = "album123"
+
+    # We should see _handle_watermarking NOT called if is_caption_host is False
+    with (
+        patch.object(plugin, "_handle_watermarking", new_callable=AsyncMock) as mock_water,
+        patch.object(plugin, "_is_caption_host", return_value=False),
+        patch("src.plugins.channels.get_context", return_value=mock_ctx),
+        patch("src.plugins.channels.get_channel_settings", return_value=settings),
+    ):
+        await plugin._process_message(AsyncMock(), message)
+
+        mock_water.assert_not_called()

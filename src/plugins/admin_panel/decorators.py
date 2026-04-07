@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import functools
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -8,12 +9,14 @@ from typing import Any
 from loguru import logger
 from pyrogram import Client
 from pyrogram.enums import ChatType
+from pyrogram.errors import MessageNotModified
 from pyrogram.types import CallbackQuery, Message
 
 from src.core.context import AppContext, get_context
-from src.plugins.connections import get_active_chat
 from src.utils.i18n import at
 from src.utils.permissions import is_admin
+
+from .repository import get_active_chat, get_chat_info
 
 
 @dataclass
@@ -22,6 +25,8 @@ class AdminPanelContext:
     at_id: int
     ctx: AppContext
     is_pm: bool
+    chat_type: ChatType | None = None
+    chat_title: str | None = None
 
 
 def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
@@ -50,12 +55,13 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
             chat_id = await get_active_chat(ctx, user_id)
             if not chat_id:
                 logger.debug(f"No active connection for user {user_id} in PM.")
-                from .handlers.keyboards import my_groups_kb
+                from .handlers.keyboards import my_chats_menu_kb
 
-                kb = await my_groups_kb(ctx, client, user_id)
+                kb = await my_chats_menu_kb(user_id)
                 text = await at(user_id, "panel.pick_group")
                 if isinstance(event, CallbackQuery):
-                    await event.message.edit_text(text, reply_markup=kb)
+                    with contextlib.suppress(MessageNotModified):
+                        await event.message.edit_text(text, reply_markup=kb)
                     await event.answer()
                 else:
                     await event.reply(text, reply_markup=kb)
@@ -64,10 +70,10 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
         at_id = user_id if is_pm else chat_id
         if not await is_admin(client, chat_id, user_id):
             logger.warning(f"User {user_id} is NOT admin in resolved chat {chat_id}. Redirecting.")
-            from .handlers.keyboards import my_groups_kb
-
             if is_pm:
-                kb = await my_groups_kb(ctx, client, user_id)
+                from .handlers.keyboards import my_chats_menu_kb
+
+                kb = await my_chats_menu_kb(user_id)
                 text = await at(user_id, "common.err_access_denied")
                 if isinstance(event, CallbackQuery):
                     await event.message.edit_text(text, reply_markup=kb)
@@ -82,7 +88,15 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
                     await event.reply(text)
             return
 
-        ap_ctx = AdminPanelContext(chat_id=chat_id, at_id=at_id, ctx=ctx, is_pm=is_pm)
+        chat_type, chat_title = await get_chat_info(ctx, chat_id)
+        ap_ctx = AdminPanelContext(
+            chat_id=chat_id,
+            at_id=at_id,
+            ctx=ctx,
+            is_pm=is_pm,
+            chat_type=chat_type,
+            chat_title=chat_title,
+        )
 
         await func(client, event, ap_ctx, *args, **kwargs)
 

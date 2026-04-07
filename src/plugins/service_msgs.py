@@ -7,7 +7,7 @@ from pyrogram.types import Message
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
-from src.db.repositories.admin_panel import get_chat_settings, update_chat_title
+from src.db.repositories.chats import get_chat_settings, update_chat_title
 from src.utils.decorators import safe_handler
 
 

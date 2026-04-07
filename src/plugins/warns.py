@@ -6,7 +6,7 @@ from pyrogram.types import Message, User
 from src.core.bot import bot
 from src.core.context import AppContext, get_context
 from src.core.plugin import Plugin, register
-from src.db.repositories.group_settings import get_settings
+from src.db.repositories.chats import get_chat_settings as get_settings
 from src.db.repositories.warns import (
     add_warn,
     get_warns,

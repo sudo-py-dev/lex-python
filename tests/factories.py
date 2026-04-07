@@ -13,6 +13,7 @@ from src.db.models import (
     BlockedEntity,
     BlockedLanguage,
     ChannelProtect,
+    ChatCleaner,
     DisabledCommand,
     FedAdmin,
     FedBan,
@@ -21,10 +22,9 @@ from src.db.models import (
     FedSubscription,
     Filter,
     GlobalBan,
-    GroupCleaner,
-    GroupRules,
-    GroupSettings,
-    NightLock,
+    ChatNightLock,
+    ChatRules,
+    ChatSettings,
     Note,
     Reminder,
     ReportSetting,
@@ -76,9 +76,9 @@ class TimedActionFactory(factory.Factory):
     expiresAt = factory.LazyFunction(lambda: datetime.now(UTC))
 
 
-class GroupSettingsFactory(factory.Factory):
+class ChatSettingsFactory(factory.Factory):
     class Meta:
-        model = GroupSettings
+        model = ChatSettings
 
     id = factory.Sequence(lambda n: -100 - n)
     floodThreshold = 5
@@ -89,18 +89,18 @@ class GroupSettingsFactory(factory.Factory):
     isActive = True
 
 
-class GroupRulesFactory(factory.Factory):
+class ChatRulesFactory(factory.Factory):
     class Meta:
-        model = GroupRules
+        model = ChatRules
 
     chatId = factory.Sequence(lambda n: -100 - n)
     content = "Test rules"
     privateMode = False
 
 
-class GroupCleanerFactory(factory.Factory):
+class ChatCleanerFactory(factory.Factory):
     class Meta:
-        model = GroupCleaner
+        model = ChatCleaner
 
     chatId = factory.Sequence(lambda n: -100 - n)
     cleanDeleted = False
@@ -108,9 +108,9 @@ class GroupCleanerFactory(factory.Factory):
     cleanInactiveDays = 0
 
 
-class NightLockFactory(factory.Factory):
+class ChatNightLockFactory(factory.Factory):
     class Meta:
-        model = NightLock
+        model = ChatNightLock
 
     chatId = factory.Sequence(lambda n: -100 - n)
     isEnabled = False
@@ -312,3 +312,17 @@ class FedSubscriptionFactory(factory.Factory):
 
     subscriberId = factory.SubFactory(FederationFactory)
     publisherId = factory.SubFactory(FederationFactory)
+
+
+class ChannelSettingsFactory(factory.Factory):
+    class Meta:
+        model = ChatSettings
+
+    id = factory.Sequence(lambda n: -200 - n)
+    reactionsEnabled = False
+    reactions = "👍 ❤️ 🔥"
+    reactionMode = "all"
+    watermarkEnabled = False
+    watermarkText = None
+    signatureEnabled = False
+    signatureText = None

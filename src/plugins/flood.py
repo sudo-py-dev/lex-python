@@ -9,7 +9,8 @@ from src.core.constants import CacheKeys
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.actions import log_action
-from src.db.repositories.group_settings import get_settings, update_settings
+from src.db.repositories.chats import get_chat_settings as get_settings
+from src.db.repositories.chats import update_settings
 from src.plugins.logging import log_event
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at

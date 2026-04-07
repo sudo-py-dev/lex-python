@@ -7,6 +7,7 @@ from sqlalchemy import (
     Text,
     func,
 )
+from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..base import Base
@@ -45,6 +46,14 @@ class UserConnection(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     userId: Mapped[int] = mapped_column(BigInteger, unique=True)
     activeChatId: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+
+class UserSettings(TimestampMixin, Base):
+    __tablename__ = "usersettings"
+
+    userId: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    language: Mapped[str] = mapped_column(String(10), default="en", server_default=sa_text("'en'"))
+    timezone: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
 
 class ActionLog(Base):

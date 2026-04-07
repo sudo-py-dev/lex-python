@@ -5,7 +5,7 @@ from pyrogram.enums import ChatMemberStatus
 from sqlalchemy import select
 
 from src.core.bot import bot
-from src.db.models import GroupCleaner, NightLock, Reminder, TimedAction
+from src.db.models import ChatCleaner, ChatNightLock, Reminder, TimedAction
 from src.utils.i18n import at
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
@@ -71,7 +71,7 @@ async def apply_night_lock(chat_id: int) -> None:
 
     ctx = get_context()
     async with ctx.db() as session:
-        lock = await session.get(NightLock, chat_id)
+        lock = await session.get(ChatNightLock, chat_id)
         if not lock or not lock.isEnabled:
             return
 
@@ -83,7 +83,7 @@ async def apply_night_lock(chat_id: int) -> None:
                 await session.commit()
 
             await bot.set_chat_permissions(chat_id, RESTRICTED_PERMISSIONS)
-            await bot.send_message(chat_id, await at(chat_id, "scheduler.nightlock_engaged"))
+            await bot.send_message(chat_id, await at(chat_id, "scheduler.chatnightlock_engaged"))
         except Exception as e:
             logger.error("Failed to apply night lock in {}: {}", chat_id, e)
 
@@ -93,7 +93,7 @@ async def lift_night_lock(chat_id: int) -> None:
 
     ctx = get_context()
     async with ctx.db() as session:
-        lock = await session.get(NightLock, chat_id)
+        lock = await session.get(ChatNightLock, chat_id)
         if not lock or not lock.isEnabled:
             return
 
@@ -104,7 +104,7 @@ async def lift_night_lock(chat_id: int) -> None:
                 perms = UNRESTRICTED_PERMISSIONS
 
             await bot.set_chat_permissions(chat_id, perms)
-            await bot.send_message(chat_id, await at(chat_id, "scheduler.nightlock_lifted"))
+            await bot.send_message(chat_id, await at(chat_id, "scheduler.chatnightlock_lifted"))
         except Exception as e:
             logger.error("Failed to lift night lock in {}: {}", chat_id, e)
 
@@ -114,7 +114,7 @@ async def run_group_cleaner(chat_id: int) -> None:
 
     ctx = get_context()
     async with ctx.db() as session:
-        cleaner = await session.get(GroupCleaner, chat_id)
+        cleaner = await session.get(ChatCleaner, chat_id)
         if not cleaner:
             return
 

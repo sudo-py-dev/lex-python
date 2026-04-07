@@ -15,48 +15,49 @@ from .keyboards import get_pager
 
 
 async def warns_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
     settings = await get_chat_settings(ctx, chat_id)
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_warn_limit", limit=settings.warnLimit),
+                    await at(at_id, "panel.btn_warn_limit", limit=settings.warnLimit),
                     callback_data="panel:input:warnLimit",
                 ),
             ],
             [
                 InlineKeyboardButton(
                     await at(
-                        chat_id,
+                        at_id,
                         "common.btn_action",
-                        action=await at(chat_id, f"action.{settings.warnAction.lower()}"),
+                        action=await at(at_id, f"action.{settings.warnAction.lower()}"),
                     ),
                     callback_data="panel:cycle:warnAction",
                 ),
                 InlineKeyboardButton(
                     await at(
-                        chat_id,
+                        at_id,
                         "panel.btn_warn_expiry",
-                        expiry=await at(chat_id, f"expiry.{settings.warnExpiry.lower()}"),
+                        expiry=await at(at_id, f"expiry.{settings.warnExpiry.lower()}"),
                     ),
                     callback_data="panel:cycle:warnExpiry",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_view_user_warns"),
+                    await at(at_id, "panel.btn_view_user_warns"),
                     callback_data="panel:user_warns:0",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_warn_reset_all"),
+                    await at(at_id, "panel.btn_warn_reset_all"),
                     callback_data="panel:reset_warns",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_back"), callback_data="panel:category:moderation"
+                    await at(at_id, "panel.btn_back"), callback_data="panel:category:moderation"
                 )
             ],
         ]
@@ -64,6 +65,7 @@ async def warns_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeybo
 
 
 async def slowmode_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
     from src.db.repositories.slowmode import get_slowmode
 
     interval = await get_slowmode(ctx, chat_id)
@@ -71,13 +73,13 @@ async def slowmode_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKe
         [
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_slowmode_interval", interval=interval),
-                    callback_data="panel:input:slowmodeInterval",
+                    await at(at_id, "panel.btn_slowmode_interval", interval=interval),
+                    callback_data="panel:input:slowmode",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_back"), callback_data="panel:category:moderation"
+                    await at(at_id, "panel.btn_back"), callback_data="panel:category:moderation"
                 )
             ],
         ]
@@ -85,21 +87,22 @@ async def slowmode_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKe
 
 
 async def logging_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
     settings = await get_chat_settings(ctx, chat_id)
     channel_display = (
-        settings.logChannelId if settings.logChannelId else await at(chat_id, "panel.not_set")
+        settings.logChannelId if settings.logChannelId else await at(at_id, "panel.not_set")
     )
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_logging_channel", channel=channel_display),
+                    await at(at_id, "panel.btn_logging_channel", channel=channel_display),
                     callback_data="panel:logging_picker:0",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_back"), callback_data="panel:category:moderation"
+                    await at(at_id, "panel.btn_back"), callback_data="panel:category:moderation"
                 )
             ],
         ]
@@ -109,6 +112,7 @@ async def logging_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKey
 async def langblock_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
     from sqlalchemy import select
 
     from src.db.models import BlockedLanguage
@@ -129,13 +133,13 @@ async def langblock_kb(
             [
                 InlineKeyboardButton(
                     f"🗣️ {b.langCode.upper()}",
-                    callback_data="none",
+                    callback_data="panel:noop",
                 ),
                 InlineKeyboardButton(
-                    f"⚖️ {await at(chat_id, f'action.{b.action.lower()}')}",
+                    f"⚖️ {await at(at_id, f'action.{b.action.lower()}')}",
                     callback_data=f"panel:cycle_langblock_action:{b.id}:{page}",
                 ),
-                InlineKeyboardButton("❌", callback_data=f"panel:langblock_remove:{b.id}:{page}"),
+                InlineKeyboardButton("❌", callback_data=f"panel:lang_remove:{b.langCode}:{page}"),
             ]
         )
 
@@ -146,7 +150,7 @@ async def langblock_kb(
     kb.append(
         [
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_add_langblock"),
+                await at(at_id, "panel.btn_add_langblock"),
                 callback_data=f"panel:input:langblockInput:{page}",
             )
         ]
@@ -155,7 +159,7 @@ async def langblock_kb(
     kb.append(
         [
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_back"), callback_data="panel:category:moderation"
+                await at(at_id, "panel.btn_back"), callback_data="panel:category:moderation"
             )
         ]
     )
@@ -166,6 +170,7 @@ async def langblock_kb(
 async def entityblock_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
     from src.plugins.entity_block import get_blocked_entities
 
     blocks = await get_blocked_entities(ctx, chat_id)
@@ -191,15 +196,15 @@ async def entityblock_kb(
         block = next((b for b in blocks if b.entityType == entity), None)
         if block:
             icon = "✅"
-            action_label = await at(chat_id, f"action.{block.action.lower()}")
+            action_label = await at(at_id, f"action.{block.action.lower()}")
             type_label = await at(
-                chat_id, f"lock.{entity}", default=entity.replace("_", " ").title()
+                at_id, f"lock.{entity}", default=entity.replace("_", " ").title()
             )
             btn_text = f"{icon} {type_label} ({action_label})"
         else:
             icon = "❌"
             type_label = await at(
-                chat_id, f"lock.{entity}", default=entity.replace("_", " ").title()
+                at_id, f"lock.{entity}", default=entity.replace("_", " ").title()
             )
             btn_text = f"{icon} {type_label}"
 
@@ -219,7 +224,7 @@ async def entityblock_kb(
     kb.append(
         [
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_back"), callback_data="panel:category:security"
+                await at(at_id, "panel.btn_back"), callback_data="panel:category:security"
             )
         ]
     )
@@ -230,6 +235,7 @@ async def entityblock_kb(
 async def blacklist_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
     from src.db.repositories.blacklist import get_all_blacklist
 
     settings = await get_chat_settings(ctx, chat_id)
@@ -245,13 +251,13 @@ async def blacklist_kb(
         "warn": "⚠️",
     }.get(action_type, "🗑️")
 
-    action_label = await at(chat_id, f"action.{action_type}")
+    action_label = await at(at_id, f"action.{action_type}")
 
     kb.append(
         [
             InlineKeyboardButton(
                 await at(
-                    chat_id,
+                    at_id,
                     "panel.btn_blacklist_global_action",
                     action=action_label,
                     icon=action_icon,
@@ -276,12 +282,12 @@ async def blacklist_kb(
                 else "panel.blacklist_badge_literal"
             )
         )
-        badge = await at(chat_id, badge_key)
+        badge = await at(at_id, badge_key)
         kb.append(
             [
                 InlineKeyboardButton(
                     f"{badge} {(b.pattern[:30] + '...') if len(b.pattern) > 30 else b.pattern}",
-                    callback_data="none",
+                    callback_data="panel:noop",
                 ),
                 InlineKeyboardButton("❌", callback_data=f"panel:blacklist_remove:{b.id}:{page}"),
             ]
@@ -294,7 +300,7 @@ async def blacklist_kb(
     kb.append(
         [
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_add_blacklist"),
+                await at(at_id, "panel.btn_add_blacklist"),
                 callback_data=f"panel:input:blacklistInput:{page}",
             )
         ]
@@ -303,7 +309,7 @@ async def blacklist_kb(
     kb.append(
         [
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_back"), callback_data="panel:category:moderation"
+                await at(at_id, "panel.btn_back"), callback_data="panel:category:moderation"
             )
         ]
     )
@@ -314,6 +320,7 @@ async def blacklist_kb(
 async def user_warns_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
     from src.db.repositories.warns import get_users_with_warns, get_warn_count
 
     user_ids = await get_users_with_warns(ctx, chat_id)
@@ -329,7 +336,7 @@ async def user_warns_kb(
         kb.append(
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.warn_item", id=uid, count=count),
+                    await at(at_id, "panel.warn_item", id=uid, count=count),
                     callback_data=f"panel:user_warn_info:{uid}:{page}",
                 ),
                 InlineKeyboardButton("❌", callback_data=f"panel:user_warn_reset:{uid}:{page}"),
@@ -341,8 +348,10 @@ async def user_warns_kb(
         kb.append(nav_row)
 
     kb.append(
-        [InlineKeyboardButton(await at(chat_id, "panel.btn_back"), callback_data="panel:warns")]
+        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:warns")]
     )
+
+    return InlineKeyboardMarkup(kb)
 
 
 async def log_channel_picker_kb(

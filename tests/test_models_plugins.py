@@ -4,7 +4,7 @@ from sqlalchemy import select
 from src.db.models import Filter, Note, Reminder, ScheduledMessage
 from tests.factories import (
     FilterFactory,
-    GroupSettingsFactory,
+    ChatSettingsFactory,
     NoteFactory,
     ReminderFactory,
     ScheduledMessageFactory,
@@ -13,7 +13,7 @@ from tests.factories import (
 
 @pytest.mark.asyncio
 async def test_filter_creation(db_session):
-    gs = GroupSettingsFactory.build(id=-100)
+    gs = ChatSettingsFactory.build(id=-100)
     db_session.add(gs)
     await db_session.flush()
 
@@ -28,7 +28,7 @@ async def test_filter_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_note_creation(db_session):
-    gs = GroupSettingsFactory.build(id=-200)
+    gs = ChatSettingsFactory.build(id=-200)
     db_session.add(gs)
     await db_session.flush()
 
@@ -43,7 +43,7 @@ async def test_note_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_reminder_creation(db_session):
-    gs = GroupSettingsFactory.build(id=-300)
+    gs = ChatSettingsFactory.build(id=-300)
     db_session.add(gs)
     await db_session.flush()
 
@@ -58,7 +58,7 @@ async def test_reminder_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_scheduledmessage_creation(db_session):
-    # ScheduledMessage does not have a FK to GroupSettings in its definition
+    # ScheduledMessage does not have a FK to ChatSettings in its definition
     sm = ScheduledMessageFactory.build(chatId=-400, content="scheduled hi")
     db_session.add(sm)
     await db_session.flush()

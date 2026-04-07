@@ -2,13 +2,13 @@ import pytest
 from sqlalchemy import select
 
 from src.db.models import AIChatContext, AISettings
-from tests.factories import AIChatContextFactory, AISettingsFactory, GroupSettingsFactory
+from tests.factories import AIChatContextFactory, AISettingsFactory, ChatSettingsFactory
 
 
 @pytest.mark.asyncio
 async def test_aisettings_creation(db_session):
-    # GroupSettings must exist for AISettings as it uses its ID as PK and FK
-    gs = GroupSettingsFactory.build(id=-100)
+    # ChatSettings must exist for AISettings as it uses its ID as PK and FK
+    gs = ChatSettingsFactory.build(id=-100)
     db_session.add(gs)
     await db_session.flush()
 
@@ -23,7 +23,7 @@ async def test_aisettings_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_aichatcontext_creation(db_session):
-    gs = GroupSettingsFactory.build(id=-200)
+    gs = ChatSettingsFactory.build(id=-200)
     db_session.add(gs)
     await db_session.flush()
 

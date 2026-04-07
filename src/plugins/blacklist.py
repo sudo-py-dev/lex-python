@@ -9,7 +9,7 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.blacklist import add_blacklist, get_all_blacklist, remove_blacklist
-from src.db.repositories.group_settings import get_settings
+from src.db.repositories.chats import get_chat_settings as get_settings
 from src.db.repositories.warns import add_warn, reset_warns
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at

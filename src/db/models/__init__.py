@@ -1,14 +1,14 @@
 from .ai import AIChatContext, AIGuardSettings, AISettings
-from .core import ActionLog, SudoUser, TimedAction, TimestampMixin, UserConnection
-from .federation import FedAdmin, FedBan, FedChat, Federation, FedSubscription
-from .groups import (
+from .chats import (
     AllowedChannel,
+    ChatCleaner,
+    ChatNightLock,
+    ChatRules,
+    ChatSettings,
     DisabledCommand,
-    GroupCleaner,
-    GroupRules,
-    GroupSettings,
-    NightLock,
 )
+from .core import ActionLog, SudoUser, TimedAction, TimestampMixin, UserConnection, UserSettings
+from .federation import FedAdmin, FedBan, FedChat, Federation, FedSubscription
 from .moderation import (
     Approval,
     Blacklist,
@@ -24,7 +24,7 @@ from .plugins import Filter, Note, Reminder, ScheduledMessage
 
 __all__ = [
     "TimestampMixin",
-    "GroupSettings",
+    "ChatSettings",
     "BlockedLanguage",
     "BlockedEntity",
     "UserWarn",
@@ -41,7 +41,7 @@ __all__ = [
     "FedAdmin",
     "FedBan",
     "FedSubscription",
-    "GroupRules",
+    "ChatRules",
     "GlobalBan",
     "SudoUser",
     "ScheduledMessage",
@@ -50,9 +50,10 @@ __all__ = [
     "ReportSetting",
     "ChannelProtect",
     "Reminder",
-    "NightLock",
-    "GroupCleaner",
+    "ChatNightLock",
+    "ChatCleaner",
     "AISettings",
     "AIChatContext",
     "AIGuardSettings",
+    "UserSettings",
 ]

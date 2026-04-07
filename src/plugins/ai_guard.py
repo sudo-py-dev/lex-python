@@ -1,7 +1,7 @@
 import json
 
 from loguru import logger
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import Message
 
 from src.core.bot import bot
@@ -75,7 +75,7 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
                 f"AI Guard: Spam detected in {message.chat.id} from {user_id}. Reason: {reason}"
             )
 
-            await execute_moderation_action(
+            acted = await execute_moderation_action(
                 client=client,
                 message=message,
                 action=s.action,
@@ -83,18 +83,28 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
                 log_tag="AI_GUARD",
                 violation_key="ai_guard.spam_detected",
             )
-            await message.stop_propagation()
+            if acted:
+                await message.stop_propagation()
 
     except AIServiceError as e:
-        error_str = str(e)
-        logger.error(f"AI Guard Service Error: {error_str}")
+        error_str = str(e) or repr(e)
+        logger.exception(
+            f"AI Guard Service Error in chat={message.chat.id} user={user_id}: {error_str}"
+        )
 
         if "authentication" in error_str.lower():
             logger.debug(f"AI Guard: Authentication failed in {message.chat.id}. Disabling guard.")
             await update_ai_guard_settings(ctx, message.chat.id, isEnabled=False, apiKey=None)
 
+    except StopPropagation:
+        # Expected control-flow exception from Pyrogram.
+        raise
+
     except Exception as e:
-        logger.error(f"AI Guard Unexpected Error: {e}")
+        error_str = str(e) or repr(e)
+        logger.exception(
+            f"AI Guard Unexpected Error in chat={message.chat.id} user={user_id}: {error_str}"
+        )
 
 
 register(AIGuardPlugin())

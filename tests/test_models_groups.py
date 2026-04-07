@@ -4,27 +4,27 @@ from sqlalchemy.exc import IntegrityError
 
 from src.db.models import (
     AllowedChannel,
+    ChatRules,
+    ChatSettings,
     DisabledCommand,
-    GroupRules,
-    GroupSettings,
 )
 from tests.factories import (
     AllowedChannelFactory,
+    ChatNightLockFactory,
+    ChatCleanerFactory,
+    ChatRulesFactory,
+    ChatSettingsFactory,
     DisabledCommandFactory,
-    GroupCleanerFactory,
-    GroupRulesFactory,
-    GroupSettingsFactory,
-    NightLockFactory,
 )
 
 
 @pytest.mark.asyncio
 async def test_groupsettings_creation(db_session):
-    gs = GroupSettingsFactory.build(id=-100, language="he")
+    gs = ChatSettingsFactory.build(id=-100, language="he")
     db_session.add(gs)
     await db_session.flush()
 
-    result = await db_session.execute(select(GroupSettings).where(GroupSettings.id == -100))
+    result = await db_session.execute(select(ChatSettings).where(ChatSettings.id == -100))
     fetched = result.scalar_one_or_none()
     assert fetched is not None
     assert fetched.id == -100
@@ -33,11 +33,11 @@ async def test_groupsettings_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_groupsettings_duplicate_id(db_session):
-    gs1 = GroupSettingsFactory.build(id=-111)
+    gs1 = ChatSettingsFactory.build(id=-111)
     db_session.add(gs1)
     await db_session.flush()
 
-    gs2 = GroupSettingsFactory.build(id=-111)
+    gs2 = ChatSettingsFactory.build(id=-111)
     db_session.add(gs2)
     with pytest.raises(IntegrityError):
         await db_session.flush()
@@ -45,11 +45,11 @@ async def test_groupsettings_duplicate_id(db_session):
 
 @pytest.mark.asyncio
 async def test_grouprules_creation(db_session):
-    rules = GroupRulesFactory.build(chatId=-200, content="No spam")
+    rules = ChatRulesFactory.build(chatId=-200, content="No spam")
     db_session.add(rules)
     await db_session.flush()
 
-    result = await db_session.execute(select(GroupRules).where(GroupRules.chatId == -200))
+    result = await db_session.execute(select(ChatRules).where(ChatRules.chatId == -200))
     fetched = result.scalar_one_or_none()
     assert fetched is not None
     assert fetched.content == "No spam"
@@ -57,7 +57,7 @@ async def test_grouprules_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_grouprules_null_content(db_session):
-    rules = GroupRulesFactory.build(chatId=-211, content=None)
+    rules = ChatRulesFactory.build(chatId=-211, content=None)
     db_session.add(rules)
     with pytest.raises(IntegrityError):
         await db_session.flush()
@@ -65,24 +65,24 @@ async def test_grouprules_null_content(db_session):
 
 @pytest.mark.asyncio
 async def test_groupcleaner_relationship(db_session):
-    gs = GroupSettingsFactory.build(id=-300)
+    gs = ChatSettingsFactory.build(id=-300)
     db_session.add(gs)
     await db_session.flush()
 
-    gc = GroupCleanerFactory.build(chatId=-300, cleanDeleted=True)
+    gc = ChatCleanerFactory.build(chatId=-300, cleanDeleted=True)
     db_session.add(gc)
     await db_session.flush()
 
-    result = await db_session.execute(select(GroupSettings).where(GroupSettings.id == -300))
+    result = await db_session.execute(select(ChatSettings).where(ChatSettings.id == -300))
     fetched_gs = result.scalar_one()
-    assert fetched_gs.groupCleaner is not None
-    assert fetched_gs.groupCleaner.cleanDeleted is True
-    assert fetched_gs.groupCleaner.chatId == -300
+    assert fetched_gs.ChatCleaner is not None
+    assert fetched_gs.ChatCleaner.cleanDeleted is True
+    assert fetched_gs.ChatCleaner.chatId == -300
 
 
 @pytest.mark.asyncio
 async def test_groupcleaner_fk_violation(db_session):
-    gc = GroupCleanerFactory.build(chatId=999)  # Group id 999 doesn't exist
+    gc = ChatCleanerFactory.build(chatId=999)  # Chat id 999 doesn't exist
     db_session.add(gc)
     with pytest.raises(IntegrityError):
         await db_session.flush()
@@ -90,15 +90,15 @@ async def test_groupcleaner_fk_violation(db_session):
 
 @pytest.mark.asyncio
 async def test_nightlock_relationship(db_session):
-    gs = GroupSettingsFactory.build(id=-400)
+    gs = ChatSettingsFactory.build(id=-400)
     db_session.add(gs)
     await db_session.flush()
 
-    nl = NightLockFactory.build(chatId=-400, isEnabled=True)
+    nl = ChatNightLockFactory.build(chatId=-400, isEnabled=True)
     db_session.add(nl)
     await db_session.flush()
 
-    result = await db_session.execute(select(GroupSettings).where(GroupSettings.id == -400))
+    result = await db_session.execute(select(ChatSettings).where(ChatSettings.id == -400))
     fetched_gs = result.scalar_one()
     assert fetched_gs.nightLock is not None
     assert fetched_gs.nightLock.isEnabled is True
@@ -107,7 +107,7 @@ async def test_nightlock_relationship(db_session):
 
 @pytest.mark.asyncio
 async def test_nightlock_fk_violation(db_session):
-    nl = NightLockFactory.build(chatId=999)  # Group id 999 doesn't exist
+    nl = ChatNightLockFactory.build(chatId=999)  # Chat id 999 doesn't exist
     db_session.add(nl)
     with pytest.raises(IntegrityError):
         await db_session.flush()

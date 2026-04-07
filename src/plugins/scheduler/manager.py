@@ -135,7 +135,7 @@ class SchedulerManager:
                 hour=s_hour,
                 minute=s_min,
                 args=[chat_id],
-                id=f"nightlock_on:{chat_id}",
+                id=f"chatnightlock_on:{chat_id}",
                 replace_existing=True,
                 timezone=tz,
             )
@@ -145,7 +145,7 @@ class SchedulerManager:
                 hour=e_hour,
                 minute=e_min,
                 args=[chat_id],
-                id=f"nightlock_off:{chat_id}",
+                id=f"chatnightlock_off:{chat_id}",
                 replace_existing=True,
                 timezone=tz,
             )
@@ -175,8 +175,8 @@ class SchedulerManager:
         for job in ctx.scheduler.get_jobs():
             if (
                 f":{chat_id}" in job.id
-                or job.id.startswith(f"nightlock_on:{chat_id}")
-                or job.id.startswith(f"nightlock_off:{chat_id}")
+                or job.id.startswith(f"chatnightlock_on:{chat_id}")
+                or job.id.startswith(f"chatnightlock_off:{chat_id}")
                 or job.id.startswith(f"cleaner:{chat_id}")
             ):
                 target_ids.append(job.id)

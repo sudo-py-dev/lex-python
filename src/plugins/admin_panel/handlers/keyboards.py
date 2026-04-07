@@ -1,162 +1,295 @@
+from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select
 
 from src.db.models import Reminder
 from src.utils.i18n import at
+from src.utils.media import parse_watermark_config
 
-from ..repository import get_chat_settings, get_user_admin_groups
+from ..repository import get_chat_settings, get_user_admin_chats
+from ..validation import is_setting_allowed
 
 
-async def main_menu_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    buttons = [
+async def main_menu_kb(
+    chat_id: int, user_id: int | None = None, chat_type: ChatType | str | None = None
+) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
+    # If chat_id > 0, it's a private chat, but for the panel we care about the target chat.
+    # In groups/channels, ID is negative.
+    buttons = []
+    # Groups specific layout - Grid style 2x2
+    buttons.append(
         [
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_cat_security"), callback_data="panel:category:security"
+                await at(at_id, "panel.btn_cat_security"),
+                callback_data="panel:category:security",
             ),
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_cat_moderation"),
+                await at(at_id, "panel.btn_cat_moderation"),
                 callback_data="panel:category:moderation",
             ),
-        ],
+        ]
+    )
+    buttons.append(
         [
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_cat_general"), callback_data="panel:category:general"
+                await at(at_id, "panel.btn_cat_general"),
+                callback_data="panel:category:general",
             ),
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_cat_scheduler"),
+                await at(at_id, "panel.btn_cat_scheduler"),
                 callback_data="panel:category:scheduler",
             ),
-        ],
+        ]
+    )
+    # AI Assistant gets its own special row
+    buttons.append(
         [
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_cat_ai"), callback_data="panel:category:ai"
+                await at(at_id, "panel.btn_cat_ai"),
+                callback_data="panel:category:ai",
             ),
-        ],
-    ]
+        ]
+    )
 
+    # Management & Close row
     last_row = []
     if user_id:
         last_row.append(
             InlineKeyboardButton(
-                await at(chat_id, "panel.btn_my_groups"), callback_data="panel:my_groups"
+                await at(at_id, "panel.btn_my_groups"),
+                callback_data="panel:my_chats",
             )
         )
 
     last_row.append(
-        InlineKeyboardButton(await at(chat_id, "panel.btn_close"), callback_data="panel:close")
+        InlineKeyboardButton(
+            await at(at_id, "panel.btn_close"), callback_data="panel:close"
+        )
     )
     buttons.append(last_row)
 
     return InlineKeyboardMarkup(buttons)
 
 
-async def security_category_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
+async def my_chats_menu_kb(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_entityblock"), callback_data="panel:entityblock:0"
+                    await at(user_id, "panel.btn_list_groups"), callback_data="panel:list_groups"
                 ),
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_raid"), callback_data="panel:raid"
+                    await at(user_id, "panel.btn_list_channels"),
+                    callback_data="panel:list_channels",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_flood"), callback_data="panel:flood"
+                    await at(user_id, "panel.btn_language"), callback_data="panel:language:user"
                 ),
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_captcha"), callback_data="panel:captcha"
+                    await at(user_id, "panel.btn_close"), callback_data="panel:close"
                 ),
             ],
-            [
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_urlscanner"), callback_data="panel:urlscanner"
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    (await at(chat_id, "panel.btn_ai_guard_toggle")).split(":")[0],
-                    callback_data="panel:ai_security",
-                ),
-            ],
-            [InlineKeyboardButton(await at(chat_id, "panel.btn_back"), callback_data="panel:main")],
         ]
     )
 
 
-async def moderation_category_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_warns"), callback_data="panel:warns"
-                ),
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_blacklist"), callback_data="panel:blacklist:0"
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_slowmode"), callback_data="panel:slowmode"
-                ),
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_purge"),
-                    callback_data="panel:input:purgeMessagesCount",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_logging"), callback_data="panel:logging"
-                ),
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_langblock"), callback_data="panel:langblock:0"
-                ),
-            ],
-            [InlineKeyboardButton(await at(chat_id, "panel.btn_back"), callback_data="panel:main")],
-        ]
+async def security_category_kb(
+    chat_id: int, user_id: int | None = None, chat_type: str = "supergroup"
+) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
+    buttons = []
+
+    # Row 1: Entity Block & Raid
+    row1 = []
+    if is_setting_allowed("entityblock", chat_type):
+        row1.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_entityblock"), callback_data="panel:entityblock:0"
+            )
+        )
+    if is_setting_allowed("raid", chat_type):
+        row1.append(
+            InlineKeyboardButton(await at(at_id, "panel.btn_raid"), callback_data="panel:raid")
+        )
+    if row1:
+        buttons.append(row1)
+
+    # Row 2: Flood & Captcha
+    row2 = []
+    if is_setting_allowed("flood", chat_type):
+        row2.append(
+            InlineKeyboardButton(await at(at_id, "panel.btn_flood"), callback_data="panel:flood")
+        )
+    if is_setting_allowed("captcha", chat_type):
+        row2.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_captcha"), callback_data="panel:captcha"
+            )
+        )
+    if row2:
+        buttons.append(row2)
+
+    # Row 3: URL Scanner
+    row3 = []
+    if is_setting_allowed("urlscanner", chat_type):
+        row3.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_urlscanner"), callback_data="panel:urlscanner"
+            )
+        )
+    if row3:
+        buttons.append(row3)
+
+    # Row 4: AI Guard
+    row4 = []
+    if is_setting_allowed("ai_security", chat_type):
+        row4.append(
+            InlineKeyboardButton(
+                (await at(at_id, "panel.btn_ai_guard_toggle")).split(":")[0],
+                callback_data="panel:category:ai_security",
+            )
+        )
+    if row4:
+        buttons.append(row4)
+
+    buttons.append(
+        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")]
     )
+    return InlineKeyboardMarkup(buttons)
 
 
-async def general_category_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_welcome"), callback_data="panel:welcome"
-                ),
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_rules"), callback_data="panel:rules"
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_filters"), callback_data="panel:filters"
-                ),
-                InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_language"), callback_data="panel:language:group"
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(chat_id, "common.service_cleaner"),
-                    callback_data="panel:svc",
-                ),
-            ],
-            [InlineKeyboardButton(await at(chat_id, "panel.btn_back"), callback_data="panel:main")],
-        ]
+async def moderation_category_kb(
+    chat_id: int, user_id: int | None = None, chat_type: str = "supergroup"
+) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
+    buttons = []
+
+    # Row 1: Warns & Blacklist
+    row1 = []
+    if is_setting_allowed("warns", chat_type):
+        row1.append(
+            InlineKeyboardButton(await at(at_id, "panel.btn_warns"), callback_data="panel:warns")
+        )
+    if is_setting_allowed("blacklist", chat_type):
+        row1.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_blacklist"), callback_data="panel:blacklist:0"
+            )
+        )
+    if row1:
+        buttons.append(row1)
+
+    # Row 2: Slowmode & Purge
+    row2 = []
+    if is_setting_allowed("slowmode", chat_type):
+        row2.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_slowmode"), callback_data="panel:slowmode"
+            )
+        )
+    if is_setting_allowed("purgeMessagesCount", chat_type):
+        row2.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_purge"),
+                callback_data="panel:input:purgeMessagesCount",
+            )
+        )
+    if row2:
+        buttons.append(row2)
+
+    # Row 3: Logging & Langblock
+    row3 = []
+    if is_setting_allowed("logging", chat_type):
+        row3.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_logging"), callback_data="panel:logging"
+            )
+        )
+    if is_setting_allowed("langblock", chat_type):
+        row3.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_langblock"), callback_data="panel:langblock:0"
+            )
+        )
+    if row3:
+        buttons.append(row3)
+
+    buttons.append(
+        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")]
     )
+    return InlineKeyboardMarkup(buttons)
+
+
+async def general_category_kb(
+    chat_id: int, user_id: int | None = None, chat_type: str = "supergroup"
+) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
+    buttons = []
+
+    # Row 1: Welcome & Rules
+    row1 = []
+    if is_setting_allowed("welcome", chat_type):
+        row1.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_welcome"), callback_data="panel:welcome"
+            )
+        )
+    if is_setting_allowed("rules", chat_type):
+        row1.append(
+            InlineKeyboardButton(await at(at_id, "panel.btn_rules"), callback_data="panel:rules")
+        )
+    if row1:
+        buttons.append(row1)
+
+    # Row 2: Filters & Language
+    row2 = []
+    if is_setting_allowed("filters", chat_type):
+        row2.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_filters"), callback_data="panel:filters"
+            )
+        )
+    if is_setting_allowed("language", chat_type):
+        row2.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_language"), callback_data="panel:language:chat"
+            )
+        )
+    if row2:
+        buttons.append(row2)
+
+    # Row 3: Service Cleaner
+    row3 = []
+    if is_setting_allowed("svc", chat_type):
+        row3.append(
+            InlineKeyboardButton(
+                await at(at_id, "common.service_cleaner"),
+                callback_data="panel:svc",
+            )
+        )
+    if row3:
+        buttons.append(row3)
+
+    buttons.append(
+        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")]
+    )
+    return InlineKeyboardMarkup(buttons)
 
 
 async def my_groups_kb(ctx, client, user_id: int) -> InlineKeyboardMarkup:
-    groups = await get_user_admin_groups(ctx, client, user_id)
+    groups = await get_user_admin_chats(ctx, client, user_id, chat_type=ChatType.SUPERGROUP)
     buttons = []
     for chat_id, title in groups:
-        buttons.append([InlineKeyboardButton(title, callback_data=f"panel:select_chat:{chat_id}")])
+        buttons.append(
+            [InlineKeyboardButton(f"👥 {title}", callback_data=f"panel:select_chat:{chat_id}")]
+        )
     buttons.append(
         [
             InlineKeyboardButton(
-                await at(user_id, "panel.btn_language"), callback_data="panel:language:pm"
+                await at(user_id, "panel.btn_back"), callback_data="panel:my_chats"
             ),
             InlineKeyboardButton(await at(user_id, "panel.btn_close"), callback_data="panel:close"),
         ]
@@ -323,29 +456,50 @@ async def filters_menu_kb(
     return InlineKeyboardMarkup(buttons)
 
 
-async def scheduler_menu_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
+async def scheduler_menu_kb(
+    chat_id: int, user_id: int | None = None, chat_type: str = "supergroup"
+) -> InlineKeyboardMarkup:
     at_id = user_id if user_id else chat_id
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    await at(at_id, "panel.btn_reminders"), callback_data="panel:reminders"
-                ),
-                InlineKeyboardButton(
-                    await at(at_id, "panel.btn_timezone"), callback_data="panel:timezone:0"
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(at_id, "panel.btn_nightlock"), callback_data="panel:nightlock"
-                ),
-                InlineKeyboardButton(
-                    await at(at_id, "common.service_cleaner"), callback_data="panel:cleaner"
-                ),
-            ],
-            [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")],
-        ]
+    buttons = []
+
+    # Row 1: Reminders & Timezone
+    row1 = []
+    if is_setting_allowed("reminders", chat_type):
+        row1.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_reminders"), callback_data="panel:reminders"
+            )
+        )
+    if is_setting_allowed("timezone", chat_type):
+        row1.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_timezone"), callback_data="panel:timezone:0"
+            )
+        )
+    if row1:
+        buttons.append(row1)
+
+    # Row 2: Night Lock & Cleaner
+    row2 = []
+    if is_setting_allowed("chatnightlock", chat_type):
+        row2.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_nightlock"), callback_data="panel:chatnightlock"
+            )
+        )
+    if is_setting_allowed("cleaner", chat_type):
+        row2.append(
+            InlineKeyboardButton(
+                await at(at_id, "common.service_cleaner"), callback_data="panel:cleaner"
+            )
+        )
+    if row2:
+        buttons.append(row2)
+
+    buttons.append(
+        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")]
     )
+    return InlineKeyboardMarkup(buttons)
 
 
 async def timezone_picker_kb(
@@ -523,14 +677,16 @@ async def reminders_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> In
     return InlineKeyboardMarkup(buttons)
 
 
-async def nightlock_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
+async def chatnightlock_menu_kb(
+    ctx, chat_id: int, user_id: int | None = None
+) -> InlineKeyboardMarkup:
     at_id = user_id if user_id else chat_id
-    from src.db.models import NightLock
+    from src.db.models import ChatNightLock
 
     async with ctx.db() as session:
-        lock = await session.get(NightLock, chat_id)
+        lock = await session.get(ChatNightLock, chat_id)
         if not lock:
-            lock = NightLock(chatId=chat_id)
+            lock = ChatNightLock(chatId=chat_id)
             session.add(lock)
             await session.commit()
 
@@ -541,17 +697,17 @@ async def nightlock_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> In
             [
                 InlineKeyboardButton(
                     await at(at_id, "panel.btn_nightlock_toggle", status=status),
-                    callback_data="panel:toggle_nightlock",
+                    callback_data="panel:toggle_chatnightlock",
                 )
             ],
             [
                 InlineKeyboardButton(
                     await at(at_id, "panel.btn_nightlock_start", time=lock.startTime),
-                    callback_data="panel:input:nightlockStart",
+                    callback_data="panel:input:chatnightlockStart",
                 ),
                 InlineKeyboardButton(
                     await at(at_id, "panel.btn_nightlock_end", time=lock.endTime),
-                    callback_data="panel:input:nightlockEnd",
+                    callback_data="panel:input:chatnightlockEnd",
                 ),
             ],
             [
@@ -565,12 +721,12 @@ async def nightlock_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> In
 
 async def cleaner_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
     at_id = user_id if user_id else chat_id
-    from src.db.models import GroupCleaner
+    from src.db.models import ChatCleaner
 
     async with ctx.db() as session:
-        cleaner = await session.get(GroupCleaner, chat_id)
+        cleaner = await session.get(ChatCleaner, chat_id)
         if not cleaner:
-            cleaner = GroupCleaner(chatId=chat_id)
+            cleaner = ChatCleaner(chatId=chat_id)
             session.add(cleaner)
             await session.commit()
 
@@ -614,7 +770,7 @@ async def ai_security_kb(ctx, chat_id: int, user_id: int) -> InlineKeyboardMarku
 
     s = await get_ai_guard_settings(ctx, chat_id)
     status_icon = "✅" if s.isEnabled else "❌"
-    action_label = await at(chat_id, f"action.{s.action}")
+    action_label = await at(user_id, f"action.{s.action}")
 
     return InlineKeyboardMarkup(
         [
@@ -732,7 +888,7 @@ async def get_pager(
     total_pages = (total_count + page_size - 1) // page_size
     if total_pages > 1:
         nav_row.append(
-            InlineKeyboardButton(f"{current_page + 1} / {total_pages}", callback_data="none")
+            InlineKeyboardButton(f"{current_page + 1} / {total_pages}", callback_data="panel:noop")
         )
 
     if (current_page + 1) * page_size < total_count:
@@ -740,3 +896,138 @@ async def get_pager(
             InlineKeyboardButton("➡️", callback_data=f"{callback_prefix}:{current_page + 1}")
         )
     return nav_row
+
+
+async def channels_menu_kb(ctx, client, user_id: int) -> InlineKeyboardMarkup:
+    """List of channels where both user and bot are admins."""
+    channels = await get_user_admin_chats(ctx, client, user_id, chat_type=ChatType.CHANNEL)
+    buttons = []
+    for ch_id, title in channels:
+        # Use select_channel so it stores active_channel WITHOUT overwriting active_chat (group)
+        buttons.append(
+            [InlineKeyboardButton(f"📺 {title}", callback_data=f"panel:select_channel:{ch_id}")]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                await at(user_id, "panel.btn_back"), callback_data="panel:my_chats"
+            ),
+            InlineKeyboardButton(await at(user_id, "panel.btn_close"), callback_data="panel:close"),
+        ]
+    )
+    return InlineKeyboardMarkup(buttons)
+
+
+async def channel_settings_kb(ctx, channel_id: int, user_id: int) -> InlineKeyboardMarkup:
+    """Keyboard for specific channel settings."""
+    from src.db.repositories.chats import get_chat_settings as get_channel_settings
+
+    s = await get_channel_settings(ctx, channel_id)
+    r_status = "✅" if s.reactionsEnabled else "❌"
+    r_mode_label = await at(user_id, f"reaction_mode_{s.reactionMode}")
+    w_status = "✅" if s.watermarkEnabled else "❌"
+    sig_status = "✅" if s.signatureEnabled else "❌"
+
+    return InlineKeyboardMarkup(
+        [
+            # Reaction Row
+            [
+                InlineKeyboardButton(
+                    f"🎯 {r_status}",
+                    callback_data=f"panel:toggle_ch:reactionsEnabled:{channel_id}",
+                ),
+                InlineKeyboardButton(
+                    f"🎲 {r_mode_label}",
+                    callback_data=f"panel:toggle_ch:reactionMode:{channel_id}",
+                ),
+                InlineKeyboardButton(
+                    "✏️",
+                    callback_data=f"panel:input:reactions:{channel_id}",
+                ),
+            ],
+            # Watermark Row
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_watermark", status=w_status),
+                    callback_data=f"panel:channel_watermark:{channel_id}",
+                ),
+            ],
+            # Signature Row
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_signature", status=sig_status),
+                    callback_data=f"panel:toggle_ch:signatureEnabled:{channel_id}",
+                ),
+                InlineKeyboardButton(
+                    "✏️",
+                    callback_data=f"panel:input:signatureText:{channel_id}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_back"), callback_data="panel:list_channels"
+                )
+            ],
+        ]
+    )
+
+
+async def channel_watermark_kb(ctx, channel_id: int, user_id: int) -> InlineKeyboardMarkup:
+    from src.db.repositories.chats import get_chat_settings as get_channel_settings
+
+    s = await get_channel_settings(ctx, channel_id)
+    cfg = parse_watermark_config(s.watermarkText)
+    wm_type = cfg.get("type", "text")
+    wm_color = cfg.get("color", "white")
+    wm_style = cfg.get("style", "shadow")
+    status = "✅" if s.watermarkEnabled else "❌"
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_watermark", status=status),
+                    callback_data=f"panel:toggle_ch:watermarkEnabled:{channel_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_set_watermark"),
+                    callback_data=f"panel:input:watermarkText:{channel_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(
+                        user_id, "panel.btn_wm_type", value=await at(user_id, f"panel.wm_type_{wm_type}")
+                    ),
+                    callback_data=f"panel:cycle_wm:type:{channel_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(
+                        user_id,
+                        "panel.btn_wm_color",
+                        value=await at(user_id, f"panel.wm_color_{wm_color}"),
+                    ),
+                    callback_data=f"panel:cycle_wm:color:{channel_id}",
+                ),
+                InlineKeyboardButton(
+                    await at(
+                        user_id,
+                        "panel.btn_wm_style",
+                        value=await at(user_id, f"panel.wm_style_{wm_style}"),
+                    ),
+                    callback_data=f"panel:cycle_wm:style:{channel_id}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_back"),
+                    callback_data=f"panel:channel_settings:{channel_id}",
+                )
+            ],
+        ]
+    )

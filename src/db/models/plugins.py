@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .groups import GroupSettings
+    from .chats import ChatSettings
 
 
 from sqlalchemy import (
@@ -24,7 +24,7 @@ class Filter(Base):
     __tablename__ = "filter"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("groupsettings.id"), index=True)
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     keyword: Mapped[str] = mapped_column(String(255))
     text: Mapped[str] = mapped_column(Text)
     responseType: Mapped[str] = mapped_column(
@@ -36,14 +36,14 @@ class Filter(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
-    group: Mapped["GroupSettings"] = relationship(back_populates="filters", lazy="raise")
+    chat: Mapped["ChatSettings"] = relationship(back_populates="filters", lazy="raise")
 
 
 class Note(Base):
     __tablename__ = "note"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("groupsettings.id"), index=True)
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     content: Mapped[str] = mapped_column(Text)
     isPrivate: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
@@ -51,14 +51,14 @@ class Note(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
-    group: Mapped["GroupSettings"] = relationship(back_populates="notes", lazy="raise")
+    chat: Mapped["ChatSettings"] = relationship(back_populates="notes", lazy="raise")
 
 
 class Reminder(Base):
     __tablename__ = "reminder"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("groupsettings.id"), index=True)
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     messageType: Mapped[str] = mapped_column(
         String(50), default="text", server_default=sa_text("'text'")
     )
@@ -73,7 +73,7 @@ class Reminder(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
-    group: Mapped["GroupSettings"] = relationship(back_populates="reminders", lazy="raise")
+    chat: Mapped["ChatSettings"] = relationship(back_populates="reminders", lazy="raise")
 
 
 class ScheduledMessage(Base):

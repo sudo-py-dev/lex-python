@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 from src.core.context import AppContext
-from src.db.models import GroupCleaner, GroupSettings, NightLock, Reminder, TimedAction
+from src.db.models import ChatCleaner, ChatNightLock, ChatSettings, Reminder, TimedAction
 
 
 class SchedulerRepository:
@@ -9,7 +9,7 @@ class SchedulerRepository:
     async def get_all_group_settings(ctx: AppContext) -> dict[int, str]:
         """Fetch all chat IDs and their timezones."""
         async with ctx.db() as session:
-            stmt = select(GroupSettings.id, GroupSettings.timezone)
+            stmt = select(ChatSettings.id, ChatSettings.timezone)
             result = await session.execute(stmt)
             return {row[0]: row[1] or "UTC" for row in result.all()}
 
@@ -33,7 +33,7 @@ class SchedulerRepository:
     async def get_active_night_locks(ctx: AppContext):
         """Fetch all enabled night locks."""
         async with ctx.db() as session:
-            stmt = select(NightLock).where(NightLock.isEnabled)
+            stmt = select(ChatNightLock).where(ChatNightLock.isEnabled)
             result = await session.execute(stmt)
             return result.scalars().all()
 
@@ -41,7 +41,7 @@ class SchedulerRepository:
     async def get_active_group_cleaners(ctx: AppContext):
         """Fetch all group cleaners (currently all are active if they exist)."""
         async with ctx.db() as session:
-            stmt = select(GroupCleaner)
+            stmt = select(ChatCleaner)
             result = await session.execute(stmt)
             return result.scalars().all()
 
@@ -49,17 +49,19 @@ class SchedulerRepository:
     async def get_group_data(ctx: AppContext, chat_id: int):
         """Fetch all data for a single group for targeted rescheduling."""
         async with ctx.db() as session:
-            settings = await session.get(GroupSettings, chat_id)
+            settings = await session.get(ChatSettings, chat_id)
             if not settings:
                 return None, None, None, None
 
             stmt = select(Reminder).where(Reminder.chatId == chat_id, Reminder.isActive)
             reminders = (await session.execute(stmt)).scalars().all()
 
-            stmt = select(NightLock).where(NightLock.chatId == chat_id, NightLock.isEnabled)
+            stmt = select(ChatNightLock).where(
+                ChatNightLock.chatId == chat_id, ChatNightLock.isEnabled
+            )
             night_lock = (await session.execute(stmt)).scalars().first()
 
-            stmt = select(GroupCleaner).where(GroupCleaner.chatId == chat_id)
+            stmt = select(ChatCleaner).where(ChatCleaner.chatId == chat_id)
             cleaner = (await session.execute(stmt)).scalars().first()
 
             return settings.timezone or "UTC", reminders, night_lock, cleaner

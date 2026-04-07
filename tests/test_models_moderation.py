@@ -20,7 +20,7 @@ from tests.factories import (
     BlockedLanguageFactory,
     ChannelProtectFactory,
     GlobalBanFactory,
-    GroupSettingsFactory,
+    ChatSettingsFactory,
     ReportSettingFactory,
     SlowmodeSettingFactory,
     UserWarnFactory,
@@ -29,7 +29,7 @@ from tests.factories import (
 
 @pytest.mark.asyncio
 async def test_blacklist_creation(db_session):
-    gs = GroupSettingsFactory.build(id=-100)
+    gs = ChatSettingsFactory.build(id=-100)
     db_session.add(gs)
     await db_session.flush()
 
@@ -45,7 +45,7 @@ async def test_blacklist_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_blacklist_fk_violation(db_session):
-    bl = BlacklistFactory.build(chatId=999)  # Group id 999 doesn't exist
+    bl = BlacklistFactory.build(chatId=999)  # Chat id 999 doesn't exist
     db_session.add(bl)
     with pytest.raises(IntegrityError):
         await db_session.flush()
@@ -53,7 +53,7 @@ async def test_blacklist_fk_violation(db_session):
 
 @pytest.mark.asyncio
 async def test_blockedentity_creation(db_session):
-    gs = GroupSettingsFactory.build(id=-200)
+    gs = ChatSettingsFactory.build(id=-200)
     db_session.add(gs)
     await db_session.flush()
 
@@ -68,7 +68,7 @@ async def test_blockedentity_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_blockedlanguage_creation(db_session):
-    gs = GroupSettingsFactory.build(id=-300)
+    gs = ChatSettingsFactory.build(id=-300)
     db_session.add(gs)
     await db_session.flush()
 
@@ -83,7 +83,7 @@ async def test_blockedlanguage_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_userwarn_creation(db_session):
-    gs = GroupSettingsFactory.build(id=-400)
+    gs = ChatSettingsFactory.build(id=-400)
     db_session.add(gs)
     await db_session.flush()
 
@@ -99,7 +99,7 @@ async def test_userwarn_creation(db_session):
 
 @pytest.mark.asyncio
 async def test_userwarn_fk_violation(db_session):
-    warn = UserWarnFactory.build(chatId=999)  # Group id 999 doesn't exist
+    warn = UserWarnFactory.build(chatId=999)  # Chat id 999 doesn't exist
     db_session.add(warn)
     with pytest.raises(IntegrityError):
         await db_session.flush()

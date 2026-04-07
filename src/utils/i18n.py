@@ -50,11 +50,20 @@ def t(lang: str, key: str, /, **kwargs: Any) -> str:
         return template
 
 
-async def at(chat_id: int | None, key: str, /, **kwargs: Any) -> str:
-    """Async translate helper that automatically resolves chat language."""
-    if chat_id is None:
+async def at(
+    chat_id: int | None, key: str, /, user_id: int | None = None, **kwargs: Any
+) -> str:
+    """Async translate helper that automatically resolves chat/user language."""
+    if chat_id is None and user_id is None:
         return t("en", key, **kwargs)
-    lang = await resolve_lang(chat_id)
+
+    # In private chats, many call sites pass the user's id as chat_id.
+    # Treat positive chat ids as user context by default to ensure
+    # personal language preferences are respected.
+    if user_id is None and chat_id is not None and chat_id > 0:
+        user_id = chat_id
+
+    lang = await resolve_lang(chat_id, user_id)
     return t(lang, key, **kwargs)
 
 

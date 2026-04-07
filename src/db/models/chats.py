@@ -20,11 +20,16 @@ from ..base import Base
 from .core import TimestampMixin
 
 
-class GroupSettings(TimestampMixin, Base):
-    __tablename__ = "groupsettings"
+class ChatSettings(TimestampMixin, Base):
+    __tablename__ = "chatsettings"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chatType: Mapped[str] = mapped_column(
+        String(50), default="supergroup", server_default=sa_text("'supergroup'")
+    )  # pyrogram.enums.ChatType
+
+    # Group Specific fields
     floodThreshold: Mapped[int] = mapped_column(default=5, server_default=sa_text("5"))
     floodWindow: Mapped[int] = mapped_column(default=5, server_default=sa_text("5"))
     floodAction: Mapped[str] = mapped_column(
@@ -74,31 +79,41 @@ class GroupSettings(TimestampMixin, Base):
     )
     isActive: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
 
-    warns: Mapped[list["UserWarn"]] = relationship(back_populates="group", lazy="raise")
-    filters: Mapped[list["Filter"]] = relationship(back_populates="group", lazy="raise")
-    notes: Mapped[list["Note"]] = relationship(back_populates="group", lazy="raise")
-    blacklist: Mapped[list["Blacklist"]] = relationship(back_populates="group", lazy="raise")
-    langBlocks: Mapped[list["BlockedLanguage"]] = relationship(back_populates="group", lazy="raise")
+    # Channel Specific fields
+    reactionsEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    reactions: Mapped[str] = mapped_column(Text, default="👍", server_default=sa_text("'👍'"))
+    reactionMode: Mapped[str] = mapped_column(Text, default="all", server_default=sa_text("'all'"))
+    watermarkEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    watermarkText: Mapped[str | None] = mapped_column(Text, nullable=True)
+    signatureEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    signatureText: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    warns: Mapped[list["UserWarn"]] = relationship(back_populates="chat", lazy="raise")
+    filters: Mapped[list["Filter"]] = relationship(back_populates="chat", lazy="raise")
+    notes: Mapped[list["Note"]] = relationship(back_populates="chat", lazy="raise")
+    blacklist: Mapped[list["Blacklist"]] = relationship(back_populates="chat", lazy="raise")
+    langBlocks: Mapped[list["BlockedLanguage"]] = relationship(back_populates="chat", lazy="raise")
     blockedEntities: Mapped[list["BlockedEntity"]] = relationship(
-        back_populates="group", lazy="raise"
+        back_populates="chat", lazy="raise"
     )
-    reminders: Mapped[list["Reminder"]] = relationship(back_populates="group", lazy="raise")
-    nightLock: Mapped[Optional["NightLock"]] = relationship(
-        back_populates="group", uselist=False, lazy="selectin"
+    reminders: Mapped[list["Reminder"]] = relationship(back_populates="chat", lazy="raise")
+    nightLock: Mapped[Optional["ChatNightLock"]] = relationship(
+        back_populates="chat", uselist=False, lazy="selectin"
     )
-    groupCleaner: Mapped[Optional["GroupCleaner"]] = relationship(
-        back_populates="group", uselist=False, lazy="selectin"
+    ChatCleaner: Mapped[Optional["ChatCleaner"]] = relationship(
+        back_populates="chat", uselist=False, lazy="selectin"
     )
     aiSettings: Mapped[Optional["AISettings"]] = relationship(
-        back_populates="group", uselist=False, lazy="selectin"
+        back_populates="chat", uselist=False, lazy="selectin"
     )
     aiGuardSettings: Mapped[Optional["AIGuardSettings"]] = relationship(
-        back_populates="group", uselist=False, lazy="selectin"
+        back_populates="chat", uselist=False, lazy="selectin"
     )
 
 
-class GroupRules(Base):
-    __tablename__ = "grouprules"
+class ChatRules(Base):
+    __tablename__ = "chatrules"
 
     chatId: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     content: Mapped[str] = mapped_column(Text)
@@ -112,12 +127,10 @@ class GroupRules(Base):
     )
 
 
-class GroupCleaner(Base):
-    __tablename__ = "groupcleaner"
+class ChatCleaner(Base):
+    __tablename__ = "chatcleaner"
 
-    chatId: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("groupsettings.id"), primary_key=True
-    )
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), primary_key=True)
     cleanDeleted: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     cleanFake: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     cleanInactiveDays: Mapped[int] = mapped_column(default=0, server_default=sa_text("0"))
@@ -130,15 +143,13 @@ class GroupCleaner(Base):
         nullable=False,
     )
 
-    group: Mapped["GroupSettings"] = relationship(back_populates="groupCleaner", lazy="raise")
+    chat: Mapped["ChatSettings"] = relationship(back_populates="ChatCleaner", lazy="raise")
 
 
-class NightLock(Base):
-    __tablename__ = "nightlock"
+class ChatNightLock(Base):
+    __tablename__ = "chatnightlock"
 
-    chatId: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("groupsettings.id"), primary_key=True
-    )
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), primary_key=True)
     isEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     startTime: Mapped[str] = mapped_column(
         String(5), default="23:00", server_default=sa_text("'23:00'")
@@ -155,7 +166,7 @@ class NightLock(Base):
         nullable=False,
     )
 
-    group: Mapped["GroupSettings"] = relationship(back_populates="nightLock", lazy="raise")
+    chat: Mapped["ChatSettings"] = relationship(back_populates="nightLock", lazy="raise")
 
 
 class AllowedChannel(Base):

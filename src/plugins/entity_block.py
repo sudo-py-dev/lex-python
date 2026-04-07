@@ -8,7 +8,7 @@ from sqlalchemy import select
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
-from src.db.models import BlockedEntity, GroupSettings
+from src.db.models import BlockedEntity, ChatSettings
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
 from src.utils.moderation import execute_moderation_action, resolve_sender
@@ -96,9 +96,9 @@ async def add_blocked_entity(
         BlockedEntity: The created or updated blocked entity entry.
     """
     async with ctx.db() as session:
-        settings = await session.get(GroupSettings, chat_id)
+        settings = await session.get(ChatSettings, chat_id)
         if not settings:
-            settings = GroupSettings(id=chat_id)
+            settings = ChatSettings(id=chat_id)
             session.add(settings)
             await session.commit()
         stmt = select(BlockedEntity).where(

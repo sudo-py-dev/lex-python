@@ -6,7 +6,7 @@ from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
-from src.db.models import GroupSettings
+from src.db.models import ChatSettings, UserSettings
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at, list_locales
 
@@ -52,7 +52,7 @@ async def get_chat_lang(ctx, chat_id: int) -> str:
     if cached:
         return cached
     async with ctx.db() as session:
-        settings = await session.get(GroupSettings, chat_id)
+        settings = await session.get(ChatSettings, chat_id)
         lang = settings.language if settings else "en"
     await r.set(cache_key, lang, ttl=_CACHE_TTL)
     return lang
@@ -61,16 +61,45 @@ async def get_chat_lang(ctx, chat_id: int) -> str:
 async def set_chat_lang(ctx, chat_id: int, lang: str) -> None:
     """Change the bot's language configuration for a specific chat."""
     async with ctx.db() as session:
-        settings = await session.get(GroupSettings, chat_id)
+        settings = await session.get(ChatSettings, chat_id)
         if settings:
             settings.language = lang
             session.add(settings)
         else:
-            settings = GroupSettings(id=chat_id, language=lang)
+            settings = ChatSettings(id=chat_id, language=lang)
             session.add(settings)
         await session.commit()
     r = get_cache()
     await r.delete(f"lang:{chat_id}")
+
+
+async def get_user_lang(ctx, user_id: int) -> str:
+    """Retrieve the current personal language preference for a user."""
+    r = get_cache()
+    cache_key = f"user_lang:{user_id}"
+    cached = await r.get(cache_key)
+    if cached:
+        return cached
+    async with ctx.db() as session:
+        settings = await session.get(UserSettings, user_id)
+        lang = settings.language if settings else "en"
+    await r.set(cache_key, lang, ttl=_CACHE_TTL)
+    return lang
+
+
+async def set_user_lang(ctx, user_id: int, lang: str) -> None:
+    """Update a user's personal language preference."""
+    async with ctx.db() as session:
+        settings = await session.get(UserSettings, user_id)
+        if settings:
+            settings.language = lang
+            session.add(settings)
+        else:
+            settings = UserSettings(userId=user_id, language=lang)
+            session.add(settings)
+        await session.commit()
+    r = get_cache()
+    await r.delete(f"user_lang:{user_id}")
 
 
 @bot.on_message(filters.command(["setlang", "language"]))
@@ -100,25 +129,35 @@ async def langs_list_handler(client: Client, message: Message) -> None:
     await message.reply(text)
 
 
-async def language_picker_kb(ctx, target_id: int, is_pm: bool = False) -> InlineKeyboardMarkup:
+async def language_picker_kb(
+    ctx, target_id: int, scope: str = "chat"
+) -> InlineKeyboardMarkup:
     """Generate an inline keyboard layout for the language selection interface."""
     langs = sorted(list_locales())
-    current_lang = await get_chat_lang(ctx, target_id)
+
+    if scope == "user":
+        current_lang = await get_user_lang(ctx, target_id)
+    else:
+        current_lang = await get_chat_lang(ctx, target_id)
+
     buttons = []
     row = []
     for lang in langs:
         name, emoji_code = LANG_METADATA.get(lang, (lang.upper(), ":globe_with_meridians:"))
         flag = emoji.emojize(emoji_code, language="alias")
-        data = f"panel:set_lang:{lang}" if is_pm else f"panel:set_lang:{lang}:{target_id}"
+        # New scoped callback format: panel:set_lang:{scope}:{target_id}:{lang}
+        callback_data = f"panel:set_lang:{scope}:{target_id}:{lang}"
         prefix = "✅ " if lang == current_lang else ""
         btn_text = f"{prefix}{flag} {name}"
-        row.append(InlineKeyboardButton(btn_text, callback_data=data))
+        row.append(InlineKeyboardButton(btn_text, callback_data=callback_data))
         if len(row) == 2:
             buttons.append(row)
             row = []
     if row:
         buttons.append(row)
-    back_data = "panel:my_groups" if is_pm else "panel:main"
+
+    # Scoped navigation path
+    back_data = "panel:my_chats" if scope == "user" else "panel:category:general"
     buttons.append(
         [InlineKeyboardButton(await at(target_id, "panel.btn_back"), callback_data=back_data)]
     )

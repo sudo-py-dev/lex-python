@@ -18,7 +18,7 @@ from src.core.bot import bot
 from src.core.constants import CacheKeys
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
-from src.db.repositories.group_settings import get_settings
+from src.db.repositories.chats import get_chat_settings as get_settings
 from src.utils.captcha_utils import (
     CAPTCHA_OBJECTS,
     generate_image_captcha,

@@ -4,10 +4,10 @@ from pyrogram import Client
 from pyrogram.types import Message
 
 from src.core.context import AppContext
-from src.db.models import GroupCleaner, NightLock
+from src.db.models import ChatCleaner, ChatNightLock
 from src.plugins.admin_panel.handlers.keyboards import (
+    chatnightlock_menu_kb,
     cleaner_menu_kb,
-    nightlock_menu_kb,
     timezone_picker_kb,
 )
 from src.plugins.admin_panel.handlers.moderation_kbs import langblock_kb, logging_kb
@@ -20,8 +20,8 @@ from .dispatch_logic import finalize_input_capture, input_registry
     [
         "logChannelId",
         "langblockInput",
-        "nightlockStart",
-        "nightlockEnd",
+        "chatnightlockStart",
+        "chatnightlockEnd",
         "cleanerInactive",
         "timezoneSearch",
     ]
@@ -59,12 +59,12 @@ async def system_settings_processor(
         kb = await langblock_kb(ctx, chat_id, page)
         text_id = "panel.langblock_text"
 
-    elif field in ("nightlockStart", "nightlockEnd"):
+    elif field in ("chatnightlockStart", "chatnightlockEnd"):
         if not re.match(r"^([01]?\d|2[0-3]):[0-5]\d$", str(value)):
             await message.reply(await at(user_id, "panel.input_invalid_time"))
             return
-        await _handle_nightlock_save(ctx, chat_id, field, str(value))
-        kb = await nightlock_menu_kb(ctx, chat_id)
+        await _handle_chatnightlock_save(ctx, chat_id, field, str(value))
+        kb = await chatnightlock_menu_kb(ctx, chat_id)
         text_id = "panel.nightlock_text"
 
     elif field == "cleanerInactive":
@@ -72,9 +72,9 @@ async def system_settings_processor(
             await message.reply(await at(user_id, "panel.input_invalid_number"))
             return
         async with ctx.db() as session:
-            cleaner = await session.get(GroupCleaner, chat_id)
+            cleaner = await session.get(ChatCleaner, chat_id)
             if not cleaner:
-                cleaner = GroupCleaner(chatId=chat_id)
+                cleaner = ChatCleaner(chatId=chat_id)
             cleaner.cleanInactiveDays = int(value)
             session.add(cleaner)
             await session.commit()
@@ -97,12 +97,12 @@ async def system_settings_processor(
     )
 
 
-async def _handle_nightlock_save(ctx, chat_id, field, time_value):
+async def _handle_chatnightlock_save(ctx, chat_id, field, time_value):
     async with ctx.db() as session:
-        lock = await session.get(NightLock, chat_id)
+        lock = await session.get(ChatNightLock, chat_id)
         if not lock:
-            lock = NightLock(chatId=chat_id)
-        if field == "nightlockStart":
+            lock = ChatNightLock(chatId=chat_id)
+        if field == "chatnightlockStart":
             lock.startTime = time_value
         else:
             lock.endTime = time_value

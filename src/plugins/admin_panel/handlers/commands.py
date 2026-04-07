@@ -5,11 +5,11 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.core.bot import bot
 from src.core.context import get_context
-from src.plugins.connections import set_active_chat
 from src.utils.i18n import at
 from src.utils.permissions import is_admin
 
 from ..decorators import AdminPanelContext, admin_panel_context
+from ..repository import resolve_chat_type, set_active_chat
 from .keyboards import main_menu_kb, my_groups_kb
 
 
@@ -25,15 +25,18 @@ async def settings_handler(client: Client, message: Message, ap_ctx: AdminPanelC
         await message.reply(await at(ap_ctx.chat_id, "panel.redirect_pm_text"), reply_markup=kb)
         return
 
-    await open_settings_panel(client, message, ap_ctx.chat_id)
+    await open_settings_panel(client, message, ap_ctx.chat_id, chat_type=ap_ctx.chat_type)
 
 
-async def open_settings_panel(client: Client, message: Message, chat_id: int) -> None:
+async def open_settings_panel(
+    client: Client, message: Message, chat_id: int, chat_type: ChatType | str | None = None
+) -> None:
     ctx = get_context()
     user_id = message.from_user.id
     is_pm = message.chat.type == ChatType.PRIVATE
 
-    if is_pm and chat_id < 0:
+    # Telegram managed groups/channels are negative and usually start with -1 (e.g. -100...)
+    if is_pm and str(chat_id).startswith("-1"):
         await set_active_chat(ctx, user_id, chat_id)
 
     logger.debug(f"Verifying admin status for {user_id} in {chat_id}")
@@ -44,9 +47,11 @@ async def open_settings_panel(client: Client, message: Message, chat_id: int) ->
             await message.reply(await at(user_id, "panel.my_groups_title"), reply_markup=kb)
         return
 
-    is_pm = message.chat.type == ChatType.PRIVATE
+    if not chat_type:
+        chat_type = await resolve_chat_type(ctx, chat_id)
+
     await client.send_message(
         user_id,
         await at(user_id if is_pm else chat_id, "panel.main_text"),
-        reply_markup=await main_menu_kb(chat_id, user_id if is_pm else None),
+        reply_markup=await main_menu_kb(chat_id, user_id if is_pm else None, chat_type=chat_type),
     )

@@ -11,7 +11,7 @@ from src.db.repositories.filters import (
     remove_all_filters,
     remove_filter_by_id,
 )
-from tests.factories import GroupSettingsFactory
+from tests.factories import ChatSettingsFactory
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def app_context(db_engine):
 
 @pytest.mark.asyncio
 async def test_filter_creation(db_session, app_context):
-    gs = GroupSettingsFactory.build(id=-100)
+    gs = ChatSettingsFactory.build(id=-100)
     db_session.add(gs)
     await db_session.flush()
 
@@ -39,7 +39,7 @@ async def test_filter_creation(db_session, app_context):
 
 @pytest.mark.asyncio
 async def test_filter_with_settings(db_session, app_context):
-    gs = GroupSettingsFactory.build(id=-500)
+    gs = ChatSettingsFactory.build(id=-500)
     db_session.add(gs)
     await db_session.flush()
 
@@ -52,7 +52,7 @@ async def test_filter_with_settings(db_session, app_context):
 @pytest.mark.asyncio
 async def test_filter_pagination(db_session, app_context):
     chat_id = -200
-    gs = GroupSettingsFactory.build(id=chat_id)
+    gs = ChatSettingsFactory.build(id=chat_id)
     db_session.add(gs)
     await db_session.flush()
 
@@ -80,7 +80,7 @@ async def test_filter_pagination(db_session, app_context):
 @pytest.mark.asyncio
 async def test_remove_filter_by_id(db_session, app_context):
     chat_id = -300
-    gs = GroupSettingsFactory.build(id=chat_id)
+    gs = ChatSettingsFactory.build(id=chat_id)
     db_session.add(gs)
     await db_session.flush()
 
@@ -98,7 +98,7 @@ async def test_remove_filter_by_id(db_session, app_context):
 @pytest.mark.asyncio
 async def test_remove_all_filters(db_session, app_context):
     chat_id = -400
-    gs = GroupSettingsFactory.build(id=chat_id)
+    gs = ChatSettingsFactory.build(id=chat_id)
     db_session.add(gs)
     await db_session.flush()
 

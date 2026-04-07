@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .groups import GroupSettings
+    from .chats import ChatSettings
 
 
 from sqlalchemy import (
@@ -23,7 +23,7 @@ class Blacklist(Base):
     __tablename__ = "blacklist"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("groupsettings.id"), index=True)
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     pattern: Mapped[str] = mapped_column(Text)
     isRegex: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     isWildcard: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
@@ -34,14 +34,14 @@ class Blacklist(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
-    group: Mapped["GroupSettings"] = relationship(back_populates="blacklist", lazy="raise")
+    chat: Mapped["ChatSettings"] = relationship(back_populates="blacklist", lazy="raise")
 
 
 class BlockedEntity(Base):
     __tablename__ = "blockedentity"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("groupsettings.id"), index=True)
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     entityType: Mapped[str] = mapped_column(String(50))
     action: Mapped[str] = mapped_column(
         String(50), default="delete", server_default=sa_text("'delete'")
@@ -50,14 +50,14 @@ class BlockedEntity(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
-    group: Mapped["GroupSettings"] = relationship(back_populates="blockedEntities", lazy="raise")
+    chat: Mapped["ChatSettings"] = relationship(back_populates="blockedEntities", lazy="raise")
 
 
 class BlockedLanguage(Base):
     __tablename__ = "blockedlanguage"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("groupsettings.id"), index=True)
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     langCode: Mapped[str] = mapped_column(String(10))
     action: Mapped[str] = mapped_column(
         String(50), default="delete", server_default=sa_text("'delete'")
@@ -66,14 +66,14 @@ class BlockedLanguage(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
-    group: Mapped["GroupSettings"] = relationship(back_populates="langBlocks", lazy="raise")
+    chat: Mapped["ChatSettings"] = relationship(back_populates="langBlocks", lazy="raise")
 
 
 class UserWarn(Base):
     __tablename__ = "userwarn"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("groupsettings.id"), index=True)
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     userId: Mapped[int] = mapped_column(BigInteger)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     actorId: Mapped[int] = mapped_column(BigInteger)
@@ -82,7 +82,7 @@ class UserWarn(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
 
-    group: Mapped["GroupSettings"] = relationship(back_populates="warns", lazy="raise")
+    chat: Mapped["ChatSettings"] = relationship(back_populates="warns", lazy="raise")
 
 
 class GlobalBan(Base):
