@@ -51,6 +51,8 @@ async def update_chat_setting(ctx: AppContext, chat_id: int, field: str, value: 
         if not settings:
             settings = ChatSettings(id=chat_id)
             session.add(settings)
+            await session.commit()
+            await session.refresh(settings)
 
         setattr(settings, field, value)
         session.add(settings)
