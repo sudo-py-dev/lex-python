@@ -189,6 +189,7 @@ async def channel_settings_processor(
                 wm_type=cfg.get("type", "text"),
                 color=cfg.get("color", "white"),
                 style=cfg.get("style", "shadow"),
+                location=cfg.get("location", "bottom_right"),
             ),
         )
 
@@ -211,6 +212,7 @@ async def channel_settings_processor(
             type=await at(user_id, f"panel.wm_type_{cfg.get('type', 'text')}"),
             color=await at(user_id, f"panel.wm_color_{cfg.get('color', 'white')}"),
             style=await at(user_id, f"panel.wm_style_{cfg.get('style', 'shadow')}"),
+            location=await at(user_id, f"panel.wm_location_{cfg.get('location', 'bottom_right')}"),
         )
         kb = await channel_watermark_kb(ctx, channel_id, user_id)
     else:

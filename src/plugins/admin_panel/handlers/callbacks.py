@@ -260,6 +260,9 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
             wm_type = (cfg.get("type") if isinstance(cfg, dict) else None) or "text"
             wm_color = (cfg.get("color") if isinstance(cfg, dict) else None) or "white"
             wm_style = (cfg.get("style") if isinstance(cfg, dict) else None) or "shadow"
+            wm_location = (
+                (cfg.get("location") if isinstance(cfg, dict) else None) or "bottom_right"
+            )
             status = await at(ui_id, "panel.status_enabled" if s.watermarkEnabled else "panel.status_disabled")
             await callback.message.edit_text(
                 await at(
@@ -270,6 +273,7 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
                     type=await at(ui_id, f"panel.wm_type_{wm_type}"),
                     color=await at(ui_id, f"panel.wm_color_{wm_color}"),
                     style=await at(ui_id, f"panel.wm_style_{wm_style}"),
+                    location=await at(ui_id, f"panel.wm_location_{wm_location}"),
                 ),
                 reply_markup=await channel_watermark_kb(ctx, channel_id, user_id),
             )
@@ -325,7 +329,13 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
             )
 
             s = await get_ch_settings(ctx, channel_id)
-            cfg = {"text": s.watermarkText or "", "type": "text", "color": "white", "style": "shadow"}
+            cfg = {
+                "text": s.watermarkText or "",
+                "type": "text",
+                "color": "white",
+                "style": "shadow",
+                "location": "bottom_right",
+            }
             if s.watermarkText and str(s.watermarkText).lstrip().startswith("{"):
                 with contextlib.suppress(Exception):
                     loaded = json.loads(s.watermarkText)
@@ -336,15 +346,27 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
                 cycle = ["text", "username"]
             elif mode == "color":
                 cycle = ["white", "black", "red", "blue", "gold"]
+            elif mode == "location":
+                cycle = [
+                    "top_left",
+                    "top_center",
+                    "top_right",
+                    "center",
+                    "bottom_left",
+                    "bottom_center",
+                    "bottom_right",
+                ]
             else:
                 cycle = ["shadow", "outline", "plain"]
 
-            current = cfg.get(mode if mode in ("type", "color", "style") else "style", cycle[0])
+            current = cfg.get(
+                mode if mode in ("type", "color", "style", "location") else "style", cycle[0]
+            )
             try:
                 nxt = cycle[(cycle.index(current) + 1) % len(cycle)]
             except ValueError:
                 nxt = cycle[0]
-            cfg[mode if mode in ("type", "color", "style") else "style"] = nxt
+            cfg[mode if mode in ("type", "color", "style", "location") else "style"] = nxt
             await update_ch_setting(ctx, channel_id, "watermarkText", json.dumps(cfg))
 
             s = await get_chat_settings(ctx, channel_id)
@@ -358,6 +380,7 @@ async def panel_callback_handler(client: Client, callback: CallbackQuery) -> Non
                     type=await at(ui_id, f"panel.wm_type_{cfg.get('type', 'text')}"),
                     color=await at(ui_id, f"panel.wm_color_{cfg.get('color', 'white')}"),
                     style=await at(ui_id, f"panel.wm_style_{cfg.get('style', 'shadow')}"),
+                    location=await at(ui_id, f"panel.wm_location_{cfg.get('location', 'bottom_right')}"),
                 ),
                 reply_markup=await channel_watermark_kb(ctx, channel_id, user_id),
             )

@@ -981,6 +981,7 @@ async def channel_watermark_kb(ctx, channel_id: int, user_id: int) -> InlineKeyb
     wm_type = cfg.get("type", "text")
     wm_color = cfg.get("color", "white")
     wm_style = cfg.get("style", "shadow")
+    wm_location = cfg.get("location", "bottom_right")
     status = "✅" if s.watermarkEnabled else "❌"
 
     return InlineKeyboardMarkup(
@@ -1022,6 +1023,16 @@ async def channel_watermark_kb(ctx, channel_id: int, user_id: int) -> InlineKeyb
                     ),
                     callback_data=f"panel:cycle_wm:style:{channel_id}",
                 ),
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(
+                        user_id,
+                        "panel.btn_wm_location",
+                        value=await at(user_id, f"panel.wm_location_{wm_location}"),
+                    ),
+                    callback_data=f"panel:cycle_wm:location:{channel_id}",
+                )
             ],
             [
                 InlineKeyboardButton(
