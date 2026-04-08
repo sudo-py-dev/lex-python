@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Witamy",
   "panel.btn_window": "Okno: {n}s",
   "panel.btn_wm_color": "🎨 Kolor: {value}",
+  "panel.btn_wm_image": "🖼️ Znak wodny obrazu: {status}",
   "panel.btn_wm_location": "Lokalizacja: {value}",
   "panel.btn_wm_style": "✨ Ustawienie wstępne: {value}",
   "panel.btn_wm_type": "Wpisz: {value}",

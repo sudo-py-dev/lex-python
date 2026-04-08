@@ -16,6 +16,7 @@ from src.db.repositories.warns import (
 from src.plugins.logging import log_event
 from src.utils.decorators import admin_only, resolve_target, safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.permissions import RESTRICTED_PERMISSIONS, Permission, has_permission
 
 
@@ -156,6 +157,50 @@ async def reset_all_warns_handler(client: Client, message: Message) -> None:
     """Remove all warnings for all users in the chat."""
     count = await reset_all_chat_warns(get_context(), message.chat.id)
     await message.reply(await at(message.chat.id, "warn.cleared_all", count=count))
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("warnLimit"), group=-100)
+@safe_handler
+async def warn_limit_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    if not str(value).isdigit() or int(value) < 1:
+        await message.reply(await at(user_id, "panel.input_invalid_number"))
+        return
+
+    from src.plugins.admin_panel.repository import update_chat_setting
+
+    await update_chat_setting(ctx, chat_id, "warnLimit", int(value))
+
+    from src.plugins.admin_panel.handlers.moderation_kbs import warns_kb
+
+    kb = await warns_kb(ctx, chat_id, user_id=user_id)
+
+    settings = await get_settings(ctx, chat_id)
+    text = await at(
+        user_id,
+        "panel.warns_text",
+        limit=settings.warnLimit,
+        action=settings.warnAction.capitalize(),
+        expiry=settings.warnExpiry.capitalize(),
+    )
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(WarnsPlugin())

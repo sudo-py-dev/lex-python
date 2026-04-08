@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Selamat datang",
   "panel.btn_window": "Jendela: {n}s",
   "panel.btn_wm_color": "🎨 Warna: {value}",
+  "panel.btn_wm_image": "🖼️ Tanda Air Gambar: {status}",
   "panel.btn_wm_location": "Lokasi: {value}",
   "panel.btn_wm_style": "✨ Prasetel: {value}",
   "panel.btn_wm_type": "Ketik: {value}",

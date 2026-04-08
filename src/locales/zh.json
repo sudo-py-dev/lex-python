@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} 欢迎",
   "panel.btn_window": "窗口：{n}s",
   "panel.btn_wm_color": "🎨 颜色：{value}",
+  "panel.btn_wm_image": "🖼️ 图片水印：{status}",
   "panel.btn_wm_location": "地点：{value}",
   "panel.btn_wm_style": "✨ 预设：{value}",
   "panel.btn_wm_type": "类型：{value}",

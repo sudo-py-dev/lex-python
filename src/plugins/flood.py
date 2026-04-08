@@ -14,6 +14,7 @@ from src.db.repositories.chats import update_settings
 from src.plugins.logging import log_event
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import resolve_sender
 from src.utils.permissions import RESTRICTED_PERMISSIONS, can_restrict_members
 
@@ -102,7 +103,7 @@ async def set_flood_handler(client: Client, message: Message) -> None:
     )
 
 
-@bot.on_message(filters.group, group=-2)
+@bot.on_message(filters.group, group=-100)
 @safe_handler
 async def flood_interceptor(client: Client, message: Message) -> None:
     """
@@ -189,6 +190,44 @@ async def flood_interceptor(client: Client, message: Message) -> None:
         with contextlib.suppress(Exception):
             await message.delete()
         await message.stop_propagation()
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(
+    filters.private & is_waiting_for_input(["floodThreshold", "floodWindow"]), group=-100
+)
+@safe_handler
+async def flood_settings_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    field = state["field"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    if not str(value).isdigit() or int(value) < 0:
+        await message.reply(await at(user_id, "panel.input_invalid_number"))
+        return
+
+    await update_settings(ctx, chat_id, **{field: int(value)})
+
+    from src.plugins.admin_panel.handlers.keyboards import flood_kb
+
+    kb = await flood_kb(ctx, chat_id, user_id=user_id)
+
+    text = await at(user_id, "panel.flood_text")
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(FloodPlugin())

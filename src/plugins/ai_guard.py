@@ -12,6 +12,7 @@ from src.plugins.ai_assistant.prompts import AI_GUARD_SYSTEM_PROMPT, AI_GUARD_TA
 from src.plugins.ai_assistant.service import AIService, AIServiceError
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import execute_moderation_action, resolve_sender
 
 
@@ -106,6 +107,50 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
         logger.exception(
             f"AI Guard Unexpected Error in chat={message.chat.id} user={user_id}: {error_str}"
         )
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("groqKey"), group=-100)
+@safe_handler
+async def ai_guard_settings_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text or ""
+    str_value = str(value).strip()
+
+    if str_value.lower() == "reset":
+        await update_ai_guard_settings(ctx, chat_id, apiKey=None, isEnabled=False)
+        str_value = None
+    elif not str_value:
+        await message.reply(await at(user_id, "panel.input_invalid_string"))
+        return
+    else:
+        await update_ai_guard_settings(ctx, chat_id, apiKey=str_value)
+
+    from src.plugins.admin_panel.handlers.keyboards import ai_security_kb
+
+    kb = await ai_security_kb(ctx, chat_id, user_id)
+
+    s = await get_ai_guard_settings(ctx, chat_id)
+    status_label = await at(user_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}")
+    action_label = await at(user_id, f"action.{s.action}")
+    text = await at(
+        user_id, "panel.ai_guard_text", status=status_label, action=action_label, model=s.modelId
+    )
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(AIGuardPlugin())

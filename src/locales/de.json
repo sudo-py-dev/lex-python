@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Willkommen",
   "panel.btn_window": "Fenster: {n}s",
   "panel.btn_wm_color": "🎨 Farbe: {value}",
+  "panel.btn_wm_image": "🖼️ Bildwasserzeichen: {status}",
   "panel.btn_wm_location": "Standort: {value}",
   "panel.btn_wm_style": "✨ Voreinstellung: {value}",
   "panel.btn_wm_type": "Typ: {value}",

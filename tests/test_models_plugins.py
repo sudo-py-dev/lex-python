@@ -3,8 +3,8 @@ from sqlalchemy import select
 
 from src.db.models import Filter, Note, Reminder, ScheduledMessage
 from tests.factories import (
-    FilterFactory,
     ChatSettingsFactory,
+    FilterFactory,
     NoteFactory,
     ReminderFactory,
     ScheduledMessageFactory,

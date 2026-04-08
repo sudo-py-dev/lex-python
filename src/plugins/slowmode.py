@@ -10,6 +10,7 @@ from src.core.plugin import Plugin, register
 from src.db.repositories.slowmode import clear_slowmode, get_slowmode, set_slowmode
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import resolve_sender
 from src.utils.time_parser import parse_time
 
@@ -102,6 +103,45 @@ async def slowmode_interceptor(client: Client, message: Message) -> None:
         await message.stop_propagation()
     else:
         await ctx.cache.set(key, "1", ttl=interval)
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("slowmode"), group=-100)
+@safe_handler
+async def slowmode_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    if not str(value).isdigit() or int(value) < 0:
+        await message.reply(await at(user_id, "panel.input_invalid_number"))
+        return
+
+    num_value = int(value)
+    if num_value > 0:
+        await set_slowmode(ctx, chat_id, num_value)
+    else:
+        await clear_slowmode(ctx, chat_id)
+
+    from src.plugins.admin_panel.handlers.moderation_kbs import slowmode_kb
+
+    kb = await slowmode_kb(ctx, chat_id, user_id=user_id)
+
+    text = await at(user_id, "panel.slowmode_text", interval=num_value)
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(SlowmodePlugin())

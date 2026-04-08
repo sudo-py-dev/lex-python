@@ -10,8 +10,8 @@ from src.db.models import (
 )
 from tests.factories import (
     AllowedChannelFactory,
-    ChatNightLockFactory,
     ChatCleanerFactory,
+    ChatNightLockFactory,
     ChatRulesFactory,
     ChatSettingsFactory,
     DisabledCommandFactory,

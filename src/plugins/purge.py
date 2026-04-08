@@ -7,6 +7,7 @@ from src.core.bot import bot
 from src.core.plugin import Plugin, register
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 
 
 class PurgePlugin(Plugin):
@@ -82,6 +83,58 @@ async def purgeme_handler(client: Client, message: Message) -> None:
 
     if message_ids:
         await client.delete_messages(message.chat.id, message_ids)
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("purgeMessagesCount"), group=-100)
+@safe_handler
+async def purge_messages_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    value = message.text
+
+    if not str(value).isdigit() or int(value) < 1:
+        await message.reply(await at(user_id, "panel.input_invalid_number"))
+        return
+
+    count = int(value)
+
+    # Start background purge task
+    async def do_purge():
+        try:
+            dummy = await client.send_message(chat_id, await at(chat_id, "panel.purge_in_progress"))
+            top_id = dummy.id
+            await asyncio.sleep(2)
+            await dummy.delete()
+
+            for i in range(top_id, top_id - count - 1, -100):
+                batch_ids = list(range(i, max(i - 100, top_id - count - 1), -1))
+                with __import__("contextlib").suppress(Exception):
+                    await client.delete_messages(chat_id, batch_ids)
+                await asyncio.sleep(0.5)
+        except Exception:
+            pass
+
+    asyncio.create_task(do_purge())
+
+    from src.plugins.admin_panel.handlers.keyboards import moderation_category_kb
+
+    kb = await moderation_category_kb(chat_id, user_id=user_id)
+
+    text = await at(user_id, "panel.moderation_text")
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(PurgePlugin())

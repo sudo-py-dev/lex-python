@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Добро пожаловать",
   "panel.btn_window": "Окно: {n}с",
   "panel.btn_wm_color": "🎨 Цвет: {value}",
+  "panel.btn_wm_image": "🖼️ Водяной знак изображения: {status}",
   "panel.btn_wm_location": "Местоположение: {value}",
   "panel.btn_wm_style": "✨ Предустановка: {value}",
   "panel.btn_wm_type": "Тип: {value}",

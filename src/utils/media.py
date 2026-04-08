@@ -29,6 +29,7 @@ class WatermarkConfig:
     color: str = DEFAULT_WATERMARK_COLOR
     style: str = DEFAULT_WATERMARK_STYLE
     video_enabled: bool = False
+    image_enabled: bool = True
     video_quality: str = DEFAULT_VIDEO_WATERMARK_QUALITY
     video_motion: str = DEFAULT_VIDEO_WATERMARK_MOTION
 
@@ -104,6 +105,7 @@ def parse_watermark_config(raw_value: str | None) -> WatermarkConfig:
         color=color if color in SUPPORTED_WATERMARK_COLORS else DEFAULT_WATERMARK_COLOR,
         style=style if style in SUPPORTED_WATERMARK_STYLES else DEFAULT_WATERMARK_STYLE,
         video_enabled=bool(payload.get("video_enabled", False)),
+        image_enabled=bool(payload.get("image_enabled", True)),
         video_quality=(
             str(payload.get("video_quality", DEFAULT_VIDEO_WATERMARK_QUALITY))
             if str(payload.get("video_quality", DEFAULT_VIDEO_WATERMARK_QUALITY))
@@ -124,6 +126,7 @@ def build_watermark_config(
     color: str = DEFAULT_WATERMARK_COLOR,
     style: str = DEFAULT_WATERMARK_STYLE,
     video_enabled: bool = False,
+    image_enabled: bool = True,
     video_quality: str = DEFAULT_VIDEO_WATERMARK_QUALITY,
     video_motion: str = DEFAULT_VIDEO_WATERMARK_MOTION,
 ) -> str:
@@ -132,6 +135,7 @@ def build_watermark_config(
         "color": color,
         "style": style,
         "video_enabled": bool(video_enabled),
+        "image_enabled": bool(image_enabled),
         "video_quality": (
             video_quality
             if video_quality in SUPPORTED_VIDEO_WATERMARK_QUALITIES
@@ -183,9 +187,17 @@ def apply_video_watermark(
     font_color = palette.get(color, "white")
     shadow = "1" if style in ("soft_shadow", "outline", "pattern_grid", "pattern_diagonal") else "0"
     border = "2" if style == "outline" else "0"
-    q = quality if quality in SUPPORTED_VIDEO_WATERMARK_QUALITIES else DEFAULT_VIDEO_WATERMARK_QUALITY
+    q = (
+        quality
+        if quality in SUPPORTED_VIDEO_WATERMARK_QUALITIES
+        else DEFAULT_VIDEO_WATERMARK_QUALITY
+    )
     m = motion if motion in SUPPORTED_VIDEO_WATERMARK_MOTIONS else DEFAULT_VIDEO_WATERMARK_MOTION
-    quality_map = {"high": ("22", "medium"), "medium": ("28", "veryfast"), "low": ("33", "superfast")}
+    quality_map = {
+        "high": ("22", "medium"),
+        "medium": ("28", "veryfast"),
+        "low": ("33", "superfast"),
+    }
     crf, preset = quality_map[q]
 
     script = _detect_script(text)
@@ -319,9 +331,13 @@ def apply_watermark(
             main_fill = (*fill_color, 190)
             shadow_fill = (0, 0, 0, 145)
 
-            def draw_text_effect(target_draw: ImageDraw.ImageDraw, px: int, py: int, st: str) -> None:
+            def draw_text_effect(
+                target_draw: ImageDraw.ImageDraw, px: int, py: int, st: str
+            ) -> None:
                 if st in ("soft_shadow", "pattern_grid", "pattern_diagonal", "outline"):
-                    target_draw.text((px + shadow_offset, py + shadow_offset), text, font=font, fill=shadow_fill)
+                    target_draw.text(
+                        (px + shadow_offset, py + shadow_offset), text, font=font, fill=shadow_fill
+                    )
                 if st == "outline":
                     target_draw.text((px - shadow_offset, py), text, font=font, fill=shadow_fill)
                     target_draw.text((px + shadow_offset, py), text, font=font, fill=shadow_fill)

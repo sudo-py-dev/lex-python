@@ -38,6 +38,3 @@ async def set_active_chat(ctx: AppContext, user_id: int, chat_id: int) -> None:
     from src.plugins.connections import set_active_chat as set_connected_chat
 
     await set_connected_chat(ctx, user_id, chat_id)
-
-
-

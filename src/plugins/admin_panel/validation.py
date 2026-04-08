@@ -59,7 +59,6 @@ CHANNEL_ONLY_FIELDS: set[str] = {
     "reactionsEnabled",
     "reactions",
     "reactionMode",
-    "watermarkEnabled",
     "watermarkText",
     "signatureEnabled",
     "signatureText",

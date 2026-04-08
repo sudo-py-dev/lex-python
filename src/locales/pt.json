@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Bem vindo",
   "panel.btn_window": "Janela: {n}s",
   "panel.btn_wm_color": "🎨 Cor: {value}",
+  "panel.btn_wm_image": "🖼️ Marca d'água da imagem: {status}",
   "panel.btn_wm_location": "Localização: {value}",
   "panel.btn_wm_style": "✨ Predefinição: {value}",
   "panel.btn_wm_type": "Digite: {value}",

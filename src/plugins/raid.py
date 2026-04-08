@@ -10,6 +10,7 @@ from src.db.repositories.chats import update_settings
 from src.plugins.logging import log_event
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.permissions import RESTRICTED_PERMISSIONS
 
 
@@ -100,6 +101,51 @@ async def raid_interceptor(client: Client, message: Message) -> None:
             )
 
         await message.reply(await at(message.chat.id, "raid.detected"))
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input(["raidThreshold", "raidWindow"]), group=-100)
+@safe_handler
+async def raid_settings_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    field = state["field"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    if not str(value).isdigit() or int(value) < 0:
+        await message.reply(await at(user_id, "panel.input_invalid_number"))
+        return
+
+    await update_settings(ctx, chat_id, **{field: int(value)})
+
+    from src.plugins.admin_panel.handlers.security_kbs import raid_kb
+
+    kb = await raid_kb(ctx, chat_id, user_id=user_id)
+
+    s = await get_settings(ctx, chat_id)
+    status = await at(user_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled")
+    text = await at(
+        user_id,
+        "panel.raid_text",
+        status=status,
+        threshold=s.raidThreshold,
+        window=s.raidWindow,
+        action=s.raidAction.capitalize(),
+    )
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(RaidPlugin())

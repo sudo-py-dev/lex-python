@@ -11,6 +11,7 @@ from src.db.repositories.chats import update_settings
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 
 
 class WelcomePlugin(Plugin):
@@ -170,6 +171,42 @@ async def goodbye_test_handler(client: Client, message: Message) -> None:
     )
     parsed["text"] = await at(message.chat.id, "goodbye.test", text=parsed["text"])
     await TelegramFormatter.send_parsed(client, message.chat.id, parsed)
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("welcomeText"), group=-100)
+@safe_handler
+async def welcome_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    from src.plugins.admin_panel.handlers.keyboards import welcome_kb
+    from src.plugins.admin_panel.repository import resolve_chat_type
+    from src.plugins.admin_panel.validation import is_setting_allowed
+
+    # Validation Guard
+    chat_type = await resolve_chat_type(ctx, chat_id)
+    if not is_setting_allowed("welcomeText", chat_type.name.lower()):
+        await message.reply(await at(user_id, "panel.setting_not_allowed_for_type"))
+        return
+
+    await update_settings(ctx, chat_id, welcomeText=str(value), welcomeEnabled=True)
+    kb = await welcome_kb(ctx, chat_id, user_id=user_id)
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        await at(user_id, "panel.welcome_text"),
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(WelcomePlugin())

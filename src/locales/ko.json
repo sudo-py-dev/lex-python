@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} 환영합니다",
   "panel.btn_window": "창: {n}s",
   "panel.btn_wm_color": "🎨 색상: {value}",
+  "panel.btn_wm_image": "🖼️ 이미지 워터마크: {status}",
   "panel.btn_wm_location": "위치: {value}",
   "panel.btn_wm_style": "✨ 사전 설정: {value}",
   "panel.btn_wm_type": "유형: {value}",

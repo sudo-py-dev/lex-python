@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} स्वागत है",
   "panel.btn_window": "विंडो: {n}s",
   "panel.btn_wm_color": "🎨 रंग: {value}",
+  "panel.btn_wm_image": "🖼️ छवि वॉटरमार्क: {status}",
   "panel.btn_wm_location": "स्थान: {value}",
   "panel.btn_wm_style": "✨ प्रीसेट: {value}",
   "panel.btn_wm_type": "प्रकार: {value}",

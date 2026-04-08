@@ -50,9 +50,7 @@ def t(lang: str, key: str, /, **kwargs: Any) -> str:
         return template
 
 
-async def at(
-    chat_id: int | None, key: str, /, user_id: int | None = None, **kwargs: Any
-) -> str:
+async def at(chat_id: int | None, key: str, /, user_id: int | None = None, **kwargs: Any) -> str:
     """Async translate helper that automatically resolves chat/user language."""
     if chat_id is None and user_id is None:
         return t("en", key, **kwargs)

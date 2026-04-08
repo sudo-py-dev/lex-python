@@ -1,0 +1,526 @@
+from pyrogram import Client, filters
+from pyrogram.types import CallbackQuery
+
+from src.core.bot import bot
+from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
+from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
+from src.plugins.admin_panel.handlers.moderation_kbs import (
+    blacklist_kb,
+    entityblock_kb,
+    langblock_kb,
+    logging_kb,
+    slowmode_kb,
+    user_warns_kb,
+    warns_kb,
+)
+from src.plugins.admin_panel.repository import get_chat_settings, update_chat_setting
+from src.utils.i18n import at
+
+
+@bot.on_callback_query(filters.regex(r"^panel:langblock:?(\d+)?$"))
+@admin_panel_context
+async def on_langblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    user_id = callback.from_user.id
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
+    page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
+
+    kb = await langblock_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
+    await callback.message.edit_text(await at(at_id, "panel.langblock_text"), reply_markup=kb)
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:entityblock:?(\d+)?$"))
+@admin_panel_context
+async def on_entityblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    user_id = callback.from_user.id
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
+    page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
+
+    kb = await entityblock_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
+    await callback.message.edit_text(await at(at_id, "panel.entityblock_text"), reply_markup=kb)
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:blacklist:?(\d+)?$"))
+@admin_panel_context
+async def on_blacklist(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    user_id = callback.from_user.id
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
+    page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
+
+    kb = await blacklist_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
+    await callback.message.edit_text(await at(at_id, "panel.blacklist_text"), reply_markup=kb)
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:blacklist_remove:(\d+):(\d+)$"))
+@admin_panel_context
+async def on_blacklist_remove(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    bid = int(callback.matches[0].group(1))
+    page = int(callback.matches[0].group(2))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+
+    async with ap_ctx.ctx.db() as session:
+        from src.db.models import Blacklist
+
+        obj = await session.get(Blacklist, bid)
+        if obj:
+            await session.delete(obj)
+            await session.commit()
+            await callback.answer(_plain(await at(at_id, "panel.blacklist_removed_success")))
+        else:
+            await callback.answer(await at(at_id, "panel.blacklist_not_found"), show_alert=True)
+
+    kb = await blacklist_kb(
+        ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
+
+
+@bot.on_callback_query(filters.regex(r"^panel:cycle_blacklist_action:(\d+)$"))
+@admin_panel_context
+async def on_cycle_blacklist_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    page = int(callback.matches[0].group(1))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    settings = await get_chat_settings(ap_ctx.ctx, chat_id)
+
+    actions = ["delete", "mute", "kick", "ban", "warn"]
+    cur = settings.blacklistAction.lower()
+    try:
+        nxt = actions[(actions.index(cur) + 1) % len(actions)]
+    except ValueError:
+        nxt = "delete"
+
+    async with ap_ctx.ctx.db() as session:
+        from src.db.models import ChatSettings
+
+        gs = await session.get(ChatSettings, chat_id)
+        if gs:
+            gs.blacklistAction = nxt
+            session.add(gs)
+            await session.commit()
+
+    await callback.answer(
+        await at(at_id, "panel.blacklist_action_set", action=await at(at_id, f"action.{nxt}")),
+        show_alert=True,
+    )
+    kb = await blacklist_kb(
+        ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
+
+
+@bot.on_callback_query(filters.regex(r"^panel:cycle_langblock_action:(\d+):(\d+)$"))
+@admin_panel_context
+async def on_cycle_langblock_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    bid = int(callback.matches[0].group(1))
+    page = int(callback.matches[0].group(2))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+
+    actions = ["delete", "mute", "kick", "ban", "warn"]
+    async with ap_ctx.ctx.db() as session:
+        from src.db.models import BlockedLanguage
+
+        obj = await session.get(BlockedLanguage, bid)
+        if obj:
+            cur = obj.action.lower()
+            try:
+                nxt = actions[(actions.index(cur) + 1) % len(actions)]
+            except ValueError:
+                nxt = "delete"
+            obj.action = nxt
+            session.add(obj)
+            await session.commit()
+            await callback.answer(
+                await at(
+                    at_id, "panel.langblock_action_set", action=await at(at_id, f"action.{nxt}")
+                )
+            )
+        else:
+            await callback.answer(_plain(await at(at_id, "panel.error_generic")), show_alert=True)
+
+    kb = await langblock_kb(
+        ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
+
+
+@bot.on_callback_query(filters.regex(r"^panel:language:chat:?(\d+)?$"))
+@admin_panel_context
+async def on_chat_language(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    from src.plugins.language import language_picker_kb
+
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
+
+    await callback.message.edit_text(
+        await at(at_id, "language.group_picker_header"),
+        reply_markup=await language_picker_kb(ap_ctx.ctx, chat_id, scope="chat", page=page),
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:language_page:chat:(\d+):(\d+)$"))
+@admin_panel_context
+async def on_chat_language_page(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    from src.plugins.language import language_picker_kb
+
+    user_id = callback.from_user.id
+    target_id = int(callback.matches[0].group(1))
+    page = int(callback.matches[0].group(2))
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, ap_ctx.chat_id)
+
+    await callback.message.edit_text(
+        await at(at_id, "language.group_picker_header"),
+        reply_markup=await language_picker_kb(ap_ctx.ctx, target_id, scope="chat", page=page),
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:language_search:chat:(\d+)$"))
+@admin_panel_context
+async def on_chat_language_search(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    from src.plugins.language import begin_language_search
+
+    user_id = callback.from_user.id
+    target_id = int(callback.matches[0].group(1))
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, ap_ctx.chat_id)
+
+    await begin_language_search(user_id, "chat", target_id, prompt_msg_id=callback.message.id)
+    await callback.message.edit_text(await at(at_id, "language.search_prompt"))
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:set_lang:chat:(\d+):(.*)$"))
+@admin_panel_context
+async def on_chat_language_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    from src.plugins.admin_panel.handlers.keyboards import general_category_kb
+    from src.plugins.language import set_chat_lang
+
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    new_lang = callback.matches[0].group(2)
+
+    await set_chat_lang(ap_ctx.ctx, chat_id, new_lang)
+    await callback.answer(_plain(await at(at_id, "panel.group_lang_set", lang=new_lang.upper())))
+
+    chat_type_str = ap_ctx.chat_type.name.lower() if ap_ctx.chat_type else "supergroup"
+    kb = await general_category_kb(
+        chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None, chat_type=chat_type_str
+    )
+    title_key = "panel.general_text_channel" if chat_type_str == "channel" else "panel.general_text"
+    await callback.message.edit_text(await at(at_id, title_key), reply_markup=kb)
+
+
+@bot.on_callback_query(filters.regex(r"^panel:warns$"))
+@admin_panel_context
+async def on_warns_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    s = await get_chat_settings(ap_ctx.ctx, chat_id)
+    kb = await warns_kb(
+        ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_text(
+        await at(
+            at_id,
+            "panel.warns_text",
+            limit=s.warnLimit,
+            action=await at(at_id, f"action.{s.warnAction.lower()}"),
+            expiry=await at(at_id, f"expiry.{s.warnExpiry.lower()}"),
+        ),
+        reply_markup=kb,
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:slowmode$"))
+@admin_panel_context
+async def on_slowmode_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    from src.db.repositories.slowmode import get_slowmode
+
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    i = await get_slowmode(ap_ctx.ctx, chat_id)
+    kb = await slowmode_kb(
+        ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_text(
+        await at(at_id, "panel.slowmode_text", interval=i), reply_markup=kb
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:logging$"))
+@admin_panel_context
+async def on_logging_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    s = await get_chat_settings(ap_ctx.ctx, chat_id)
+    kb = await logging_kb(
+        ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_text(
+        await at(
+            at_id, "panel.logging_text", channel=s.logChannelId or await at(at_id, "panel.not_set")
+        ),
+        reply_markup=kb,
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:logging_picker$"))
+@admin_panel_context
+async def on_logging_picker(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    from src.cache.local_cache import get_cache
+    from src.plugins.admin_panel.handlers.moderation_kbs import log_channel_picker_kb
+
+    user_id = callback.from_user.id
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
+
+    kb = await log_channel_picker_kb(ap_ctx.ctx, chat_id, user_id=user_id if ap_ctx.is_pm else None)
+    cache = get_cache()
+    await cache.set(f"ap:logging_picker:{user_id}", chat_id, ttl=300)
+
+    await _.send_message(
+        user_id if ap_ctx.is_pm else callback.message.chat.id,
+        await at(at_id, "panel.logging_picker_text"),
+        reply_markup=kb,
+    )
+    await callback.message.delete()
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:logging_set:(\d+)$"))
+@admin_panel_context
+async def on_logging_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    new_log_id = int(callback.matches[0].group(1))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+
+    await update_chat_setting(ap_ctx.ctx, chat_id, "logChannelId", new_log_id)
+    await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
+
+    s = await get_chat_settings(ap_ctx.ctx, chat_id)
+    kb = await logging_kb(
+        ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_text(
+        await at(
+            at_id, "panel.logging_text", channel=s.logChannelId or await at(at_id, "panel.not_set")
+        ),
+        reply_markup=kb,
+    )
+
+
+@bot.on_callback_query(filters.regex(r"^panel:lang_remove:(.*)$"))
+@admin_panel_context
+async def on_lang_remove(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    code = callback.matches[0].group(1)
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+
+    from src.plugins.lang_block import remove_lang_block
+
+    await remove_lang_block(ap_ctx.ctx, chat_id, code)
+
+    kb = await langblock_kb(
+        ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.answer(await at(at_id, "panel.langblock_removed_item", lang=code.upper()))
+
+
+@bot.on_callback_query(filters.regex(r"^panel:lang_cycle_action:(.*):(\d+)$"))
+@admin_panel_context
+async def on_lang_cycle_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    code = callback.matches[0].group(1)
+    page = int(callback.matches[0].group(2))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+
+    from src.plugins.lang_block import add_lang_block, get_lang_blocks
+
+    blocks = {b.langCode: b for b in await get_lang_blocks(ap_ctx.ctx, chat_id)}
+    if code in blocks:
+        current_action = blocks[code].action.lower()
+        actions_cycle = ["delete", "mute", "kick", "ban"]
+        try:
+            next_idx = (actions_cycle.index(current_action) + 1) % len(actions_cycle)
+        except ValueError:
+            next_idx = 0
+        next_action = actions_cycle[next_idx]
+        await add_lang_block(ap_ctx.ctx, chat_id, code, next_action)
+
+        kb = await langblock_kb(
+            ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+        )
+        await callback.message.edit_reply_markup(reply_markup=kb)
+        await callback.answer(
+            await at(at_id, "panel.langblock_action_set", action=next_action.capitalize())
+        )
+
+
+@bot.on_callback_query(filters.regex(r"^panel:cycle:(\w+)$"))
+@admin_panel_context
+async def on_moderation_cycle(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    field = callback.matches[0].group(1)
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    ctx = ap_ctx.ctx
+
+    async with ctx.db() as session:
+        s = await get_chat_settings(ctx, chat_id)
+        if field == "warnAction":
+            nxt = {"kick": "ban", "ban": "mute", "mute": "kick"}[s.warnAction]
+            s.warnAction = nxt
+            session.add(s)
+            await session.commit()
+            kb = await warns_kb(
+                ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+            )
+            await callback.message.edit_text(
+                await at(
+                    at_id,
+                    "panel.warns_text",
+                    limit=s.warnLimit,
+                    action=await at(at_id, f"action.{nxt}"),
+                    expiry=await at(at_id, f"expiry.{s.warnExpiry.lower()}"),
+                ),
+                reply_markup=kb,
+            )
+        elif field == "warnExpiry":
+            nxt = {"never": "24h", "24h": "7d", "7d": "30d", "30d": "never"}[s.warnExpiry]
+            s.warnExpiry = nxt
+            session.add(s)
+            await session.commit()
+            kb = await warns_kb(
+                ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+            )
+            await callback.message.edit_text(
+                await at(
+                    at_id,
+                    "panel.warns_text",
+                    limit=s.warnLimit,
+                    action=await at(at_id, f"action.{s.warnAction.lower()}"),
+                    expiry=await at(at_id, f"expiry.{nxt}"),
+                ),
+                reply_markup=kb,
+            )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:toggle_entity:(.*):(\d+)$"))
+@admin_panel_context
+async def on_toggle_entity(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    etype = callback.matches[0].group(1)
+    page = int(callback.matches[0].group(2))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    ctx = ap_ctx.ctx
+
+    from src.plugins.entity_block import (
+        add_blocked_entity,
+        get_blocked_entities,
+        remove_blocked_entity,
+    )
+
+    blocks = await get_blocked_entities(ctx, chat_id)
+    block = next((b for b in blocks if b.entityType == etype), None)
+
+    if not block:
+        await add_blocked_entity(ctx, chat_id, etype, "delete")
+        next_action = "DELETE"
+    else:
+        cycle_map = {"delete": "warn", "warn": "mute", "mute": "kick", "kick": "ban", "ban": None}
+        nxt = cycle_map.get(block.action.lower())
+        if nxt:
+            await add_blocked_entity(ctx, chat_id, etype, nxt)
+            next_action = nxt.upper()
+        else:
+            await remove_blocked_entity(ctx, chat_id, etype)
+            next_action = "OFF"
+
+    res_msg = await at(at_id, "panel.entity_block_updated", type=etype.upper(), status=next_action)
+    kb = await entityblock_kb(
+        ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.answer(res_msg)
+
+
+@bot.on_callback_query(filters.regex(r"^panel:reset_warns$"))
+@admin_panel_context
+async def on_reset_warns(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    from src.db.repositories.warns import reset_all_chat_warns
+
+    await reset_all_chat_warns(ap_ctx.ctx, ap_ctx.chat_id)
+    await callback.answer(
+        _plain(
+            await at(
+                _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id),
+                "panel.warns_reset_success",
+            )
+        ),
+        show_alert=True,
+    )
+
+
+@bot.on_callback_query(filters.regex(r"^panel:user_warns:?(\d+)?$"))
+@admin_panel_context
+async def on_user_warns(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
+    kb = await user_warns_kb(
+        ap_ctx.ctx, ap_ctx.chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_text(await at(at_id, "panel.user_warns_text"), reply_markup=kb)
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:user_warn_reset:(\d+):(\d+)$"))
+@admin_panel_context
+async def on_user_warn_reset(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    target_uid = int(callback.matches[0].group(1))
+    page = int(callback.matches[0].group(2))
+    from src.db.repositories.warns import reset_warns
+
+    await reset_warns(ap_ctx.ctx, ap_ctx.chat_id, target_uid)
+    kb = await user_warns_kb(
+        ap_ctx.ctx, ap_ctx.chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.answer(
+        _plain(
+            await at(
+                _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id),
+                "panel.user_warns_reset_success",
+            )
+        )
+    )
+
+
+@bot.on_callback_query(filters.regex(r"^panel:user_warn_info:(\d+):(\d+)$"))
+@admin_panel_context
+async def on_user_warn_info(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    target_uid = int(callback.matches[0].group(1))
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
+    from src.db.repositories.warns import get_warns
+
+    warns = await get_warns(ap_ctx.ctx, ap_ctx.chat_id, target_uid)
+    if not warns:
+        await callback.answer(_plain(await at(at_id, "warns.no_warns")), show_alert=True)
+        return
+    reasons = "\n".join([f"- {w.reason or await at(at_id, 'common.no_reason')}" for w in warns])
+    await callback.answer(
+        f"{await at(at_id, 'common.user_id_label')} {target_uid}\n{await at(at_id, 'panel.user_warns_header')}\n{reasons}",
+        show_alert=True,
+    )

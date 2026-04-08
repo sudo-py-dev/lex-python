@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Bienvenue",
   "panel.btn_window": "Fenêtre : {n}s",
   "panel.btn_wm_color": "🎨 Couleur : {value}",
+  "panel.btn_wm_image": "🖼️ Filigrane d'image : {status}",
   "panel.btn_wm_location": "Emplacement : {value}",
   "panel.btn_wm_style": "✨ Préréglage : {value}",
   "panel.btn_wm_type": "Tapez : {value}",

@@ -10,9 +10,11 @@ from pyrogram.types import (
 )
 
 from src.core.bot import bot
+from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.utils.decorators import admin_only, resolve_target, safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.permissions import Permission, has_permission
 
 
@@ -430,6 +432,49 @@ async def chatinfo_handler(client: Client, message: Message) -> None:
         count=await client.get_chat_members_count(chat.id),
     )
     await message.reply(text)
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("cleanerInactive"), group=-100)
+@safe_handler
+async def cleaner_inactive_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    if not str(value).isdigit() or int(value) < 0:
+        await message.reply(await at(user_id, "panel.input_invalid_number"))
+        return
+
+    from src.db.models import ChatCleaner
+
+    async with ctx.db() as session:
+        cleaner = await session.get(ChatCleaner, chat_id)
+        if not cleaner:
+            cleaner = ChatCleaner(chatId=chat_id)
+        cleaner.cleanInactiveDays = int(value)
+        session.add(cleaner)
+        await session.commit()
+
+    from src.plugins.admin_panel.handlers.keyboards import cleaner_menu_kb
+
+    kb = await cleaner_menu_kb(ctx, chat_id)
+
+    text = await at(user_id, "panel.cleaner_text")
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(AdminPlugin())

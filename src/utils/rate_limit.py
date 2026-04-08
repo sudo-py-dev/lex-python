@@ -64,4 +64,3 @@ class TokenBucketLimiter:
                 self._states[key] = st
             st.tokens = 0.0
             st.blocked_until = max(st.blocked_until, now + penalty)
-

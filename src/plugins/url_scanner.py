@@ -9,6 +9,7 @@ from src.core.plugin import Plugin, register
 from src.db.repositories.chats import get_chat_settings as get_settings
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import execute_moderation_action, resolve_sender
 from src.utils.url_scanner import is_url_malicious
 
@@ -88,6 +89,62 @@ async def url_scanner_handler(client: Client, message: Message) -> None:
         )
         if acted:
             await message.stop_propagation()
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("gsbKey"), group=-100)
+@safe_handler
+async def url_scanner_settings_input_handler(client: Client, message: Message) -> None:
+    logger.debug(f"Input Handler: url_scanner received message from {message.from_user.id}")
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text or ""
+    str_value = str(value).strip()
+
+    from src.plugins.admin_panel.repository import update_chat_setting
+
+    if str_value.lower() == "reset":
+        await update_chat_setting(ctx, chat_id, "gsbKey", None)
+        await update_chat_setting(ctx, chat_id, "urlScannerEnabled", False)
+        str_value = None
+    elif not str_value:
+        await message.reply(await at(user_id, "panel.input_invalid_string"))
+        return
+    else:
+        logger.debug(f"Input Handler: Updating gsbKey for chat {chat_id}")
+        await update_chat_setting(ctx, chat_id, "gsbKey", str_value)
+        logger.debug(f"Input Handler: Database update complete for chat {chat_id}")
+
+    from src.plugins.admin_panel.handlers.security_kbs import url_scanner_kb
+
+    kb = await url_scanner_kb(ctx, chat_id, user_id=user_id)
+
+    s = await get_settings(ctx, chat_id)
+    status = await at(
+        user_id, "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled"
+    )
+    text = await at(
+        user_id,
+        "panel.urlscanner_text",
+        status=status,
+        key="********" if s.gsbKey else await at(user_id, "panel.not_set"),
+    )
+
+    logger.debug(f"Input Handler: Progress - Preparing to finalize for user {user_id}")
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
+    logger.debug(f"Input Handler: Finalized for user {user_id}")
 
 
 register(UrlScannerPlugin())

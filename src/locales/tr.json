@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Hoş Geldiniz",
   "panel.btn_window": "Pencere: {n}s",
   "panel.btn_wm_color": "🎨 Renk: {value}",
+  "panel.btn_wm_image": "🖼️ Resim Filigranı: {status}",
   "panel.btn_wm_location": "Konum: {value}",
   "panel.btn_wm_style": "✨ Ön ayar: {value}",
   "panel.btn_wm_type": "Tür: {value}",

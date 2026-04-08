@@ -8,6 +8,7 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 
 from .repository import AIRepository
 from .service import AIService
@@ -130,7 +131,9 @@ async def ai_message_handler(client: Client, message: Message):
     retry_max_chars = 2200 if provider == "groq" else 3000
 
     history = await AIRepository.get_context(ctx, chat_id, client.me.id)
-    history = _compact_history(history, max_messages=initial_max_messages, max_chars=initial_max_chars)
+    history = _compact_history(
+        history, max_messages=initial_max_messages, max_chars=initial_max_chars
+    )
     logger.debug(f"AI [{chat_id}] History: {len(history)} messages. Calling LLM...")
 
     from .prompts import BASE_PROMPT, OPERATIONAL_RULES
@@ -203,7 +206,9 @@ async def ai_message_handler(client: Client, message: Message):
             try:
                 sent_msg = await message.reply_text(render_text, parse_mode=ParseMode.HTML)
             except Exception as format_error:
-                logger.warning(f"AI [{chat_id}] html render failed, fallback to plain text: {format_error}")
+                logger.warning(
+                    f"AI [{chat_id}] html render failed, fallback to plain text: {format_error}"
+                )
                 sent_msg = await message.reply_text(clean_response, parse_mode=None)
 
             await AIRepository.add_message(
@@ -225,3 +230,69 @@ async def ai_message_handler(client: Client, message: Message):
 
         with contextlib.suppress(Exception):
             await message.reply_text(error_msg)
+
+
+# --- Admin Panel Input Handlers ---
+
+AI_FIELDS = ["aiApiKey", "aiModelId", "aiSystemPrompt", "aiInstruction"]
+
+
+@bot.on_message(filters.private & is_waiting_for_input(AI_FIELDS), group=-100)
+@safe_handler
+async def ai_settings_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    field = state["field"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text or ""
+
+    value_text = str(value).strip()
+    if not value_text:
+        await message.reply(await at(user_id, "panel.input_invalid_string"))
+        return
+
+    mapping = {
+        "aiApiKey": "apiKey",
+        "aiModelId": "modelId",
+        "aiSystemPrompt": "systemPrompt",
+        "aiInstruction": "customInstruction",
+    }
+    db_field = mapping.get(field, field)
+
+    update_data = {db_field: value_text}
+    await AIRepository.update_settings(ctx, chat_id, **update_data)
+
+    from src.plugins.admin_panel.handlers.ai_kbs import ai_menu_kb
+
+    kb = await ai_menu_kb(chat_id, user_id=user_id)
+
+    s = await AIRepository.get_settings(ctx, chat_id)
+    is_enabled = s.isEnabled if s else False
+    provider = (s.provider if s else "openai").upper()
+    model = (s.modelId if s else "N/A") or "N/A"
+    api_key = "****" if (s and s.apiKey) else await at(user_id, "panel.not_set")
+
+    status_text = await at(user_id, f"panel.status_{'enabled' if is_enabled else 'disabled'}")
+    main_text = await at(
+        user_id,
+        "panel.ai_text",
+        status=status_text,
+        provider=provider,
+        model=model,
+        api_key=api_key,
+    )
+
+    success_text = await at(user_id, "panel.input_success")
+    if field == "aiModelId":
+        success_text = await at(user_id, "panel.ai_model_set", model=model)
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        main_text,
+        kb,
+        success_text=success_text,
+    )

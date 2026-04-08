@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Bienvenido",
   "panel.btn_window": "Ventana: {n}s",
   "panel.btn_wm_color": "🎨 Color: {value}",
+  "panel.btn_wm_image": "🖼️ Marca de agua de imagen: {status}",
   "panel.btn_wm_location": "Ubicación: {value}",
   "panel.btn_wm_style": "✨ Preestablecido: {value}",
   "panel.btn_wm_type": "Tipo: {value}",

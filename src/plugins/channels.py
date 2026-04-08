@@ -8,12 +8,12 @@ import os
 import random
 import tempfile
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from collections.abc import Awaitable, Callable
 
-from PIL import Image, UnidentifiedImageError
 from loguru import logger
+from PIL import Image, UnidentifiedImageError
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
@@ -22,8 +22,19 @@ from src.config import config
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
-from src.plugins.admin_panel.repository import get_chat_settings
-from src.utils.media import apply_video_watermark, apply_watermark, parse_watermark_config
+from src.db.repositories.chats import (
+    get_chat_settings,
+)
+from src.utils.decorators import safe_handler
+from src.utils.input import (
+    finalize_input_capture,
+    is_waiting_for_input,
+)
+from src.utils.media import (
+    apply_video_watermark,
+    apply_watermark,
+    parse_watermark_config,
+)
 from src.utils.rate_limit import TokenBucketLimiter
 
 if TYPE_CHECKING:
@@ -35,6 +46,7 @@ class WatermarkOptions:
     text: str
     color: str
     style: str
+    image_enabled: bool
     video_enabled: bool
     video_quality: str
     video_motion: str
@@ -118,7 +130,9 @@ class ChannelsPlugin(Plugin):
         ctx = get_context()
         settings: ChatSettings | None = await get_chat_settings(ctx, message.chat.id)
         if not settings:
-            logger.debug(f"[channels] No settings found for chat={message.chat.id}, skipping message={message.id}")
+            logger.debug(
+                f"[channels] No settings found for chat={message.chat.id}, skipping message={message.id}"
+            )
             return
 
         await self._handle_reactions(settings, message)
@@ -133,7 +147,7 @@ class ChannelsPlugin(Plugin):
             plan.is_media,
             bool(message.photo),
             bool(message.video),
-            settings.watermarkEnabled,
+            wm.image_enabled,
             bool(wm.text),
             wm.video_enabled,
             wm.video_quality,
@@ -141,7 +155,7 @@ class ChannelsPlugin(Plugin):
             settings.signatureEnabled,
         )
 
-        if plan.is_media and message.photo and settings.watermarkEnabled and wm.text:
+        if plan.is_media and message.photo and wm.image_enabled and wm.text:
             logger.debug(f"[channels] Applying image watermark for message={message.id}")
             if message.media_group_id:
                 logger.debug(
@@ -160,9 +174,8 @@ class ChannelsPlugin(Plugin):
         if (
             plan.is_media
             and message.video
-            and settings.watermarkEnabled
-            and wm.text
             and wm.video_enabled
+            and wm.text
             and config.ENABLE_VIDEO_WATERMARK
         ):
             logger.debug(
@@ -174,7 +187,7 @@ class ChannelsPlugin(Plugin):
                 wm,
             )
             return
-        if plan.is_media and message.video and settings.watermarkEnabled and wm.text:
+        if plan.is_media and message.video and wm.video_enabled and wm.text:
             logger.debug(
                 "[channels] Video watermark skipped for message={} (channel_video={}, developer_video={})",
                 message.id,
@@ -205,10 +218,10 @@ class ChannelsPlugin(Plugin):
             if not settings:
                 return
             wm = self._get_watermark_options(settings)
-            if not (settings.watermarkEnabled and wm.text):
+            if not ((wm.image_enabled or wm.video_enabled) and wm.text):
                 logger.debug(
                     f"[channels] Album watermark skipped media_group={media_group_id} "
-                    f"(enabled={settings.watermarkEnabled}, has_text={bool(wm.text)})"
+                    f"(image_enabled={wm.image_enabled}, video_enabled={wm.video_enabled}, has_text={bool(wm.text)})"
                 )
                 return
             with contextlib.suppress(Exception):
@@ -219,9 +232,12 @@ class ChannelsPlugin(Plugin):
                 async with self._processing_lock:
                     trigger = min(group, key=lambda m: m.id)
                     caption_host = next((m for m in group if m.caption), None) or trigger
-                    final_caption = self._calculate_target_content(
-                        settings, caption_host, is_media=True, is_caption_host=True
-                    ) or caption_host.caption
+                    final_caption = (
+                        self._calculate_target_content(
+                            settings, caption_host, is_media=True, is_caption_host=True
+                        )
+                        or caption_host.caption
+                    )
 
                     photo_items = self._select_album_photos(group, caption_host)
                     if not photo_items:
@@ -261,6 +277,7 @@ class ChannelsPlugin(Plugin):
             text=cfg.text,
             color=cfg.color,
             style=cfg.style,
+            image_enabled=cfg.image_enabled,
             video_enabled=cfg.video_enabled,
             video_quality=cfg.video_quality,
             video_motion=cfg.video_motion,
@@ -407,7 +424,9 @@ class ChannelsPlugin(Plugin):
                 color=wm.color,
                 style=wm.style,
             ):
-                logger.debug(f"[channels] Image watermark renderer returned false message={message.id}")
+                logger.debug(
+                    f"[channels] Image watermark renderer returned false message={message.id}"
+                )
                 return
 
             if not self._is_real_image(output_path):
@@ -487,7 +506,9 @@ class ChannelsPlugin(Plugin):
                 quality=wm.video_quality,
                 motion=wm.video_motion,
             ):
-                logger.debug(f"[channels] Video watermark renderer returned false message={message.id}")
+                logger.debug(
+                    f"[channels] Video watermark renderer returned false message={message.id}"
+                )
                 return
 
             with contextlib.suppress(OSError):
@@ -637,4 +658,118 @@ async def channel_service_handler(client: Client, message: Message) -> None:
     await message.continue_propagation()
 
 
-register(channels_plugin)
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(
+    filters.private & is_waiting_for_input(["reactions", "watermarkText", "signatureText"]),
+    group=-100,
+)
+@safe_handler
+async def channel_content_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    channel_id = state["chat_id"]
+    field = state["field"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text or ""
+
+    from src.db.repositories.chats import update_chat_setting
+    from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb, channel_watermark_kb
+
+    if field == "reactions":
+        import emoji
+
+        emojis = [c for c in str(value) if emoji.is_emoji(c)] or [
+            word for word in str(value).split() if any(emoji.is_emoji(c) for c in word)
+        ]
+        await update_chat_setting(
+            ctx, channel_id, "reactions", " ".join(emojis) if emojis else "👍"
+        )
+    elif field == "watermarkText":
+        from src.utils.watermark import (
+            build_watermark_config,
+            parse_watermark_config,
+        )
+
+        s = await get_chat_settings(ctx, channel_id)
+        cfg = parse_watermark_config(s.watermarkText)
+        cfg.text = str(value).strip()
+        await update_chat_setting(
+            ctx,
+            channel_id,
+            "watermarkText",
+            build_watermark_config(
+                cfg.text,
+                color=cfg.color,
+                style=cfg.style,
+                image_enabled=cfg.image_enabled,
+                video_enabled=cfg.video_enabled,
+                video_quality=cfg.video_quality,
+                video_motion=cfg.video_motion,
+            ),
+        )
+    elif field == "signatureText":
+        await update_chat_setting(ctx, channel_id, "signatureText", str(value))
+
+    from src.utils.i18n import at
+
+    s = await get_chat_settings(ctx, channel_id)
+    title = s.title or f"Channel {channel_id}"
+
+    if field == "watermarkText":
+        from src.utils.watermark import (
+            build_watermark_config,
+            parse_watermark_config,
+        )
+
+        cfg = parse_watermark_config(s.watermarkText)
+        main_text = await at(
+            user_id,
+            "panel.channel_watermark_text",
+            image_status=await at(
+                user_id, "panel.status_enabled" if cfg.image_enabled else "panel.status_disabled"
+            ),
+            text=cfg.text or "-",
+            color=await at(user_id, f"panel.wm_color_{cfg.color}"),
+            style=await at(user_id, f"panel.wm_style_{cfg.style}"),
+            video_status=await at(
+                user_id, "panel.status_enabled" if cfg.video_enabled else "panel.status_disabled"
+            ),
+            video_quality=await at(user_id, f"panel.wm_quality_{cfg.video_quality}"),
+            video_motion=await at(user_id, f"panel.wm_motion_{cfg.video_motion}"),
+            video_available=await at(
+                user_id,
+                "panel.wm_video_available_yes"
+                if config.ENABLE_VIDEO_WATERMARK
+                else "panel.wm_video_available_no",
+            ),
+            video_limit_note=(
+                await at(
+                    user_id, "panel.wm_video_limit_note", size_mb=config.VIDEO_WATERMARK_MAX_SIZE_MB
+                )
+                if config.ENABLE_VIDEO_WATERMARK
+                else ""
+            ),
+        )
+        kb = await channel_watermark_kb(ctx, channel_id, user_id)
+    else:
+        status = await at(user_id, "panel.status_enabled" if s.enabled else "panel.status_disabled")
+        main_text = await at(
+            user_id,
+            "panel.channel_settings_text",
+            title=title,
+            id=channel_id,
+            status=status,
+            reactions=s.reactions or "👍",
+            signature=s.signatureText or await at(user_id, "panel.not_set"),
+            sign_pos=s.signaturePosition.upper(),
+        )
+        kb = await channel_settings_kb(ctx, channel_id, user_id)
+
+    await finalize_input_capture(
+        client, message, user_id, state["prompt_msg_id"], main_text, kb, success_text=None
+    )
+
+
+register(ChannelsPlugin())

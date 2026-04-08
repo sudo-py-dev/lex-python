@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Ласкаво просимо",
   "panel.btn_window": "Вікно: {n}s",
   "panel.btn_wm_color": "🎨 Колір: {value}",
+  "panel.btn_wm_image": "🖼️ Водяний знак зображення: {status}",
   "panel.btn_wm_location": "Розташування: {value}",
   "panel.btn_wm_style": "✨ Попереднє налаштування: {value}",
   "panel.btn_wm_type": "Тип: {value}",

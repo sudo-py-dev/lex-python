@@ -16,6 +16,7 @@ from src.plugins.admin_panel.repository import (
 )
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 
 
 class LoggingPlugin(Plugin):
@@ -250,6 +251,43 @@ async def log_event(
     }
 
     await plugin.log_queue.put(event_data)
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("logChannelId"), group=-100)
+@safe_handler
+async def log_channel_id_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    if not str(value).lstrip("-").isdigit():
+        await message.reply(await at(user_id, "panel.input_invalid_number"))
+        return
+
+    from src.plugins.admin_panel.repository import update_chat_setting
+
+    await update_chat_setting(ctx, chat_id, "logChannelId", int(value))
+
+    from src.plugins.admin_panel.handlers.moderation_kbs import logging_kb
+
+    kb = await logging_kb(ctx, chat_id)
+
+    text = await at(user_id, "panel.logging_text", channel=value)
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(LoggingPlugin())

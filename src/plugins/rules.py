@@ -12,6 +12,7 @@ from src.db.repositories.rules import (
 )
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 
 
 class RulesPlugin(Plugin):
@@ -95,6 +96,35 @@ async def start_rules_deeplink_handler(client: Client, message: Message) -> None
     header = await at(chat_id, "rules.header")
     await message.reply(f"{header}\n\n{rules.content}")
     await message.stop_propagation()
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("rulesText"), group=-100)
+@safe_handler
+async def rules_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    user_id = message.from_user.id
+    chat_id = state["chat_id"]
+    ctx = get_context()
+    value = message.text
+
+    from src.db.repositories.rules import set_rules
+    from src.plugins.admin_panel.handlers.keyboards import rules_kb
+
+    await set_rules(ctx, chat_id, str(value))
+    kb = await rules_kb(chat_id, user_id=user_id)
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        await at(user_id, "panel.rules_text"),
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(RulesPlugin())

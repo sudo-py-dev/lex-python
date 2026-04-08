@@ -119,11 +119,7 @@ async def service_cleaner_types_kb(
                 callback_data = f"{toggle_callback_prefix}:{start_idx + i + offset}:{page}"
             else:
                 callback_data = f"{toggle_callback_prefix}:{t}:{page}"
-            row.append(
-                InlineKeyboardButton(
-                    display_str, callback_data=callback_data
-                )
-            )
+            row.append(InlineKeyboardButton(display_str, callback_data=callback_data))
         buttons.append(row)
 
     nav_row = []

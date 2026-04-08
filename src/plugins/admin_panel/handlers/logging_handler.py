@@ -15,16 +15,6 @@ async def logging_picker_debug_handler(client: Client, message: Message) -> None
     """Debug handler to inspect all private messages for chat_shared attributes."""
     cache = get_cache()
     user_id = message.from_user.id
-    panel_input_active = await cache.exists(f"panel_input:{user_id}")
-
-    # Fallback: ensure admin panel captured inputs are dispatched even if
-    # another private handler order/path misses them.
-    if panel_input_active:
-        logger.debug("LOGGING PICKER DEBUG: forwarding private input to admin dispatcher")
-        from .input_handlers import dispatch_admin_input
-
-        await dispatch_admin_input(client, message)
-        return
 
     is_picking = await cache.exists(f"ap:logging_picker:{user_id}")
 

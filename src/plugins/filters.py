@@ -1,8 +1,11 @@
+import contextlib
+import json
 import re
 
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
@@ -16,7 +19,13 @@ from src.db.repositories.filters import (
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
+from src.utils.input import (
+    capture_next_input,
+    finalize_input_capture,
+    is_waiting_for_input,
+)
 from src.utils.permissions import is_admin
+from src.utils.telegram_storage import extract_message_data
 
 
 class FiltersPlugin(Plugin):
@@ -223,6 +232,91 @@ async def filters_interceptor(client: Client, message: Message) -> None:
 
             await message.stop_propagation()
             break
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("filterKeyword"), group=-100)
+@safe_handler
+async def filter_keyword_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    user_id = message.from_user.id
+    chat_id = state["chat_id"]
+    page = state["page"]
+    prompt_msg_id = state["prompt_msg_id"]
+    value = message.text
+
+    keyword = str(value).lower().strip()
+    if not keyword:
+        await message.reply(await at(user_id, "panel.input_invalid_string"))
+        return
+
+    limit = 64
+    if len(keyword) > limit:
+        await message.reply(await at(user_id, "filter.keyword_too_long", limit=limit))
+        return
+
+    r = get_cache()
+    await r.set(f"temp_filter_kw:{user_id}", keyword, ttl=300)
+
+    # Arm capture for response
+    await capture_next_input(user_id, chat_id, "filterResponse", prompt_msg_id, page)
+
+    prompt_text = await at(user_id, "panel.input_prompt_filterResponse", keyword=keyword)
+    kb = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "common.btn_cancel"), callback_data=f"panel:filters:{page}"
+                )
+            ]
+        ]
+    )
+
+    if prompt_msg_id:
+        await client.edit_message_text(user_id, prompt_msg_id, prompt_text, reply_markup=kb)
+    else:
+        await message.reply(prompt_text, reply_markup=kb)
+
+    with contextlib.suppress(Exception):
+        await message.delete()
+
+
+@bot.on_message(filters.private & is_waiting_for_input("filterResponse"), group=-100)
+@safe_handler
+async def filter_response_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    user_id = message.from_user.id
+    chat_id = state["chat_id"]
+    page = state["page"]
+    prompt_msg_id = state["prompt_msg_id"]
+    ctx = get_context()
+
+    r = get_cache()
+    keyword = await r.get(f"temp_filter_kw:{user_id}")
+    if not keyword:
+        return
+
+    all_fs = await get_all_filters(ctx, chat_id)
+    if keyword not in [f.keyword for f in all_fs] and len(all_fs) >= 150:
+        await message.reply(await at(user_id, "filter.limit_reached"))
+        await r.delete(f"temp_filter_kw:{user_id}")
+        return
+
+    data = await extract_message_data(message)
+    await r.set(f"temp_filter_resp:{user_id}", json.dumps(data), ttl=600)
+
+    # Default settings
+    settings = {"matchMode": "contains", "caseSensitive": False, "isAdminOnly": False}
+    await r.set(f"temp_filter_settings:{user_id}", json.dumps(settings), ttl=600)
+
+    from src.plugins.admin_panel.handlers.keyboards import filter_options_kb
+
+    kb = await filter_options_kb(ctx, chat_id, user_id, page)
+    prompt_text = await at(user_id, "panel.filter_options_header", keyword=keyword)
+
+    await finalize_input_capture(client, message, user_id, prompt_msg_id, prompt_text, kb)
 
 
 register(FiltersPlugin())

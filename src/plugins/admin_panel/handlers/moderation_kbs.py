@@ -197,15 +197,11 @@ async def entityblock_kb(
         if block:
             icon = "✅"
             action_label = await at(at_id, f"action.{block.action.lower()}")
-            type_label = await at(
-                at_id, f"lock.{entity}", default=entity.replace("_", " ").title()
-            )
+            type_label = await at(at_id, f"lock.{entity}", default=entity.replace("_", " ").title())
             btn_text = f"{icon} {type_label} ({action_label})"
         else:
             icon = "❌"
-            type_label = await at(
-                at_id, f"lock.{entity}", default=entity.replace("_", " ").title()
-            )
+            type_label = await at(at_id, f"lock.{entity}", default=entity.replace("_", " ").title())
             btn_text = f"{icon} {type_label}"
 
         row.append(

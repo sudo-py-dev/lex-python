@@ -11,6 +11,7 @@ from src.core.plugin import Plugin, register
 from src.db.models import ChatSettings, UserSettings
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at, list_locales
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 
 _CACHE_TTL = 1200  # 20 minutes
 LANG_PAGE_SIZE = 8
@@ -185,7 +186,9 @@ async def language_picker_kb(
                     "⬅️", callback_data=f"panel:language_page:{scope}:{target_id}:{page - 1}"
                 )
             )
-        nav_row.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="panel:noop"))
+        nav_row.append(
+            InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="panel:noop")
+        )
         if page < total_pages - 1:
             nav_row.append(
                 InlineKeyboardButton(
@@ -242,7 +245,9 @@ async def language_search_input_handler(client: Client, message: Message) -> Non
 
     ctx = get_context()
     kb = await language_picker_kb(ctx, target_id, scope=scope, page=0, query=query)
-    header_key = "language.user_picker_header" if scope == "user" else "language.group_picker_header"
+    header_key = (
+        "language.user_picker_header" if scope == "user" else "language.group_picker_header"
+    )
     header_text = await at(user_id, header_key)
     search_label = await at(user_id, "common.btn_search")
     result_text = f"{header_text}\n\n{search_label}: `{query or '-'}'"
@@ -254,6 +259,35 @@ async def language_search_input_handler(client: Client, message: Message) -> Non
             await client.edit_message_text(user_id, prompt_msg_id, result_text, reply_markup=kb)
             return
     await client.send_message(user_id, result_text, reply_markup=kb)
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("timezoneSearch"), group=-100)
+@safe_handler
+async def timezone_search_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = str(message.text or "").strip()
+
+    from src.plugins.admin_panel.handlers.keyboards import timezone_picker_kb
+
+    kb = await timezone_picker_kb(ctx, chat_id, user_id=user_id, filter_query=value)
+
+    text = await at(user_id, "panel.timezone_search_results_text", query=value)
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(LanguagePlugin())

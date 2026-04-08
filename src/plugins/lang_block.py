@@ -12,6 +12,7 @@ from src.core.plugin import Plugin, register
 from src.db.models import BlockedLanguage, ChatSettings
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import execute_moderation_action, resolve_sender
 
 CACHE_KEY_PREFIX = "lex:lang_block:"
@@ -295,6 +296,42 @@ async def lang_block_interceptor(client: Client, message: Message) -> None:
     )
     if acted:
         await message.stop_propagation()
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("langblockInput"), group=-100)
+@safe_handler
+async def langblock_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    parsed_iso = str(value).lower().strip()
+    if not parsed_iso or not is_supported(parsed_iso):
+        await message.reply(await at(user_id, "panel.langblock_invalid_input"))
+        return
+
+    await add_lang_block(ctx, chat_id, parsed_iso)
+
+    from src.plugins.admin_panel.handlers.moderation_kbs import langblock_kb
+
+    kb = await langblock_kb(ctx, chat_id, state["page"])
+
+    text = await at(user_id, "panel.langblock_text")
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(LangBlockPlugin())

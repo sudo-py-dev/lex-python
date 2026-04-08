@@ -27,6 +27,7 @@ from src.utils.captcha_utils import (
 )
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at, resolve_lang
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
     UNRESTRICTED_PERMISSIONS,
@@ -283,7 +284,7 @@ async def captcha_verify_handler(client: Client, callback: CallbackQuery) -> Non
     await callback.answer(await at(chat_id, "captcha.success"))
 
 
-@bot.on_message(filters.group, group=-2)
+@bot.on_message(filters.group, group=-100)
 @safe_handler
 async def captcha_message_handler(client: Client, message: Message) -> None:
     """
@@ -375,7 +376,7 @@ async def captcha_img_choice_handler(client: Client, callback: CallbackQuery) ->
         await callback.answer(await at(chat_id, "captcha.wrong_choice"), show_alert=True)
 
 
-@bot.on_raw_update(group=-2)
+@bot.on_raw_update(group=-100)
 @safe_handler
 async def captcha_poll_handler(
     client: Client, update: raw_types.Update, users: dict, chats: dict
@@ -473,6 +474,54 @@ async def _handle_captcha_success(
         await send_welcome(client, chat_id, chat_title, user)
     except Exception as e:
         logger.error(f"Captcha success handler error: {e}")
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("captchaTimeout"), group=-100)
+@safe_handler
+async def captcha_timeout_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    if not str(value).isdigit() or int(value) < 10:
+        await message.reply(await at(user_id, "panel.input_invalid_number_min", min=10))
+        return
+
+    from src.plugins.admin_panel.repository import update_chat_setting
+
+    await update_chat_setting(ctx, chat_id, "captchaTimeout", int(value))
+
+    from src.plugins.admin_panel.handlers.security_kbs import captcha_kb
+
+    kb = await captcha_kb(ctx, chat_id, user_id=user_id)
+
+    s = await get_settings(ctx, chat_id)
+    status = await at(
+        user_id, "panel.status_enabled" if s.captchaEnabled else "panel.status_disabled"
+    )
+    text = await at(
+        user_id,
+        "panel.captcha_text",
+        status=status,
+        mode=s.captchaMode.capitalize(),
+        timeout=s.captchaTimeout,
+        action=await at(user_id, "action.ban"),
+    )
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(CaptchaPlugin())

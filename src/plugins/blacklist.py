@@ -8,11 +8,17 @@ from pyrogram.types import Message
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
-from src.db.repositories.blacklist import add_blacklist, get_all_blacklist, remove_blacklist
+from src.db.repositories.blacklist import (
+    add_blacklist,
+    get_all_blacklist,
+    get_blacklist_count,
+    remove_blacklist,
+)
 from src.db.repositories.chats import get_chat_settings as get_settings
 from src.db.repositories.warns import add_warn, reset_warns
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
+from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import resolve_sender
 from src.utils.permissions import RESTRICTED_PERMISSIONS
 
@@ -246,6 +252,49 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
                     )
         except Exception:
             pass
+
+
+# --- Admin Panel Input Handlers ---
+
+
+@bot.on_message(filters.private & is_waiting_for_input("blacklistInput"), group=-100)
+@safe_handler
+async def blacklist_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = message.text
+
+    pattern_raw = str(value).lower()
+    is_regex, is_wildcard, pattern = detect_pattern_type(pattern_raw)
+
+    if is_regex:
+        try:
+            re.compile(pattern)
+        except re.error:
+            await message.reply(await at(user_id, "panel.blacklist_invalid_regex"))
+            return
+
+    count = await get_blacklist_count(ctx, chat_id)
+    if count >= 150:
+        await message.reply(await at(user_id, "panel.blacklist_limit_reached"))
+        return
+
+    await add_blacklist(ctx, chat_id, pattern, is_regex=is_regex, is_wildcard=is_wildcard)
+
+    from src.plugins.admin_panel.handlers.moderation_kbs import blacklist_kb
+
+    kb = await blacklist_kb(ctx, chat_id, state["page"], user_id=user_id)
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        await at(user_id, "panel.blacklist_text"),
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
 
 
 register(BlacklistPlugin())

@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Welkom",
   "panel.btn_window": "Venster: {n}s",
   "panel.btn_wm_color": "🎨 Kleur: {value}",
+  "panel.btn_wm_image": "🖼️ Afbeeldingswatermerk: {status}",
   "panel.btn_wm_location": "Locatie: {value}",
   "panel.btn_wm_style": "✨ Voorinstelling: {value}",
   "panel.btn_wm_type": "Typ: {value}",

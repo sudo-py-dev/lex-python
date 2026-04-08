@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} Benvenuto",
   "panel.btn_window": "Finestra: {n}s",
   "panel.btn_wm_color": "🎨 Colore: {value}",
+  "panel.btn_wm_image": "🖼️ Filigrana immagine: {status}",
   "panel.btn_wm_location": "Ubicazione: {value}",
   "panel.btn_wm_style": "✨ Preimpostazione: {value}",
   "panel.btn_wm_type": "Digitare: {value}",

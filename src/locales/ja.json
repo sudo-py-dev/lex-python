@@ -409,6 +409,7 @@
   "panel.btn_welcome_toggle": "{status} ようこそ",
   "panel.btn_window": "ウィンドウ: {n}s",
   "panel.btn_wm_color": "🎨 色: {value}",
+  "panel.btn_wm_image": "🖼️ 画像の透かし: {status}",
   "panel.btn_wm_location": "場所: {value}",
   "panel.btn_wm_style": "✨ プリセット: {value}",
   "panel.btn_wm_type": "タイプ: {value}",
