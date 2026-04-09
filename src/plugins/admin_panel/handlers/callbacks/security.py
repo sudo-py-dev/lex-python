@@ -227,7 +227,7 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
             ),
             reply_markup=kb,
         )
-    
+
     await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
 
 
@@ -271,7 +271,7 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
             actiontime=s.raidActionTime,
             action=await at(at_id, f"action.{s.raidAction.lower()}"),
         )
-        
+
         with contextlib.suppress(MessageNotModified):
             await callback.message.edit_text(text, reply_markup=kb)
 

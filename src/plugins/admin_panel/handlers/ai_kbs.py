@@ -10,7 +10,7 @@ async def ai_menu_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboard
     ctx = get_context()
     settings = await AIRepository.get_settings(ctx, chat_id)
 
-    is_enabled = settings.isEnabled if settings else False
+    is_enabled = settings.isAssistantEnabled if settings else False
     provider = settings.provider if settings else "openai"
 
     status_text = await at(at_id, f"panel.status_{'enabled' if is_enabled else 'disabled'}")

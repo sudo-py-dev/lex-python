@@ -31,20 +31,12 @@ def is_waiting_for_input(fields: str | list[str] | None = None):
         if not state_raw:
             return False
 
-        fid = getattr(flt, "filter_id", "unknown")
-        logger.debug(f"Input Filter [{fid}]: User {user_id} state found: {state_raw}")
-
         try:
-            # Handle potential bytes from some cache backends, although AsyncSnapshotCache uses Any/strings
-            if isinstance(state_raw, bytes):
-                state_raw = state_raw.decode("utf-8")
-
             if isinstance(state_raw, str) and state_raw.startswith("{"):
                 state = json.loads(state_raw)
             elif isinstance(state_raw, dict):
                 state = state_raw
             else:
-                # Compatibility with legacy colon-separated format
                 parts = str(state_raw).split(":")
                 state = {
                     "chat_id": int(parts[0]),
@@ -53,31 +45,33 @@ def is_waiting_for_input(fields: str | list[str] | None = None):
                     "page": int(parts[3]) if len(parts) > 3 else 0,
                 }
         except Exception as e:
-            logger.error(f"Input Filter Error: Failed to parse state for user {user_id}: {e}")
+            logger.error(f"Input Filter [{fid}]: Failed to parse state for user {user_id}: {e}")
             return False
 
         current_field = state.get("field")
-
-        # Use getattr to safely access 'fields' from the filter object
         filter_fields = getattr(flt, "fields", None)
+
         if filter_fields:
             allowed = [filter_fields] if isinstance(filter_fields, str) else filter_fields
             if current_field not in allowed:
-                logger.debug(
-                    f"Input Filter [{fid}]: Field mismatch. Current: {current_field}, Allowed: {allowed}"
+                logger.trace(
+                    f"Input Filter [{fid}]: Field mismatch for user {user_id}. Current: {current_field}, Allowed: {allowed}"
                 )
                 return False
 
         logger.debug(
             f"Input Filter [{fid}]: Match success for user {user_id}, field: {current_field}"
         )
-
-        # Attach parsed state to message for handler use
         message.input_state = state
         return True
 
-    filter_id = f"{fields}_{id(func)}"
-    logger.debug(f"Input Filter: Created/Reused filter instance {filter_id} for fields {fields}")
+    # Use a cleaner filter_id based on fields instead of id(func) which changes every time
+    filter_id = (
+        f"input_{fields}"
+        if isinstance(fields, str)
+        else f"input_{'_'.join(fields) if fields else 'any'}"
+    )
+    logger.debug(f"Input Filter: Initializing instance for fields {fields}")
     return filters.create(func, fields=fields, filter_id=filter_id)
 
 

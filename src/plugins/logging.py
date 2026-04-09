@@ -16,7 +16,6 @@ from src.plugins.admin_panel.repository import (
 )
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
-from src.utils.input import finalize_input_capture, is_waiting_for_input
 
 
 class LoggingPlugin(Plugin):
@@ -143,6 +142,9 @@ class LoggingPlugin(Plugin):
             logger.error(f"Logging: Failed to flush batch to {settings.logChannelId}: {e}")
 
 
+# --- Administrative Commands ---
+
+
 @bot.on_message(filters.command("setlog") & filters.group)
 @safe_handler
 @admin_only
@@ -152,14 +154,6 @@ async def set_log_handler(client: Client, message: Message) -> None:
 
     The channel ID can be provided as an argument or by replying to a
     forwarded message from the desired channel.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Updates the 'logChannelId' setting for the current chat in the database.
-        - Sends a confirmation message.
     """
     if len(message.command) < 2:
         if message.reply_to_message and message.reply_to_message.forward_from_chat:
@@ -182,14 +176,6 @@ async def set_log_handler(client: Client, message: Message) -> None:
 async def unset_log_handler(client: Client, message: Message) -> None:
     """
     Remove the current logging channel designation for the group.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Resets the 'logChannelId' setting for the current chat to None in the database.
-        - Sends a confirmation message.
     """
     ctx = get_context()
     await update_chat_setting(ctx, message.chat.id, "logChannelId", None)
@@ -208,22 +194,6 @@ async def log_event(
 ) -> None:
     """
     Push a moderation event into the logging queue.
-
-    This is the primary method used by other plugins to record events.
-    Mentions for users are automatically handled.
-
-    Args:
-        ctx (Context): The application context.
-        client (Client): The Pyrogram client instance.
-        chat_id (int): The ID of the chat in which the event occurred.
-        action (str): The type of action (e.g., 'BAN', 'MUTE', 'WARN').
-        target (User | str): The user who the action was performed on.
-        actor (User | str): The admin who performed the action.
-        reason (str, optional): The reason for the action. Defaults to None.
-        chat_title (str, optional): The title of the chat (to skip a DB lookup). Defaults to None.
-
-    Side Effects:
-        - Adds an event data dict to the `log_queue`.
     """
     plugin: LoggingPlugin = client.get_plugin("logging")
     if not plugin:
@@ -251,43 +221,6 @@ async def log_event(
     }
 
     await plugin.log_queue.put(event_data)
-
-
-# --- Admin Panel Input Handlers ---
-
-
-@bot.on_message(filters.private & is_waiting_for_input("logChannelId"), group=-100)
-@safe_handler
-async def log_channel_id_input_handler(client: Client, message: Message) -> None:
-    state = message.input_state
-    chat_id = state["chat_id"]
-    user_id = message.from_user.id
-    ctx = get_context()
-    value = message.text
-
-    if not str(value).lstrip("-").isdigit():
-        await message.reply(await at(user_id, "panel.input_invalid_number"))
-        return
-
-    from src.plugins.admin_panel.repository import update_chat_setting
-
-    await update_chat_setting(ctx, chat_id, "logChannelId", int(value))
-
-    from src.plugins.admin_panel.handlers.moderation_kbs import logging_kb
-
-    kb = await logging_kb(ctx, chat_id)
-
-    text = await at(user_id, "panel.logging_text", channel=value)
-
-    await finalize_input_capture(
-        client,
-        message,
-        user_id,
-        state["prompt_msg_id"],
-        text,
-        kb,
-        success_text=await at(user_id, "panel.input_success"),
-    )
 
 
 register(LoggingPlugin())

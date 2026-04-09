@@ -276,15 +276,8 @@ async def general_category_kb(
 
 
 async def my_groups_kb(ctx, client, user_id: int) -> InlineKeyboardMarkup:
-    # Include both legacy groups and supergroups.
-    supergroups = await get_user_admin_chats(ctx, client, user_id, chat_type=ChatType.SUPERGROUP)
-    groups_basic = await get_user_admin_chats(ctx, client, user_id, chat_type=ChatType.GROUP)
-
-    # De-duplicate by chat_id while preserving first-seen title.
-    merged: dict[int, str] = {}
-    for chat_id, title in [*supergroups, *groups_basic]:
-        merged.setdefault(chat_id, title)
-    groups = [(chat_id, title) for chat_id, title in merged.items()]
+    # Fetch all active groups/supergroups where the user is an admin in one call.
+    groups = await get_user_admin_chats(ctx, client, user_id)
     buttons = []
     for chat_id, title in groups:
         buttons.append(
@@ -775,7 +768,8 @@ async def ai_security_kb(ctx, chat_id: int, user_id: int) -> InlineKeyboardMarku
     from src.db.repositories.ai_guard import get_ai_guard_settings
 
     s = await get_ai_guard_settings(ctx, chat_id)
-    status_icon = "✅" if s.isEnabled else "❌"
+    status_icon = "✅" if s.isTextEnabled else "❌"
+    img_status_icon = "✅" if s.isImageEnabled else "❌"
     action_label = await at(user_id, f"action.{s.action}")
 
     return InlineKeyboardMarkup(
@@ -784,6 +778,12 @@ async def ai_security_kb(ctx, chat_id: int, user_id: int) -> InlineKeyboardMarku
                 InlineKeyboardButton(
                     await at(user_id, "panel.btn_ai_guard_toggle", status=status_icon),
                     callback_data="panel:toggle_ai_guard",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_ai_image_guard_toggle", status=img_status_icon),
+                    callback_data="panel:toggle_ai_image_guard",
                 )
             ],
             [

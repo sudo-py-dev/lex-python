@@ -88,7 +88,7 @@ async def ai_message_handler(client: Client, message: Message):
     settings = await AIRepository.get_settings(ctx, chat_id)
     if not settings:
         return
-    if not settings.isEnabled:
+    if not settings.isAssistantEnabled:
         return
     if not settings.apiKey:
         return
@@ -268,7 +268,7 @@ async def ai_settings_handler(client: Client, message: Message) -> None:
     kb = await ai_menu_kb(chat_id, user_id=user_id)
 
     s = await AIRepository.get_settings(ctx, chat_id)
-    is_enabled = s.isEnabled if s else False
+    is_enabled = s.isAssistantEnabled if s else False
     provider = (s.provider if s else "openai").upper()
     model = (s.modelId if s else "N/A") or "N/A"
     api_key = "****" if (s and s.apiKey) else await at(user_id, "panel.not_set")

@@ -128,21 +128,28 @@ async def get_user_admin_chats(
     results = []
     semaphore = asyncio.Semaphore(10)
 
-    async def check(chat_id: int, stored_type: str):
+    async def check(s: ChatSettings):
         async with semaphore:
+            chat_id = int(s.id)
             if await is_admin(client, chat_id, user_id):
+                # If we already have a title in the DB, use it to avoid expensive API calls.
+                if s.title:
+                    results.append((chat_id, s.title))
+                    return
+
+                # Fallback to fetching live data if title is missing.
                 try:
                     chat = await client.get_chat(chat_id)
-                    if chat.type.name.lower() != stored_type:
-                        await update_chat_setting(ctx, chat_id, "chatType", chat.type.name.lower())
-
                     title = chat.title or await at(user_id, "panel.unknown_chat", id=chat_id)
                     results.append((chat_id, title))
+                    # Update DB with current title and type for future requests.
+                    await update_chat_title(ctx, chat_id, title)
+                    if chat.type.name.lower() != s.chatType:
+                        await update_chat_setting(ctx, chat_id, "chatType", chat.type.name.lower())
                 except Exception:
-                    title = await at(user_id, "panel.unknown_chat", id=chat_id)
-                    results.append((chat_id, title))
+                    results.append((chat_id, await at(user_id, "panel.unknown_chat", id=chat_id)))
 
-    tasks = [check(int(s.id), s.chatType) for s in all_settings]
+    tasks = [check(s) for s in all_settings]
     await asyncio.gather(*tasks)
     return results
 

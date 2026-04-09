@@ -45,7 +45,7 @@ async def _render_ai_panel(
 ) -> None:
     s = await AIRepository.get_settings(ctx, chat_id)
     provider = (s.provider if s else "openai").upper()
-    is_enabled = s.isEnabled if s else False
+    is_enabled = s.isAssistantEnabled if s else False
     model = (s.modelId if s else "N/A") or "N/A"
     api_key = "****" if (s and s.apiKey) else await at(at_id, "panel.not_set")
     status_text = await at(at_id, f"panel.status_{'enabled' if is_enabled else 'disabled'}")
@@ -69,14 +69,19 @@ async def _render_ai_guard_panel(
     from src.db.repositories.ai_guard import get_ai_guard_settings
 
     s = await get_ai_guard_settings(ctx, chat_id)
-    status_label = await at(at_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}")
+    text_status = await at(at_id, f"panel.status_{'enabled' if s.isTextEnabled else 'disabled'}")
+    media_status = await at(at_id, f"panel.status_{'enabled' if s.isImageEnabled else 'disabled'}")
+    api_key_status = "****" if s.apiKey else await at(at_id, "panel.not_set")
     action_label = await at(at_id, f"action.{s.action}")
     await callback.message.edit_text(
         await at(
             at_id,
             "panel.ai_guard_text",
-            status=status_label,
+            text_status=text_status,
+            media_status=media_status,
+            api_key=api_key_status,
             action=action_label,
+            model=config.AI_GUARD_MODEL,
         ),
         reply_markup=await ai_security_kb(ctx, chat_id, user_id),
     )

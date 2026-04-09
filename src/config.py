@@ -18,6 +18,8 @@ class Config(BaseSettings):
     ENABLE_VIDEO_WATERMARK: bool
     VIDEO_WATERMARK_MAX_SIZE_MB: int
     AI_GUARD_MODEL: str = "llama-3.1-8b-instant"
+    AI_GUARD_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    AI_GUARD_MAX_IMAGE_SIZE_MB: int = 10
 
 
 config = Config()

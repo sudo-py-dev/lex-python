@@ -1,3 +1,5 @@
+from typing import Any
+
 import httpx
 from loguru import logger
 
@@ -22,7 +24,7 @@ class AIService:
         model_id: str,
         system_prompt: str | None,
         custom_instruction: str | None,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         response_format: dict | None = None,
     ) -> str:
         """
@@ -66,7 +68,7 @@ class AIService:
         model_id: str,
         system_prompt: str | None,
         custom_instruction: str | None,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         response_format: dict | None = None,
     ) -> str:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}

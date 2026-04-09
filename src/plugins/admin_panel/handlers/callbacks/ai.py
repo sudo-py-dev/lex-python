@@ -30,8 +30,8 @@ async def on_ai_settings(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 
     if sub == "toggle":
         s = await AIRepository.get_settings(ctx, chat_id)
-        cur = s.isEnabled if s else False
-        await AIRepository.update_settings(ctx, chat_id, isEnabled=not cur)
+        cur = s.isAssistantEnabled if s else False
+        await AIRepository.update_settings(ctx, chat_id, isAssistantEnabled=not cur)
         await _render_ai_panel(callback, ctx, chat_id, at_id, user_id)
     elif sub == "cycle_provider":
         s = await AIRepository.get_settings(ctx, chat_id)
@@ -70,13 +70,34 @@ async def on_toggle_ai_guard(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
 
     s = await get_ai_guard_settings(ctx, chat_id)
-    if not s.isEnabled and not s.apiKey:
+    if not s.isTextEnabled and not s.apiKey:
         await callback.answer(
             _plain(await at(callback.from_user.id, "panel.ai_guard_key_required")), show_alert=True
         )
         return
 
-    await update_ai_guard_settings(ctx, chat_id, isEnabled=not s.isEnabled)
+    await update_ai_guard_settings(ctx, chat_id, isTextEnabled=not s.isTextEnabled)
+    await _render_ai_guard_panel(callback, ctx, chat_id, at_id, callback.from_user.id)
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:toggle_ai_image_guard$"))
+@admin_panel_context
+async def on_toggle_ai_image_guard(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    from src.db.repositories.ai_guard import get_ai_guard_settings, update_ai_guard_settings
+
+    ctx = ap_ctx.ctx
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+
+    s = await get_ai_guard_settings(ctx, chat_id)
+    if not s.isTextEnabled:
+        await callback.answer(
+            _plain(await at(callback.from_user.id, "panel.ai_guard_enable_first")), show_alert=True
+        )
+        return
+
+    await update_ai_guard_settings(ctx, chat_id, isImageEnabled=not s.isImageEnabled)
     await _render_ai_guard_panel(callback, ctx, chat_id, at_id, callback.from_user.id)
     await callback.answer()
 
@@ -132,9 +153,11 @@ async def on_set_groq_key(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
 @bot.on_callback_query(filters.regex(r"^panel:ai_guard_setup$"))
 @admin_panel_context
 async def on_ai_guard_setup(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    from src.config import config
+
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     await callback.message.edit_text(
-        await at(at_id, "panel.ai_guard_setup_guide"),
+        await at(at_id, "panel.ai_guard_setup_guide", model=config.AI_GUARD_MODEL),
         reply_markup=await ai_security_kb(ap_ctx.ctx, ap_ctx.chat_id, callback.from_user.id),
     )
     await callback.answer()

@@ -1,3 +1,5 @@
+import base64
+import io
 import json
 import os
 import shutil
@@ -21,6 +23,12 @@ SUPPORTED_VIDEO_WATERMARK_QUALITIES = {"high", "medium", "low"}
 DEFAULT_VIDEO_WATERMARK_QUALITY = "medium"
 SUPPORTED_VIDEO_WATERMARK_MOTIONS = {"static", "float", "scroll_lr", "scroll_rl"}
 DEFAULT_VIDEO_WATERMARK_MOTION = "static"
+
+
+def encode_image_to_base64(bio: io.BytesIO) -> str:
+    """Encode an in-memory image buffer to Base64."""
+    bio.seek(0)
+    return base64.b64encode(bio.read()).decode("utf-8")
 
 
 @dataclass(slots=True)
