@@ -115,13 +115,20 @@ async def toggle_service_type(ctx: AppContext, chat_id: int, service_type: str) 
 
 
 async def get_user_admin_chats(
-    ctx: AppContext, client: Client, user_id: int, chat_type: ChatType | None = None
+    ctx: AppContext,
+    client: Client,
+    user_id: int,
+    chat_type: ChatType | list[ChatType] | None = None,
 ) -> list[tuple[int, str]]:
     """Get active chats where user is admin, optionally filtered by type."""
     async with ctx.db() as session:
         stmt = select(ChatSettings).where(and_(ChatSettings.isActive, ChatSettings.id < 0))
         if chat_type:
-            stmt = stmt.where(ChatSettings.chatType == chat_type.name.lower())
+            if isinstance(chat_type, list):
+                type_names = [ct.name.lower() for ct in chat_type]
+                stmt = stmt.where(ChatSettings.chatType.in_(type_names))
+            else:
+                stmt = stmt.where(ChatSettings.chatType == chat_type.name.lower())
         result = await session.execute(stmt)
         all_settings = result.scalars().all()
 

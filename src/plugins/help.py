@@ -3,11 +3,13 @@ from pyrogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    LinkPreviewOptions,
     Message,
 )
 
 from src.core.bot import bot
 from src.core.plugin import Plugin, register
+from src.utils.about import get_about_text
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
 
@@ -23,6 +25,7 @@ class HelpPlugin(Plugin):
 
 
 HELP_CATEGORIES = [
+    ("about", "help.btn_about"),
     ("admin", "help.btn_admin"),
     ("antiflood", "help.btn_antiflood"),
     ("antiraid", "help.btn_antiraid"),
@@ -106,11 +109,18 @@ async def help_callback_handler(client: Client, callback_query: CallbackQuery) -
 
     if data.startswith("help:cat:"):
         cat_id = data.replace("help:cat:", "")
-        text = await at(chat_id, f"help.{cat_id}_text")
+
+        if cat_id == "about":
+            text = await get_about_text(chat_id)
+            options = LinkPreviewOptions(is_disabled=True)
+        else:
+            text = await at(chat_id, f"help.{cat_id}_text")
+            options = None
+
         kb = InlineKeyboardMarkup(
             [[InlineKeyboardButton(await at(chat_id, "help.back_btn"), callback_data="help:main")]]
         )
-        await callback_query.message.edit_text(text, reply_markup=kb)
+        await callback_query.message.edit_text(text, reply_markup=kb, link_preview_options=options)
 
 
 register(HelpPlugin())

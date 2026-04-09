@@ -3,9 +3,9 @@ import random
 from pyrogram import Client, filters
 from pyrogram.types import LinkPreviewOptions, Message
 
-from src.config import TECH_STACK, config
 from src.core.bot import bot
 from src.core.plugin import Plugin, register
+from src.utils.about import get_about_text
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
 
@@ -100,29 +100,8 @@ async def about_handler(client: Client, message: Message) -> None:
         - Disables link previews for the response message.
     """
     chat_id = message.chat.id if message.chat else None
-    labels = {
-        "engine": await at(chat_id, "misc.tech_engine"),
-        "database": await at(chat_id, "misc.tech_database"),
-        "framework": await at(chat_id, "misc.tech_framework"),
-        "performance": await at(chat_id, "misc.tech_performance"),
-    }
-    tech_stack = "\n".join(
-        [
-            f"• **{label}**: {value}"
-            for key, label in labels.items()
-            if (value := TECH_STACK.get(key))
-        ]
-    )
     await message.reply(
-        await at(
-            chat_id,
-            "misc.about_text",
-            version=config.VERSION,
-            dev_name=config.DEV_NAME,
-            dev_url=config.DEV_URL,
-            repo_url=config.GITHUB_URL,
-            tech_stack=tech_stack,
-        ),
+        await get_about_text(chat_id),
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
     await message.stop_propagation()

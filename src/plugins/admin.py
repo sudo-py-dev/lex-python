@@ -90,12 +90,13 @@ async def send_start_message(client: Client, message: Message, edit: bool = Fals
             [InlineKeyboardButton(await at(chat_id, "help.start_btn"), callback_data="help:main")],
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "help.groups_btn"), callback_data="panel:my_groups"
+                    await at(chat_id, "panel.btn_my_groups"), callback_data="panel:my_chats"
                 ),
                 InlineKeyboardButton(
-                    await at(chat_id, "help.about_btn"), callback_data="help:cat:privacy"
+                    await at(chat_id, "help.about_btn"), callback_data="help:cat:about"
                 ),
             ],
+            [InlineKeyboardButton(await at(chat_id, "donate.btn"), callback_data="donate:main")],
         ]
     )
 

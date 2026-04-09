@@ -157,6 +157,7 @@
   "help.back_btn": "🔙 Back",
   "help.bans_text": "🚫 **Bans & Mutes**\n\n• `/ban` — Ban a user\n• `/unban` — Unban a user\n• `/mute` — Mute a user\n• `/unmute` — Unmute a user\n• `/kick` — Kick a user",
   "help.blacklist_text": "🚫 **Blacklist**\n\nBlock specific words or patterns.\n\n• `/addblacklist <pattern>` — Add to blacklist\n• `/rmblacklist <pattern>` — Remove from blacklist\n• `/blacklist` — List active patterns",
+  "help.btn_about": "About",
   "help.btn_admin": "Admin",
   "help.btn_antiflood": "Anti-Flood",
   "help.btn_antiraid": "Anti-Raid",
@@ -688,5 +689,15 @@
   "welcome.enabled": "✅ Welcome messages are now enabled.",
   "welcome.reset": "✅ Welcome message reset to default.",
   "welcome.test": "🧪 **Welcome Test**\n\n{text}",
-  "welcome.updated": "✅ Welcome message updated and enabled."
+  "welcome.updated": "✅ Welcome message updated and enabled.",
+  "donate.btn": "Support Project 💖",
+  "donate.text": "Support the development of **{bot_name}**! Your contributions help keep the project alive and well-maintained.\n\nChoose your preferred method below:",
+  "donate.stars_btn": "Telegram Stars ⭐",
+  "donate.github_btn": "GitHub Sponsors",
+  "donate.crypto_btn": "Crypto (BTC/ETH)",
+  "donate.back_btn": "Back",
+  "donate.stars_select_text": "Select the amount of stars you wish to contribute:",
+  "donate.stars_amount": "{amount} Stars",
+  "donate.invoice_title": "Support {bot_name}",
+  "donate.invoice_desc": "A contribution of {amount} stars to support development."
 }

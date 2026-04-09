@@ -276,8 +276,9 @@ async def general_category_kb(
 
 
 async def my_groups_kb(ctx, client, user_id: int) -> InlineKeyboardMarkup:
-    # Fetch all active groups/supergroups where the user is an admin in one call.
-    groups = await get_user_admin_chats(ctx, client, user_id)
+    groups = await get_user_admin_chats(
+        ctx, client, user_id, chat_type=[ChatType.GROUP, ChatType.SUPERGROUP]
+    )
     buttons = []
     for chat_id, title in groups:
         buttons.append(
@@ -904,10 +905,9 @@ async def get_pager(
 
 async def channels_menu_kb(ctx, client, user_id: int) -> InlineKeyboardMarkup:
     """List of channels where both user and bot are admins."""
-    channels = await get_user_admin_chats(ctx, client, user_id, chat_type=ChatType.CHANNEL)
+    channels = await get_user_admin_chats(ctx, client, user_id, chat_type=[ChatType.CHANNEL])
     buttons = []
     for ch_id, title in channels:
-        # Use select_channel so it stores active_channel WITHOUT overwriting active_chat (group)
         buttons.append(
             [InlineKeyboardButton(f"📺 {title}", callback_data=f"panel:select_channel:{ch_id}")]
         )
