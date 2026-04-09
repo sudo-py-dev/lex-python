@@ -479,7 +479,7 @@ async def _handle_captcha_success(
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("captchaTimeout"), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input("captchaTimeout"), group=-101)
 @safe_handler
 async def captcha_timeout_input_handler(client: Client, message: Message) -> None:
     state = message.input_state

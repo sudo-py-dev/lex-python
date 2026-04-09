@@ -1,4 +1,4 @@
-from pyrogram import Client, filters
+from pyrogram import Client, ContinuePropagation, filters
 from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
@@ -14,6 +14,7 @@ from src.plugins.admin_panel.handlers.moderation_kbs import (
     warns_kb,
 )
 from src.plugins.admin_panel.repository import get_chat_settings, update_chat_setting
+from src.utils.actions import cycle_action
 from src.utils.i18n import at
 
 
@@ -89,12 +90,9 @@ async def on_cycle_blacklist_action(_: Client, callback: CallbackQuery, ap_ctx: 
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     settings = await get_chat_settings(ap_ctx.ctx, chat_id)
 
-    actions = ["delete", "mute", "kick", "ban", "warn"]
-    cur = settings.blacklistAction.lower()
-    try:
-        nxt = actions[(actions.index(cur) + 1) % len(actions)]
-    except ValueError:
-        nxt = "delete"
+    nxt = cycle_action(
+        settings.blacklistAction, ["delete", "mute", "kick", "ban", "warn"], default_action="delete"
+    )
 
     async with ap_ctx.ctx.db() as session:
         from src.db.models import ChatSettings
@@ -123,17 +121,14 @@ async def on_cycle_langblock_action(_: Client, callback: CallbackQuery, ap_ctx: 
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
 
-    actions = ["delete", "mute", "kick", "ban", "warn"]
     async with ap_ctx.ctx.db() as session:
         from src.db.models import BlockedLanguage
 
         obj = await session.get(BlockedLanguage, bid)
         if obj:
-            cur = obj.action.lower()
-            try:
-                nxt = actions[(actions.index(cur) + 1) % len(actions)]
-            except ValueError:
-                nxt = "delete"
+            nxt = cycle_action(
+                obj.action, ["delete", "mute", "kick", "ban", "warn"], default_action="delete"
+            )
             obj.action = nxt
             session.add(obj)
             await session.commit()
@@ -351,13 +346,9 @@ async def on_lang_cycle_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
 
     blocks = {b.langCode: b for b in await get_lang_blocks(ap_ctx.ctx, chat_id)}
     if code in blocks:
-        current_action = blocks[code].action.lower()
-        actions_cycle = ["delete", "mute", "kick", "ban"]
-        try:
-            next_idx = (actions_cycle.index(current_action) + 1) % len(actions_cycle)
-        except ValueError:
-            next_idx = 0
-        next_action = actions_cycle[next_idx]
+        next_action = cycle_action(
+            blocks[code].action, ["delete", "mute", "kick", "ban"], default_action="delete"
+        )
         await add_lang_block(ap_ctx.ctx, chat_id, code, next_action)
 
         kb = await langblock_kb(
@@ -373,14 +364,18 @@ async def on_lang_cycle_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
 @admin_panel_context
 async def on_moderation_cycle(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     field = callback.matches[0].group(1)
+    if field not in ("warnAction", "warnExpiry"):
+        raise ContinuePropagation
+
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
 
     async with ctx.db() as session:
         s = await get_chat_settings(ctx, chat_id)
+
         if field == "warnAction":
-            nxt = {"kick": "ban", "ban": "mute", "mute": "kick"}[s.warnAction]
+            nxt = cycle_action(s.warnAction, ["kick", "ban", "mute"], default_action="kick")
             s.warnAction = nxt
             session.add(s)
             await session.commit()
@@ -398,7 +393,7 @@ async def on_moderation_cycle(_: Client, callback: CallbackQuery, ap_ctx: AdminP
                 reply_markup=kb,
             )
         elif field == "warnExpiry":
-            nxt = {"never": "24h", "24h": "7d", "7d": "30d", "30d": "never"}[s.warnExpiry]
+            nxt = cycle_action(s.warnExpiry, ["never", "24h", "7d", "30d"], default_action="never")
             s.warnExpiry = nxt
             session.add(s)
             await session.commit()
@@ -440,9 +435,10 @@ async def on_toggle_entity(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
         await add_blocked_entity(ctx, chat_id, etype, "delete")
         next_action = "DELETE"
     else:
-        cycle_map = {"delete": "warn", "warn": "mute", "mute": "kick", "kick": "ban", "ban": None}
-        nxt = cycle_map.get(block.action.lower())
-        if nxt:
+        nxt = cycle_action(
+            block.action, ["delete", "warn", "mute", "kick", "ban", "off"], default_action="delete"
+        )
+        if nxt != "off":
             await add_blocked_entity(ctx, chat_id, etype, nxt)
             next_action = nxt.upper()
         else:

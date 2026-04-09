@@ -14,6 +14,7 @@ from src.plugins.admin_panel.handlers.callbacks.common import (
 )
 from src.plugins.admin_panel.handlers.keyboards import ai_security_kb
 from src.plugins.ai_assistant.repository import AIRepository
+from src.utils.actions import cycle_action
 from src.utils.i18n import at
 from src.utils.input import capture_next_input
 
@@ -87,11 +88,9 @@ async def on_cycle_ai_guard_action(_: Client, callback: CallbackQuery, ap_ctx: A
 
     ctx = ap_ctx.ctx
     chat_id = ap_ctx.chat_id
-    actions = ["delete", "warn", "mute", "ban"]
 
     s = await get_ai_guard_settings(ctx, chat_id)
-    current_idx = actions.index(s.action) if s.action in actions else 0
-    next_action = actions[(current_idx + 1) % len(actions)]
+    next_action = cycle_action(s.action, ["delete", "warn", "mute", "ban"], default_action="delete")
 
     await update_ai_guard_settings(ctx, chat_id, action=next_action)
     action_label = await _render_ai_guard_panel(

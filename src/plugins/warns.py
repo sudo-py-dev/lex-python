@@ -162,7 +162,7 @@ async def reset_all_warns_handler(client: Client, message: Message) -> None:
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("warnLimit"), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input("warnLimit"), group=-101)
 @safe_handler
 async def warn_limit_input_handler(client: Client, message: Message) -> None:
     state = message.input_state

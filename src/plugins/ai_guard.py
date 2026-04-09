@@ -139,9 +139,7 @@ async def ai_guard_settings_input_handler(client: Client, message: Message) -> N
     s = await get_ai_guard_settings(ctx, chat_id)
     status_label = await at(user_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}")
     action_label = await at(user_id, f"action.{s.action}")
-    text = await at(
-        user_id, "panel.ai_guard_text", status=status_label, action=action_label
-    )
+    text = await at(user_id, "panel.ai_guard_text", status=status_label, action=action_label)
 
     await finalize_input_capture(
         client,

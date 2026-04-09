@@ -1,6 +1,6 @@
 import contextlib
 
-from pyrogram import Client, filters
+from pyrogram import Client, ContinuePropagation, filters
 from pyrogram.errors import MessageNotModified
 from pyrogram.types import CallbackQuery
 
@@ -10,6 +10,7 @@ from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _p
 from src.plugins.admin_panel.handlers.keyboards import flood_kb
 from src.plugins.admin_panel.handlers.security_kbs import captcha_kb, raid_kb, url_scanner_kb
 from src.plugins.admin_panel.repository import get_chat_settings, toggle_setting
+from src.utils.actions import cycle_action
 from src.utils.i18n import at
 
 
@@ -46,9 +47,7 @@ async def on_raid_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     s = await get_chat_settings(ap_ctx.ctx, chat_id)
     kb = await raid_kb(ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
-    status = await at(
-        at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled"
-    )
+    status = await at(at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled")
     await callback.message.edit_text(
         await at(
             at_id,
@@ -56,6 +55,8 @@ async def on_raid_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
             status=status,
             threshold=s.raidThreshold,
             window=s.raidWindow,
+            time=s.raidTime,
+            actiontime=s.raidActionTime,
             action=await at(at_id, f"action.{s.raidAction.lower()}"),
         ),
         reply_markup=kb,
@@ -120,21 +121,18 @@ async def on_toggle_flood_action(_: Client, callback: CallbackQuery, ap_ctx: Adm
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
+
     async with ctx.db() as session:
         from src.db.models import ChatSettings
+
         settings = await session.get(ChatSettings, chat_id)
         if not settings:
             settings = ChatSettings(id=chat_id)
             session.add(settings)
-            
-        # Cycle: mute -> kick -> ban -> mute
-        actions = ["mute", "kick", "ban"]
-        current = settings.floodAction.lower() if settings.floodAction else "mute"
-        if current in actions:
-            next_action = actions[(actions.index(current) + 1) % len(actions)]
-        else:
-            next_action = "mute"
-            
+
+        next_action = cycle_action(
+            settings.floodAction, ["mute", "kick", "ban"], default_action="mute"
+        )
         settings.floodAction = next_action
         await session.commit()
         # Refresh to get updated values for UI
@@ -163,6 +161,10 @@ async def on_toggle_flood_action(_: Client, callback: CallbackQuery, ap_ctx: Adm
 @admin_panel_context
 async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     field = callback.matches[0].group(1)
+    if field not in ("raidEnabled", "captchaEnabled", "urlScannerEnabled"):
+        # Fall through to other handlers
+        raise ContinuePropagation
+
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
@@ -182,6 +184,8 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
                 status=status,
                 threshold=s.raidThreshold,
                 window=s.raidWindow,
+                time=s.raidTime,
+                actiontime=s.raidActionTime,
                 action=await at(at_id, f"action.{s.raidAction.lower()}"),
             ),
             reply_markup=kb,
@@ -223,9 +227,7 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
             ),
             reply_markup=kb,
         )
-    else:
-        await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
-        return
+    
     await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
 
 
@@ -235,35 +237,51 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
-    async with ctx.db() as session:
-        from src.db.models import ChatSettings
-        s = await session.get(ChatSettings, chat_id)
-        if not s:
-            s = ChatSettings(id=chat_id)
-            session.add(s)
+    from loguru import logger
 
-        # Cycle: lock -> kick -> ban -> lock
-        actions = ["lock", "kick", "ban"]
-        current = s.raidAction.lower() if s.raidAction else "lock"
-        nxt = actions[(actions.index(current) + 1) % len(actions)] if current in actions else "lock"
-            
-        s.raidAction = nxt
-        await session.commit()
-        await session.refresh(s)
-    kb = await raid_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
-    status = await at(at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled")
-    await callback.message.edit_text(
-        await at(
+    logger.debug(f"on_cycle_raid_action triggered for chat {chat_id}")
+
+    try:
+        from src.plugins.admin_panel.repository import (
+            get_chat_settings,
+            update_chat_setting,
+        )
+
+        s = await get_chat_settings(ctx, chat_id)
+        old_action = s.raidAction
+        next_action = cycle_action(old_action, ["lock", "kick", "ban"], default_action="lock")
+
+        logger.info(f"Raid action cycle: {chat_id} | {old_action} -> {next_action}")
+        await update_chat_setting(ctx, chat_id, "raidAction", next_action)
+
+        # Re-fetch for UI to ensure we have the absolute latest state
+        s = await get_chat_settings(ctx, chat_id)
+        kb = await raid_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
+        status = await at(
+            at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled"
+        )
+
+        text = await at(
             at_id,
             "panel.raid_text",
             status=status,
             threshold=s.raidThreshold,
             window=s.raidWindow,
+            time=s.raidTime,
+            actiontime=s.raidActionTime,
             action=await at(at_id, f"action.{s.raidAction.lower()}"),
-        ),
-        reply_markup=kb,
-    )
-    await callback.answer()
+        )
+        
+        with contextlib.suppress(MessageNotModified):
+            await callback.message.edit_text(text, reply_markup=kb)
+
+    except Exception as e:
+        logger.exception(f"CRITICAL ERROR in on_cycle_raid_action for chat {chat_id}: {e}")
+        with contextlib.suppress(Exception):
+            await callback.answer(f"UI Error: {e}", show_alert=True)
+    finally:
+        with contextlib.suppress(Exception):
+            await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle:captchaMode$"))
@@ -272,12 +290,12 @@ async def on_cycle_captcha_mode(_: Client, callback: CallbackQuery, ap_ctx: Admi
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
+
     async with ctx.db() as session:
         s = await get_chat_settings(ctx, chat_id)
-        nxt = {"button": "math", "math": "poll", "poll": "image", "image": "button"}[
-            s.captchaMode.lower()
-        ]
-        s.captchaMode = nxt
+        s.captchaMode = cycle_action(
+            s.captchaMode, ["button", "math", "poll", "image"], default_action="button"
+        )
         session.add(s)
         await session.commit()
     kb = await captcha_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
@@ -306,22 +324,18 @@ async def on_cycle_url_scanner_action(
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
+
     async with ctx.db() as session:
         from src.db.models import ChatSettings
+
         s = await session.get(ChatSettings, chat_id)
         if not s:
             s = ChatSettings(id=chat_id)
             session.add(s)
-            
-        # Cycle: delete -> warn -> mute -> kick -> ban -> delete
-        actions = ["delete", "warn", "mute", "kick", "ban"]
-        current = s.urlScannerAction.lower() if s.urlScannerAction else "delete"
-        if current in actions:
-            nxt = actions[(actions.index(current) + 1) % len(actions)]
-        else:
-            nxt = "delete"
-            
-        s.urlScannerAction = nxt
+
+        s.urlScannerAction = cycle_action(
+            s.urlScannerAction, ["delete", "warn", "mute", "kick", "ban"], default_action="delete"
+        )
         await session.commit()
         await session.refresh(s)
     kb = await url_scanner_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)

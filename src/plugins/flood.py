@@ -196,7 +196,7 @@ async def flood_interceptor(client: Client, message: Message) -> None:
 
 
 @bot.on_message(
-    filters.private & is_waiting_for_input(["floodThreshold", "floodWindow"]), group=-100
+    filters.private & is_waiting_for_input(["floodThreshold", "floodWindow"]), group=-101
 )
 @safe_handler
 async def flood_settings_input_handler(client: Client, message: Message) -> None:

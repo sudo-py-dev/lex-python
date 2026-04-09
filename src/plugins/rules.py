@@ -101,7 +101,7 @@ async def start_rules_deeplink_handler(client: Client, message: Message) -> None
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("rulesText"), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input("rulesText"), group=-101)
 @safe_handler
 async def rules_input_handler(client: Client, message: Message) -> None:
     state = message.input_state

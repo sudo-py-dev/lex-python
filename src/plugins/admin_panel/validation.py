@@ -7,6 +7,8 @@ GROUP_ONLY_FIELDS: set[str] = {
     "raidEnabled",
     "raidThreshold",
     "raidWindow",
+    "raidTime",
+    "raidActionTime",
     "raidAction",
     "captchaEnabled",
     "captchaTimeout",

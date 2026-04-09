@@ -27,9 +27,15 @@ async def raid_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboa
                     await at(at_id, "panel.btn_raid_threshold", threshold=settings.raidThreshold),
                     callback_data="panel:input:raidThreshold",
                 ),
+            ],
+            [
                 InlineKeyboardButton(
-                    await at(at_id, "panel.btn_raid_window", window=settings.raidWindow),
-                    callback_data="panel:input:raidWindow",
+                    await at(at_id, "panel.btn_raid_time", time=settings.raidTime),
+                    callback_data="panel:input:raidTime",
+                ),
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_raid_action_time", time=settings.raidActionTime),
+                    callback_data="panel:input:raidActionTime",
                 ),
             ],
             [

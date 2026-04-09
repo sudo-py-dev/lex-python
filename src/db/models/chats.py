@@ -35,8 +35,10 @@ class ChatSettings(TimestampMixin, Base):
         String(50), default="mute", server_default=sa_text("'mute'")
     )
     raidEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    raidThreshold: Mapped[int] = mapped_column(default=10, server_default=sa_text("10"))
+    raidThreshold: Mapped[int] = mapped_column(default=0, server_default=sa_text("0"))
     raidWindow: Mapped[int] = mapped_column(default=60, server_default=sa_text("60"))
+    raidTime: Mapped[str] = mapped_column(String(20), default="6h", server_default=sa_text("'6h'"))
+    raidActionTime: Mapped[str] = mapped_column(String(20), default="1h", server_default=sa_text("'1h'"))
     raidAction: Mapped[str] = mapped_column(
         String(50), default="lock", server_default=sa_text("'lock'")
     )

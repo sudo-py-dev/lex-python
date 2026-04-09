@@ -56,6 +56,8 @@ async def on_panel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
             "slowmode": "panel:slowmode",
             "raidThreshold": "panel:raid",
             "raidWindow": "panel:raid",
+            "raidTime": "panel:raid",
+            "raidActionTime": "panel:raid",
             "captchaTimeout": "panel:captcha",
             "gsbKey": "panel:urlscanner",
             "reminderText": "panel:reminders",

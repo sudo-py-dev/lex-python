@@ -94,7 +94,7 @@ async def url_scanner_handler(client: Client, message: Message) -> None:
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("gsbKey"), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input("gsbKey"), group=-101)
 @safe_handler
 async def url_scanner_settings_input_handler(client: Client, message: Message) -> None:
     logger.debug(f"Input Handler: url_scanner received message from {message.from_user.id}")

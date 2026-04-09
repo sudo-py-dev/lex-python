@@ -23,6 +23,7 @@ from src.plugins.admin_panel.repository import (
     toggle_service_type,
     update_chat_setting,
 )
+from src.utils.actions import cycle_action
 from src.utils.i18n import at
 from src.utils.media import build_watermark_config, parse_watermark_config
 from src.utils.permissions import is_admin
@@ -233,31 +234,23 @@ async def on_channel_cycle_watermark(client: Client, callback: CallbackQuery):
     cfg = parse_watermark_config(s.watermarkText)
 
     if mode == "color":
-        cycle = ["white", "black", "red", "blue", "gold"]
-        current = cfg.color
+        cfg.color = cycle_action(
+            cfg.color, ["white", "black", "red", "blue", "gold"], default_action="white"
+        )
     elif mode == "video_quality":
-        cycle = ["high", "medium", "low"]
-        current = cfg.video_quality
+        cfg.video_quality = cycle_action(
+            cfg.video_quality, ["high", "medium", "low"], default_action="high"
+        )
     elif mode == "video_motion":
-        cycle = ["static", "float", "scroll_lr", "scroll_rl"]
-        current = cfg.video_motion
+        cfg.video_motion = cycle_action(
+            cfg.video_motion, ["static", "float", "scroll_lr", "scroll_rl"], default_action="static"
+        )
     else:
-        cycle = ["soft_shadow", "outline", "clean", "pattern_grid", "pattern_diagonal"]
-        current = cfg.style
-
-    try:
-        nxt = cycle[(cycle.index(current) + 1) % len(cycle)]
-    except ValueError:
-        nxt = cycle[0]
-
-    if mode == "color":
-        cfg.color = nxt
-    elif mode == "video_quality":
-        cfg.video_quality = nxt
-    elif mode == "video_motion":
-        cfg.video_motion = nxt
-    else:
-        cfg.style = nxt
+        cfg.style = cycle_action(
+            cfg.style,
+            ["soft_shadow", "outline", "clean", "pattern_grid", "pattern_diagonal"],
+            default_action="soft_shadow",
+        )
 
     await update_chat_setting(
         ctx,

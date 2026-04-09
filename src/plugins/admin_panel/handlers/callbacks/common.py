@@ -5,6 +5,7 @@ from src.plugins.admin_panel.handlers.ai_kbs import ai_menu_kb
 from src.plugins.admin_panel.handlers.keyboards import ai_security_kb, channel_watermark_kb
 from src.plugins.admin_panel.repository import get_chat_settings
 from src.plugins.ai_assistant.repository import AIRepository
+from src.utils.actions import cycle_action
 from src.utils.i18n import at
 from src.utils.media import parse_watermark_config
 
@@ -36,10 +37,7 @@ def _plain(text: str) -> str:
 
 
 def _next_ai_provider(current_provider: str) -> str:
-    try:
-        return AI_PROVIDERS[(AI_PROVIDERS.index(current_provider.lower()) + 1) % len(AI_PROVIDERS)]
-    except ValueError:
-        return AI_PROVIDERS[0]
+    return cycle_action(current_provider, AI_PROVIDERS, default_action=AI_PROVIDERS[0])
 
 
 async def _render_ai_panel(
