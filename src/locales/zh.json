@@ -294,7 +294,7 @@
   "panel.ai_guard_key_required": "❌ **需要密钥！** 请在启用 AI Guard 之前设置 Groq API 密钥。",
   "panel.ai_guard_key_set": "✅ AI Guard API 密钥设置成功！",
   "panel.ai_guard_setup_guide": "🛡️ **人工智能安全设置指南**\n\n1. 访问 [console.groq.com](https://console.groq.com) 并创建 API Key。\n2. 在此菜单中，单击“**设置 Groq API 密钥**”并粘贴它。\n3. 选择您首选的**操作**（删除、警告、静音或禁止）。\n4. 将 **AI Guard** 切换为 **ON** 以开始保护您的团队。",
-  "panel.ai_guard_text": "🛡️ **人工智能垃圾邮件防护**\n使用 Groq (Llama 3.1) 启用高级 AI 审核来检测和阻止复杂的垃圾邮件。\n\n**状态**：{status}\n**行动**：{action}\n**型号**：`{model}`",
+  "panel.ai_guard_text": "🛡️ **人工智能垃圾邮件防护**\n使用 Groq (Llama 3.1) 启用高级 AI 审核来检测和阻止复杂的垃圾邮件。\n\n**状态**：{status}\n**行动**：{action}",
   "panel.ai_invalid_api": "❌ **API验证失败！**\n请检查您的 API 密钥和型号 ID 的 {provider}。",
   "panel.ai_model_set": "✅ 模型设置为`{model}`！",
   "panel.ai_select_model_text": "📦 **选择AI模型**\n为 **{provider}** 选择优化模型或输入自定义 ID。",

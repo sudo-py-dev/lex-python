@@ -294,7 +294,7 @@
   "panel.ai_guard_key_required": "❌ **Key Required!** Please set a Groq API key before enabling the AI Guard.",
   "panel.ai_guard_key_set": "✅ AI Guard API key set successfully!",
   "panel.ai_guard_setup_guide": "🛡️ **AI Security Setup Guide**\n\n1. Visit [console.groq.com](https://console.groq.com) and create an API Key.\n2. In this menu, click **Set Groq API key** and paste it.\n3. Choose your preferred **Action** (Delete, Warn, Mute, or Ban).\n4. Toggle **AI Guard** to **ON** to start protecting your group.",
-  "panel.ai_guard_text": "🛡️ **AI Spam Guard**\nEnable advanced AI moderation to detect and stop sophisticated spam using Groq (Llama 3.1).\n\n**Status**: {status}\n**Action**: {action}\n**Model**: `{model}`",
+  "panel.ai_guard_text": "🛡️ **AI Spam Guard**\nEnable advanced AI moderation to detect and stop sophisticated spam using Groq (Llama 3.1).\n\n**Status**: {status}\n**Action**: {action}",
   "panel.ai_invalid_api": "❌ **API Validation Failed!**\nPlease check your API key and Model ID for {provider}.",
   "panel.ai_model_set": "✅ Model set to `{model}`!",
   "panel.ai_select_model_text": "📦 **Select AI Model**\nChoose an optimized model for **{provider}** or enter a custom ID.",

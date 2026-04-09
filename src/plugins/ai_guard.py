@@ -4,6 +4,7 @@ from loguru import logger
 from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import Message
 
+from src.config import config
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
@@ -52,7 +53,7 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
         response_text = await AIService.call_ai(
             provider="groq",
             api_key=s.apiKey,
-            model_id=s.modelId,
+            model_id=config.AI_GUARD_MODEL,
             system_prompt=AI_GUARD_SYSTEM_PROMPT,
             custom_instruction=None,
             messages=[{"role": "user", "content": AI_GUARD_TASK_PROMPT.format(user_input=text)}],
@@ -139,7 +140,7 @@ async def ai_guard_settings_input_handler(client: Client, message: Message) -> N
     status_label = await at(user_id, f"panel.status_{'enabled' if s.isEnabled else 'disabled'}")
     action_label = await at(user_id, f"action.{s.action}")
     text = await at(
-        user_id, "panel.ai_guard_text", status=status_label, action=action_label, model=s.modelId
+        user_id, "panel.ai_guard_text", status=status_label, action=action_label
     )
 
     await finalize_input_capture(

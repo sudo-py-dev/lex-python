@@ -17,6 +17,7 @@ class Config(BaseSettings):
     VERSION: str = "0.0.1"
     ENABLE_VIDEO_WATERMARK: bool
     VIDEO_WATERMARK_MAX_SIZE_MB: int
+    AI_GUARD_MODEL: str = "llama-3.1-8b-instant"
 
 
 config = Config()

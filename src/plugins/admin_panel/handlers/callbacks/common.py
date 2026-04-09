@@ -79,7 +79,6 @@ async def _render_ai_guard_panel(
             "panel.ai_guard_text",
             status=status_label,
             action=action_label,
-            model=s.modelId,
         ),
         reply_markup=await ai_security_kb(ctx, chat_id, user_id),
     )
