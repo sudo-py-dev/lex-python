@@ -1,5 +1,10 @@
 from pyrogram import Client, filters
-from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    LinkPreviewOptions,
+)
 
 from src.core.bot import bot
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
@@ -146,6 +151,7 @@ async def on_set_groq_key(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
                 ]
             ]
         ),
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
     await callback.answer()
 
@@ -159,5 +165,6 @@ async def on_ai_guard_setup(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
     await callback.message.edit_text(
         await at(at_id, "panel.ai_guard_setup_guide", model=config.AI_GUARD_MODEL),
         reply_markup=await ai_security_kb(ap_ctx.ctx, ap_ctx.chat_id, callback.from_user.id),
+        disable_web_page_preview=True,
     )
     await callback.answer()

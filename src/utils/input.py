@@ -3,7 +3,11 @@ import json
 
 from loguru import logger
 from pyrogram import filters
-from pyrogram.types import InlineKeyboardMarkup, Message
+from pyrogram.types import (
+    InlineKeyboardMarkup,
+    LinkPreviewOptions,
+    Message,
+)
 
 from src.cache.local_cache import get_cache
 
@@ -131,19 +135,34 @@ async def finalize_input_capture(
             pass
 
     # 4. Update UI
+    link_preview = LinkPreviewOptions(is_disabled=True)
+
     if prompt_msg_id:
         try:
             if prompt_msg_id > 0:
                 await client.edit_message_text(
-                    chat_id=user_id, message_id=prompt_msg_id, text=panel_text, reply_markup=kb
+                    chat_id=user_id,
+                    message_id=prompt_msg_id,
+                    text=panel_text,
+                    reply_markup=kb,
+                    link_preview_options=link_preview,
                 )
                 logger.debug(f"Finalize: UI Edited for user {user_id}, msg: {prompt_msg_id}")
             else:
-                await client.send_message(user_id, panel_text, reply_markup=kb)
+                await client.send_message(
+                    user_id,
+                    panel_text,
+                    reply_markup=kb,
+                    link_preview_options=link_preview,
+                )
                 logger.debug(f"Finalize: UI Sent (New) for user {user_id}")
         except Exception as e:
             logger.debug(f"Finalize Error: UI update failed: {e}")
-            await client.send_message(user_id, panel_text, reply_markup=kb)
+            await client.send_message(
+                user_id, panel_text, reply_markup=kb, link_preview_options=link_preview
+            )
     else:
-        await client.send_message(user_id, panel_text, reply_markup=kb)
+        await client.send_message(
+            user_id, panel_text, reply_markup=kb, link_preview_options=link_preview
+        )
         logger.debug(f"Finalize: UI Sent (No Prompt ID) for user {user_id}")
