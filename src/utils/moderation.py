@@ -7,6 +7,7 @@ from pyrogram import Client
 from pyrogram.types import Message
 
 from src.core.context import get_context
+from src.utils.actions import ModerationAction
 from src.utils.i18n import at
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
@@ -68,7 +69,25 @@ async def execute_moderation_action(
     try:
         await message.delete()
 
-        if action == "delete":
+        ctx = get_context()
+        from src.db.repositories.actions import log_action
+        from src.plugins.logging import log_event
+
+        log_action_type = f"{log_tag.lower()}_{action}"
+        await log_action(ctx, message.chat.id, client.me.id, user_id, log_action_type)
+        if message.chat:
+            await log_event(
+                ctx,
+                client,
+                message.chat.id,
+                log_action_type,
+                user_id,
+                client.me,
+                reason=reason,
+                chat_title=message.chat.title,
+            )
+
+        if action == ModerationAction.DELETE:
             return True
 
         if not await can_restrict_members(client, message.chat.id):
@@ -76,9 +95,8 @@ async def execute_moderation_action(
 
         apply_punishment = None
         notify_action = await at(message.chat.id, f"action.{action}")
-        ctx = get_context()
 
-        if action == "warn":
+        if action == ModerationAction.WARN:
             from src.db.repositories.chats import get_chat_settings as get_warn_settings
             from src.db.repositories.warns import add_warn, reset_warns
 
@@ -98,13 +116,13 @@ async def execute_moderation_action(
         else:
             apply_punishment = action
 
-        if apply_punishment == "ban":
+        if apply_punishment == ModerationAction.BAN:
             await client.ban_chat_member(message.chat.id, user_id)
-        elif apply_punishment == "kick":
+        elif apply_punishment == ModerationAction.KICK:
             await client.ban_chat_member(
                 message.chat.id, user_id, until_date=datetime.now() + timedelta(minutes=1)
             )
-        elif apply_punishment == "mute":
+        elif apply_punishment == ModerationAction.MUTE:
             await client.restrict_chat_member(message.chat.id, user_id, RESTRICTED_PERMISSIONS)
 
         logger.debug(

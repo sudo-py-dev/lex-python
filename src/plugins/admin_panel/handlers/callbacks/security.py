@@ -10,7 +10,13 @@ from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _p
 from src.plugins.admin_panel.handlers.keyboards import flood_kb
 from src.plugins.admin_panel.handlers.security_kbs import captcha_kb, raid_kb, url_scanner_kb
 from src.plugins.admin_panel.repository import get_chat_settings, toggle_setting
-from src.utils.actions import cycle_action
+from src.utils.actions import (
+    CAPTCHA_MODES,
+    FLOOD_ACTIONS,
+    RAID_ACTIONS,
+    SECURITY_ACTIONS,
+    cycle_action,
+)
 from src.utils.i18n import at
 
 
@@ -130,9 +136,7 @@ async def on_toggle_flood_action(_: Client, callback: CallbackQuery, ap_ctx: Adm
             settings = ChatSettings(id=chat_id)
             session.add(settings)
 
-        next_action = cycle_action(
-            settings.floodAction, ["mute", "kick", "ban"], default_action="mute"
-        )
+        next_action = cycle_action(settings.floodAction, FLOOD_ACTIONS, default_action="mute")
         settings.floodAction = next_action
         await session.commit()
         # Refresh to get updated values for UI
@@ -249,7 +253,7 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
 
         s = await get_chat_settings(ctx, chat_id)
         old_action = s.raidAction
-        next_action = cycle_action(old_action, ["lock", "kick", "ban"], default_action="lock")
+        next_action = cycle_action(old_action, RAID_ACTIONS, default_action="lock")
 
         logger.info(f"Raid action cycle: {chat_id} | {old_action} -> {next_action}")
         await update_chat_setting(ctx, chat_id, "raidAction", next_action)
@@ -293,9 +297,7 @@ async def on_cycle_captcha_mode(_: Client, callback: CallbackQuery, ap_ctx: Admi
 
     async with ctx.db() as session:
         s = await get_chat_settings(ctx, chat_id)
-        s.captchaMode = cycle_action(
-            s.captchaMode, ["button", "math", "poll", "image"], default_action="button"
-        )
+        s.captchaMode = cycle_action(s.captchaMode, CAPTCHA_MODES, default_action="button")
         session.add(s)
         await session.commit()
     kb = await captcha_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
@@ -334,7 +336,7 @@ async def on_cycle_url_scanner_action(
             session.add(s)
 
         s.urlScannerAction = cycle_action(
-            s.urlScannerAction, ["delete", "warn", "mute", "kick", "ban"], default_action="delete"
+            s.urlScannerAction, SECURITY_ACTIONS, default_action="delete"
         )
         await session.commit()
         await session.refresh(s)

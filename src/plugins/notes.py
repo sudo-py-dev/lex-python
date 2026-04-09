@@ -107,7 +107,6 @@ async def save_note_handler(client: Client, message: Message) -> None:
             await message.reply(await at(message.chat.id, "note.limit_reached"))
         else:
             raise e
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command(["get", "note"]) & filters.group)
@@ -147,8 +146,6 @@ async def get_note_handler(client: Client, message: Message) -> None:
             client, message.chat.id, parsed, reply_to_message_id=message.id
         )
 
-    await message.stop_propagation()
-
 
 @bot.on_message(filters.command("notes") & filters.group)
 @safe_handler
@@ -163,7 +160,6 @@ async def list_notes_handler(client: Client, message: Message) -> None:
     for n in notes:
         text += f"\n• `{n.name}`"
     await message.reply(text)
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("clear") & filters.group)
@@ -179,10 +175,9 @@ async def clear_note_handler(client: Client, message: Message) -> None:
         await message.reply(await at(message.chat.id, "note.deleted", name=name))
     else:
         await message.reply(await at(message.chat.id, "note.not_found", name=name))
-    await message.stop_propagation()
 
 
-@bot.on_message(filters.group & filters.regex(r"^#(\w+)$"), group=2)
+@bot.on_message(filters.group & filters.regex(r"^#(\w+)$"), group=20)
 @safe_handler
 async def hash_note_handler(client: Client, message: Message) -> None:
     """Trigger notes via hashtag (#note_name)."""
@@ -231,7 +226,6 @@ async def start_note_deeplink_handler(client: Client, message: Message) -> None:
         bot_username=client.me.username,
     )
     await TelegramFormatter.send_parsed(client, message.from_user.id, parsed)
-    await message.stop_propagation()
 
 
 register(NotesPlugin())

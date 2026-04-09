@@ -68,7 +68,7 @@ async def afk_handler(client: Client, message: Message) -> None:
     )
 
 
-@bot.on_message(filters.group, group=7)
+@bot.on_message(filters.group, group=30)
 @safe_handler
 async def afk_interceptor(client: Client, message: Message) -> None:
     """

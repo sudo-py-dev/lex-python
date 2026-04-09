@@ -19,7 +19,7 @@ from src.utils.telegram_storage import extract_message_data
 
 
 @bot.on_message(
-    filters.private & is_waiting_for_input(["chatnightlockStart", "chatnightlockEnd"]), group=-100
+    filters.private & is_waiting_for_input(["chatnightlockStart", "chatnightlockEnd"]), group=-50
 )
 @safe_handler
 async def night_lock_input_handler(client: Client, message: Message) -> None:
@@ -67,7 +67,7 @@ async def night_lock_input_handler(client: Client, message: Message) -> None:
     )
 
 
-@bot.on_message(filters.private & is_waiting_for_input("reminderText"), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input("reminderText"), group=-50)
 @safe_handler
 async def reminder_text_input_handler(client: Client, message: Message) -> None:
     state = message.input_state
@@ -105,7 +105,7 @@ async def reminder_text_input_handler(client: Client, message: Message) -> None:
         await message.delete()
 
 
-@bot.on_message(filters.private & is_waiting_for_input("reminderTime"), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input("reminderTime"), group=-50)
 @safe_handler
 async def reminder_time_input_handler(client: Client, message: Message) -> None:
     state = message.input_state

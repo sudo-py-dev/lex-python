@@ -623,14 +623,14 @@ class ChannelsPlugin(Plugin):
 channels_plugin = ChannelsPlugin()
 
 
-@bot.on_message(filters.channel & ~filters.forwarded & ~filters.service & ~filters.via_bot)
+@bot.on_message(filters.channel & ~filters.forwarded & ~filters.service & ~filters.via_bot, group=-100)
 async def channel_post_handler(client: Client, message: Message) -> None:
     """EntryPoint for channel posts: push to queue for sequential processing."""
     await channels_plugin.queue.put(message)
     await message.continue_propagation()
 
 
-@bot.on_message(filters.channel & filters.service)
+@bot.on_message(filters.channel & filters.service, group=-100)
 async def channel_service_handler(client: Client, message: Message) -> None:
     """Delete channel service messages based on service cleaner settings."""
     ctx = get_context()
@@ -663,7 +663,7 @@ async def channel_service_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(
     filters.private & is_waiting_for_input(["reactions", "watermarkText", "signatureText"]),
-    group=-100,
+    group=-50,
 )
 @safe_handler
 async def channel_content_input_handler(client: Client, message: Message) -> None:

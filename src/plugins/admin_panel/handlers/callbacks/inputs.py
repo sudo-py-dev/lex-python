@@ -72,6 +72,8 @@ async def on_panel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
             cancel_cb = f"panel:blacklist:{page}"
         elif field == "langblockInput":
             cancel_cb = f"panel:langblock:{page}"
+        elif field == "stickerInput":
+            cancel_cb = f"panel:stickers:{page}"
         else:
             cancel_cb = cancel_map.get(field, "panel:main")
 

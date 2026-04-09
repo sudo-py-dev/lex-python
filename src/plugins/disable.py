@@ -214,7 +214,7 @@ async def list_disabled_handler(client: Client, message: Message) -> None:
     await message.reply(text)
 
 
-@bot.on_message(filters.group, group=-2)
+@bot.on_message(filters.group, group=-80)
 @safe_handler
 async def disable_interceptor(client: Client, message: Message) -> None:
     """

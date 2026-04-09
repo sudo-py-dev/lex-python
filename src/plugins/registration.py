@@ -15,11 +15,11 @@ class RegistrationPlugin(Plugin):
         self._registered_cache = set()
 
     async def setup(self, bot: Client, ctx: AppContext) -> None:
-        @bot.on_message(filters.group | filters.channel, group=-1)
+        @bot.on_message(filters.group | filters.channel, group=-90)
         async def auto_register_message(client, message: Message):
             await self._ensure_chat_registered(ctx, message.chat)
 
-        @bot.on_chat_member_updated(group=-1)
+        @bot.on_chat_member_updated(group=-90)
         async def auto_register_join(client, update: ChatMemberUpdated):
             if update.new_chat_member and update.new_chat_member.user.is_self:
                 await self._ensure_chat_registered(ctx, update.chat)

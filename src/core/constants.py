@@ -59,29 +59,3 @@ class CacheKeys:
     @staticmethod
     def allowlisted(chat_id: int) -> str:
         return f"allowlisted:{chat_id}"
-
-
-class Actions:
-    """Action name constants."""
-
-    MUTE = "mute"
-    KICK = "kick"
-    BAN = "ban"
-    TBAN = "tban"
-    TMUTE = "tmute"
-    DELETE = "delete"
-    WARN = "warn"
-    LOCK = "lock"
-
-
-class LockTypes:
-    """Valid lock type names."""
-
-    ALL = {"text", "media", "sticker", "gif", "url", "forward", "command", "rtl", "poll"}
-
-
-class WarnExpiry:
-    NEVER = "never"
-    H24 = "24h"
-    D7 = "7d"
-    D30 = "30d"

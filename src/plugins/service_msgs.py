@@ -21,7 +21,7 @@ class ServiceMsgsPlugin(Plugin):
         pass
 
 
-@bot.on_message(filters.service & filters.group, group=4)
+@bot.on_message(filters.service & filters.group, group=2)
 @safe_handler
 async def service_msg_handler(client: Client, message: Message) -> None:
     """Consolidated handler to synchronize chat info and clean service messages."""

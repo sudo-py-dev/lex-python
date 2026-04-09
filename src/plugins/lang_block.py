@@ -240,7 +240,7 @@ async def remove_lang_block(ctx, chat_id: int, lang_code: str) -> None:
     await ctx.cache.delete(f"{CACHE_KEY_PREFIX}{chat_id}")
 
 
-@bot.on_message(filters.group & (filters.text | filters.caption), group=-105)
+@bot.on_message(filters.group & (filters.text | filters.caption), group=-50)
 @safe_handler
 async def lang_block_interceptor(client: Client, message: Message) -> None:
     """
@@ -301,7 +301,7 @@ async def lang_block_interceptor(client: Client, message: Message) -> None:
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("langblockInput"), group=-101)
+@bot.on_message(filters.private & is_waiting_for_input("langblockInput"), group=-50)
 @safe_handler
 async def langblock_input_handler(client: Client, message: Message) -> None:
     state = message.input_state

@@ -420,3 +420,79 @@ async def log_channel_picker_kb(
         resize_keyboard=True,
         one_time_keyboard=True,
     )
+
+
+async def stickers_kb(
+    ctx, chat_id: int, page: int = 0, user_id: int | None = None
+) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
+    from src.db.repositories.stickers import get_blocked_sticker_sets
+
+    settings = await get_chat_settings(ctx, chat_id)
+    blocked_sets = await get_blocked_sticker_sets(ctx, chat_id)
+    kb = []
+
+    action_type = (settings.stickerAction or "delete").lower()
+    action_icon = {
+        "delete": "🗑️",
+        "mute": "🔇",
+        "kick": "👢",
+        "ban": "🔨",
+        "warn": "⚠️",
+    }.get(action_type, "🗑️")
+    action_label = await at(at_id, f"action.{action_type}")
+
+    kb.append(
+        [
+            InlineKeyboardButton(
+                await at(
+                    at_id,
+                    "panel.btn_sticker_action",
+                    action=action_label,
+                    icon=action_icon,
+                ),
+                callback_data=f"panel:cycle_sticker_action:{page}",
+            )
+        ]
+    )
+
+    PAGE_SIZE = 8
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    current_sets = blocked_sets[start:end]
+
+    for s in current_sets:
+        kb.append(
+            [
+                InlineKeyboardButton(
+                    f"🚫 {s.setName}",
+                    callback_data=f"panel:sticker_noop:{page}",
+                ),
+                InlineKeyboardButton(
+                    "❌", callback_data=f"panel:sticker_remove:{s.setName}:{page}"
+                ),
+            ]
+        )
+
+    nav_row = await get_pager(page, len(blocked_sets), PAGE_SIZE, "panel:stickers")
+    if nav_row:
+        kb.append(nav_row)
+
+    kb.append(
+        [
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_add_sticker"),
+                callback_data=f"panel:input:stickerInput:{page}",
+            )
+        ]
+    )
+
+    kb.append(
+        [
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_back"), callback_data="panel:category:moderation"
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(kb)

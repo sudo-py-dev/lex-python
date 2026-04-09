@@ -57,7 +57,6 @@ async def donate_handler(client: Client, message: Message) -> None:
         await at(chat_id, "donate.text", bot_name=config.BOT_NAME),
         reply_markup=await get_donate_kb(chat_id),
     )
-    await message.stop_propagation()
 
 
 @bot.on_callback_query(filters.regex(r"^donate:"))

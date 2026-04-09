@@ -142,7 +142,7 @@ async def remove_blocked_entity(ctx, chat_id: int, entity_type: str) -> None:
     await ctx.cache.delete(f"{CACHE_KEY_PREFIX}{chat_id}")
 
 
-@bot.on_message(filters.group, group=-110)
+@bot.on_message(filters.group, group=-70)
 @safe_handler
 async def entity_block_interceptor(client: Client, message: Message) -> None:
     """

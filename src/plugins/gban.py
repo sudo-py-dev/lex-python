@@ -76,7 +76,7 @@ async def addsudo_handler(client: Client, message: Message, target_user: User) -
     await message.reply(await at(message.chat.id, "gban.addsudo", mention=target_user.mention))
 
 
-@bot.on_message(filters.group & filters.new_chat_members, group=6)
+@bot.on_message(filters.group & filters.new_chat_members, group=-50)
 @safe_handler
 async def gban_interceptor(client: Client, message: Message) -> None:
     """Intercept new chat members and ban if gbanned."""

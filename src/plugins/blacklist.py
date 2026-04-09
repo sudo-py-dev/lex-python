@@ -1,7 +1,7 @@
 import fnmatch
 import re
-from datetime import datetime, timedelta
 
+from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
@@ -14,12 +14,10 @@ from src.db.repositories.blacklist import (
     remove_blacklist,
 )
 from src.db.repositories.chats import get_chat_settings as get_settings
-from src.db.repositories.warns import add_warn, reset_warns
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
-from src.utils.moderation import resolve_sender
-from src.utils.permissions import RESTRICTED_PERMISSIONS
+from src.utils.moderation import execute_moderation_action, resolve_sender
 
 
 class BlacklistPlugin(Plugin):
@@ -73,7 +71,7 @@ async def add_blacklist_handler(client: Client, message: Message) -> None:
         return
 
     ctx = get_context()
-    pattern = message.command[1].lower()
+    pattern = message.text.split(None, 1)[1].strip().lower()
     is_regex, is_wildcard, pattern = detect_pattern_type(pattern)
 
     try:
@@ -112,7 +110,7 @@ async def rm_blacklist_handler(client: Client, message: Message) -> None:
         return
 
     ctx = get_context()
-    pattern = message.command[1].lower()
+    pattern = message.text.split(None, 1)[1].strip().lower()
     success = await remove_blacklist(ctx, message.chat.id, pattern)
     if success:
         await message.reply(await at(message.chat.id, "blacklist.removed", pattern=pattern))
@@ -146,7 +144,7 @@ async def list_blacklist_handler(client: Client, message: Message) -> None:
     await message.reply(text)
 
 
-@bot.on_message(filters.group & (filters.text | filters.caption), group=3)
+@bot.on_message(filters.group & (filters.text | filters.caption), group=-60)
 @safe_handler
 async def blacklist_interceptor(client: Client, message: Message) -> None:
     """
@@ -169,6 +167,8 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
     if not message.text and not message.caption:
         return
 
+    logger.debug(f"Blacklist: Intercepted message from {message.from_user.id} in {message.chat.id}")
+
     user_id, mention, is_white = await resolve_sender(client, message)
     if not user_id or is_white:
         return
@@ -183,14 +183,24 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
 
     for b in blacklist:
         if b.isRegex:
-            if re.search(b.pattern, text, re.IGNORECASE):
-                triggered_blacklist = b
-                break
+            try:
+                if re.search(b.pattern, text, re.IGNORECASE):
+                    triggered_blacklist = b
+                    break
+            except re.error:
+                if b.pattern.lower() in text:
+                    triggered_blacklist = b
+                    break
         elif b.isWildcard:
-            regex_str = fnmatch.translate(b.pattern)
-            if re.search(regex_str, text, re.IGNORECASE | re.DOTALL):
-                triggered_blacklist = b
-                break
+            try:
+                regex_str = fnmatch.translate(b.pattern)
+                if re.search(regex_str, text, re.IGNORECASE | re.DOTALL):
+                    triggered_blacklist = b
+                    break
+            except re.error:
+                if b.pattern.lower() in text:
+                    triggered_blacklist = b
+                    break
         elif b.pattern.lower() in text:
             triggered_blacklist = b
             break
@@ -198,80 +208,36 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
     if triggered_blacklist:
         settings = await get_settings(ctx, message.chat.id)
         action = settings.blacklistAction.lower()
-        try:
-            await message.delete()
-            await message.stop_propagation()
-            if action == "mute":
-                await client.restrict_chat_member(message.chat.id, user_id, RESTRICTED_PERMISSIONS)
-            elif action == "kick":
-                await client.ban_chat_member(
-                    message.chat.id,
-                    user_id,
-                    until_date=datetime.now() + timedelta(minutes=1),
-                )
-            elif action == "ban":
-                await client.ban_chat_member(message.chat.id, user_id)
-            elif action == "warn":
-                count = await add_warn(
-                    ctx,
-                    message.chat.id,
-                    user_id,
-                    client.me.id,
-                    await at(message.chat.id, "blacklist.reason"),
-                )
-                if count >= settings.warnLimit:
-                    w_action = settings.warnAction.lower()
-                    if w_action == "ban":
-                        await client.ban_chat_member(message.chat.id, message.from_user.id)
-                    elif w_action == "kick":
-                        await client.ban_chat_member(
-                            message.chat.id,
-                            user_id,
-                            until_date=datetime.now() + timedelta(minutes=1),
-                        )
-                    elif w_action == "mute":
-                        await client.restrict_chat_member(
-                            message.chat.id,
-                            user_id,
-                            RESTRICTED_PERMISSIONS,
-                        )
+        reason = await at(message.chat.id, "blacklist.reason", pattern=triggered_blacklist.pattern)
 
-                    await reset_warns(ctx, message.chat.id, user_id)
-                    await message.reply(
-                        await at(
-                            message.chat.id,
-                            "warn.limit_reached",
-                            mention=mention,
-                            action=await at(message.chat.id, f"action.{w_action}"),
-                        )
-                    )
-                else:
-                    await message.reply(
-                        await at(
-                            message.chat.id,
-                            "warn.added",
-                            mention=mention,
-                            count=count,
-                            limit=settings.warnLimit,
-                        )
-                    )
-        except Exception:
-            pass
+        acted = await execute_moderation_action(
+            client=client,
+            message=message,
+            action=action,
+            reason=reason,
+            log_tag="Blacklist",
+            violation_key="blacklist.violation_notice",
+            pattern=triggered_blacklist.pattern,
+        )
+        if acted:
+            await message.stop_propagation()
 
 
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("blacklistInput"), group=-101)
+@bot.on_message(filters.private & is_waiting_for_input("blacklistInput"), group=-50)
 @safe_handler
 async def blacklist_input_handler(client: Client, message: Message) -> None:
     state = message.input_state
     chat_id = state["chat_id"]
     user_id = message.from_user.id
     ctx = get_context()
-    value = message.text
+    value = message.text or message.caption
+    if not value:
+        return
 
-    pattern_raw = str(value).lower()
+    pattern_raw = str(value).strip().lower()
     is_regex, is_wildcard, pattern = detect_pattern_type(pattern_raw)
 
     if is_regex:

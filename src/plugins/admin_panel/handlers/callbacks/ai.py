@@ -19,7 +19,7 @@ from src.plugins.admin_panel.handlers.callbacks.common import (
 )
 from src.plugins.admin_panel.handlers.keyboards import ai_security_kb
 from src.plugins.ai_assistant.repository import AIRepository
-from src.utils.actions import cycle_action
+from src.utils.actions import AI_GUARD_ACTIONS, cycle_action
 from src.utils.i18n import at
 from src.utils.input import capture_next_input
 
@@ -96,9 +96,9 @@ async def on_toggle_ai_image_guard(_: Client, callback: CallbackQuery, ap_ctx: A
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
 
     s = await get_ai_guard_settings(ctx, chat_id)
-    if not s.isTextEnabled:
+    if not s.isImageEnabled and not s.apiKey:
         await callback.answer(
-            _plain(await at(callback.from_user.id, "panel.ai_guard_enable_first")), show_alert=True
+            _plain(await at(callback.from_user.id, "panel.ai_guard_key_required")), show_alert=True
         )
         return
 
@@ -116,7 +116,7 @@ async def on_cycle_ai_guard_action(_: Client, callback: CallbackQuery, ap_ctx: A
     chat_id = ap_ctx.chat_id
 
     s = await get_ai_guard_settings(ctx, chat_id)
-    next_action = cycle_action(s.action, ["delete", "warn", "mute", "ban"], default_action="delete")
+    next_action = cycle_action(s.action, AI_GUARD_ACTIONS, default_action="delete")
 
     await update_ai_guard_settings(ctx, chat_id, action=next_action)
     action_label = await _render_ai_guard_panel(

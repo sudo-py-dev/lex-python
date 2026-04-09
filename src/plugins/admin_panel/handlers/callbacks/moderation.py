@@ -11,11 +11,19 @@ from src.plugins.admin_panel.handlers.moderation_kbs import (
     langblock_kb,
     logging_kb,
     slowmode_kb,
+    stickers_kb,
     user_warns_kb,
     warns_kb,
 )
 from src.plugins.admin_panel.repository import get_chat_settings, update_chat_setting
-from src.utils.actions import cycle_action
+from src.utils.actions import (
+    EXTENDED_MODERATION_ACTIONS,
+    LANG_BLOCK_ACTIONS,
+    MODERATION_ACTIONS,
+    PUNISHMENT_ACTIONS,
+    WARN_EXPIRY_OPTIONS,
+    cycle_action,
+)
 from src.utils.i18n import at
 
 
@@ -91,9 +99,7 @@ async def on_cycle_blacklist_action(_: Client, callback: CallbackQuery, ap_ctx: 
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     settings = await get_chat_settings(ap_ctx.ctx, chat_id)
 
-    nxt = cycle_action(
-        settings.blacklistAction, ["delete", "mute", "kick", "ban", "warn"], default_action="delete"
-    )
+    nxt = cycle_action(settings.blacklistAction, MODERATION_ACTIONS, default_action="delete")
 
     async with ap_ctx.ctx.db() as session:
         from src.db.models import ChatSettings
@@ -127,9 +133,7 @@ async def on_cycle_langblock_action(_: Client, callback: CallbackQuery, ap_ctx: 
 
         obj = await session.get(BlockedLanguage, bid)
         if obj:
-            nxt = cycle_action(
-                obj.action, ["delete", "mute", "kick", "ban", "warn"], default_action="delete"
-            )
+            nxt = cycle_action(obj.action, MODERATION_ACTIONS, default_action="delete")
             obj.action = nxt
             session.add(obj)
             await session.commit()
@@ -347,9 +351,7 @@ async def on_lang_cycle_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
 
     blocks = {b.langCode: b for b in await get_lang_blocks(ap_ctx.ctx, chat_id)}
     if code in blocks:
-        next_action = cycle_action(
-            blocks[code].action, ["delete", "mute", "kick", "ban"], default_action="delete"
-        )
+        next_action = cycle_action(blocks[code].action, LANG_BLOCK_ACTIONS, default_action="delete")
         await add_lang_block(ap_ctx.ctx, chat_id, code, next_action)
 
         kb = await langblock_kb(
@@ -376,7 +378,7 @@ async def on_moderation_cycle(_: Client, callback: CallbackQuery, ap_ctx: AdminP
         s = await get_chat_settings(ctx, chat_id)
 
         if field == "warnAction":
-            nxt = cycle_action(s.warnAction, ["kick", "ban", "mute"], default_action="kick")
+            nxt = cycle_action(s.warnAction, PUNISHMENT_ACTIONS, default_action="kick")
             s.warnAction = nxt
             session.add(s)
             await session.commit()
@@ -394,7 +396,7 @@ async def on_moderation_cycle(_: Client, callback: CallbackQuery, ap_ctx: AdminP
                 reply_markup=kb,
             )
         elif field == "warnExpiry":
-            nxt = cycle_action(s.warnExpiry, ["never", "24h", "7d", "30d"], default_action="never")
+            nxt = cycle_action(s.warnExpiry, WARN_EXPIRY_OPTIONS, default_action="never")
             s.warnExpiry = nxt
             session.add(s)
             await session.commit()
@@ -436,9 +438,7 @@ async def on_toggle_entity(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
         await add_blocked_entity(ctx, chat_id, etype, "delete")
         next_action = "DELETE"
     else:
-        nxt = cycle_action(
-            block.action, ["delete", "warn", "mute", "kick", "ban", "off"], default_action="delete"
-        )
+        nxt = cycle_action(block.action, EXTENDED_MODERATION_ACTIONS, default_action="delete")
         if nxt != "off":
             await add_blocked_entity(ctx, chat_id, etype, nxt)
             next_action = nxt.upper()
@@ -566,3 +566,66 @@ async def on_blacklist_inject(_: Client, callback: CallbackQuery, ap_ctx: AdminP
 
     kb = await blacklist_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
     await callback.message.edit_text(await at(at_id, "panel.blacklist_text"), reply_markup=kb)
+
+
+@bot.on_callback_query(filters.regex(r"^panel:stickers:?(\d+)?$"))
+@admin_panel_context
+async def on_stickers(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    user_id = callback.from_user.id
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
+    page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
+
+    kb = await stickers_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
+    await callback.message.edit_text(await at(at_id, "panel.stickers_text"), reply_markup=kb)
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:cycle_sticker_action:(\d+)$"))
+@admin_panel_context
+async def on_cycle_sticker_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    page = int(callback.matches[0].group(1))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    settings = await get_chat_settings(ap_ctx.ctx, chat_id)
+
+    nxt = cycle_action(
+        settings.stickerAction or "delete",
+        MODERATION_ACTIONS,
+        default_action="delete",
+    )
+
+    await update_chat_setting(ap_ctx.ctx, chat_id, "stickerAction", nxt)
+
+    await callback.answer(
+        await at(at_id, "panel.setting_updated"),
+        show_alert=True,
+    )
+    kb = await stickers_kb(
+        ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
+
+
+@bot.on_callback_query(filters.regex(r"^panel:sticker_remove:(.*):(\d+)$"))
+@admin_panel_context
+async def on_sticker_remove(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    set_name = callback.matches[0].group(1)
+    page = int(callback.matches[0].group(2))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+
+    from src.db.repositories.stickers import remove_blocked_sticker_set
+
+    await remove_blocked_sticker_set(ap_ctx.ctx, chat_id, set_name)
+    await callback.answer(_plain(await at(at_id, "stickers.removed", set_name=set_name)))
+
+    kb = await stickers_kb(
+        ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
+
+
+@bot.on_callback_query(filters.regex(r"^panel:sticker_noop:(\d+)$"))
+async def on_sticker_noop(_: Client, callback: CallbackQuery):
+    await callback.answer()

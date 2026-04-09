@@ -35,7 +35,6 @@ async def runs_handler(client: Client, message: Message) -> None:
     """
     index = random.randint(1, 5)
     await message.reply(await at(message.chat.id, f"misc.run_{index}"))
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("slap") & filters.group)
@@ -54,8 +53,6 @@ async def slap_handler(client: Client, message: Message) -> None:
         - Sends a random 'slap' message mentioning the target user.
     """
     if not message.reply_to_message:
-        await message.reply(await at(message.chat.id, "error.no_reply"))
-        await message.stop_propagation()
         return
     target = (
         message.reply_to_message.from_user.first_name
@@ -64,7 +61,6 @@ async def slap_handler(client: Client, message: Message) -> None:
     )
     index = random.randint(1, 4)
     await message.reply(await at(message.chat.id, f"misc.slap_{index}", target=target))
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("shrug") & filters.group)
@@ -81,7 +77,6 @@ async def shrug_handler(client: Client, message: Message) -> None:
         - Sends a text message with the shrug emoticon.
     """
     await message.reply("¯\\_(ツ)_/¯")
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("about"))
@@ -104,7 +99,6 @@ async def about_handler(client: Client, message: Message) -> None:
         await get_about_text(chat_id),
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
-    await message.stop_propagation()
 
 
 register(MiscPlugin())

@@ -124,7 +124,6 @@ async def add_filter_handler(client: Client, message: Message) -> None:
             await message.reply(await at(message.chat.id, "filter.err_already_exists"))
         else:
             raise e
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("stop") & filters.group)
@@ -142,7 +141,6 @@ async def stop_filter_handler(client: Client, message: Message) -> None:
         await message.reply(await at(message.chat.id, "filter.removed", keyword=keyword))
     else:
         await message.reply(await at(message.chat.id, "filter.not_found", keyword=keyword))
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("stopall") & filters.group)
@@ -156,7 +154,6 @@ async def stopall_filters_handler(client: Client, message: Message) -> None:
         await message.reply(await at(message.chat.id, "filter.stopall_done", count=count))
     else:
         await message.reply(await at(message.chat.id, "filter.stopall_empty"))
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("filters") & filters.group)
@@ -173,10 +170,9 @@ async def list_filters_handler(client: Client, message: Message) -> None:
     for f in all_filters:
         text += f"\n• `{f.keyword}`"
     await message.reply(text)
-    await message.stop_propagation()
 
 
-@bot.on_message(filters.group & filters.text, group=4)
+@bot.on_message(filters.group & filters.text, group=10)
 @safe_handler
 async def filters_interceptor(client: Client, message: Message) -> None:
     """Intercept messages and check if any filter keywords are triggered."""
@@ -239,7 +235,7 @@ async def filters_interceptor(client: Client, message: Message) -> None:
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("filterKeyword"), group=-1000)
+@bot.on_message(filters.private & is_waiting_for_input("filterKeyword"), group=-50)
 @safe_handler
 async def filter_keyword_handler(client: Client, message: Message) -> None:
     state = message.input_state
@@ -284,10 +280,8 @@ async def filter_keyword_handler(client: Client, message: Message) -> None:
     with contextlib.suppress(Exception):
         await message.delete()
 
-    await message.stop_propagation()
 
-
-@bot.on_message(filters.private & is_waiting_for_input("filterResponse"), group=-1000)
+@bot.on_message(filters.private & is_waiting_for_input("filterResponse"), group=-50)
 @safe_handler
 async def filter_response_handler(client: Client, message: Message) -> None:
     state = message.input_state
@@ -321,7 +315,6 @@ async def filter_response_handler(client: Client, message: Message) -> None:
     prompt_text = await at(user_id, "panel.filter_options_header", keyword=keyword)
 
     await finalize_input_capture(client, message, user_id, prompt_msg_id, prompt_text, kb)
-    await message.stop_propagation()
 
 
 register(FiltersPlugin())

@@ -220,7 +220,7 @@ async def fban_handler(client: Client, message: Message, target_user: User) -> N
     )
 
 
-@bot.on_message(filters.group & filters.new_chat_members, group=12)
+@bot.on_message(filters.group & filters.new_chat_members, group=-60)
 @safe_handler
 async def federation_interceptor(client: Client, message: Message) -> None:
     """

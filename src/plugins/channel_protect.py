@@ -180,7 +180,7 @@ async def list_allowed_handler(client: Client, message: Message) -> None:
     await message.reply(text)
 
 
-@bot.on_message(filters.group, group=13)
+@bot.on_message(filters.group, group=-80)
 @safe_handler
 async def channel_protect_interceptor(client: Client, message: Message) -> None:
     """

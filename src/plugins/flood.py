@@ -1,5 +1,4 @@
 import contextlib
-from datetime import datetime, timedelta
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -8,15 +7,13 @@ from src.core.bot import bot
 from src.core.constants import CacheKeys
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
-from src.db.repositories.actions import log_action
 from src.db.repositories.chats import get_chat_settings as get_settings
 from src.db.repositories.chats import update_settings
-from src.plugins.logging import log_event
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
-from src.utils.moderation import resolve_sender
-from src.utils.permissions import RESTRICTED_PERMISSIONS, can_restrict_members
+from src.utils.moderation import execute_moderation_action, resolve_sender
+from src.utils.permissions import can_restrict_members
 
 
 class FloodPlugin(Plugin):
@@ -146,45 +143,21 @@ async def flood_interceptor(client: Client, message: Message) -> None:
             return
 
         action = settings.floodAction.lower()
-        try:
-            if action == "ban":
-                await client.ban_chat_member(message.chat.id, user_id)
-            elif action == "kick":
-                await client.ban_chat_member(
-                    message.chat.id,
-                    user_id,
-                    until_date=datetime.now() + timedelta(minutes=1),
-                )
-            else:
-                await client.restrict_chat_member(message.chat.id, user_id, RESTRICTED_PERMISSIONS)
+        reason = await at(
+            message.chat.id,
+            "logging.flood_reason",
+            threshold=settings.floodThreshold,
+            window=settings.floodWindow,
+        )
 
-            await message.reply(
-                await at(
-                    message.chat.id,
-                    "flood.triggered",
-                    mention=mention,
-                    action=action,
-                )
-            )
-
-            await log_action(ctx, message.chat.id, client.me.id, user_id, f"flood_{action}")
-            await log_event(
-                ctx,
-                client,
-                message.chat.id,
-                f"flood_{action}",
-                user_id,
-                client.me,
-                reason=await at(
-                    message.chat.id,
-                    "logging.flood_reason",
-                    threshold=settings.floodThreshold,
-                    window=settings.floodWindow,
-                ),
-                chat_title=message.chat.title,
-            )
-        except Exception:
-            pass
+        await execute_moderation_action(
+            client=client,
+            message=message,
+            action=action,
+            reason=reason,
+            log_tag="Flood",
+            violation_key="flood.triggered",
+        )
 
     if count > settings.floodThreshold:
         with contextlib.suppress(Exception):
@@ -196,7 +169,7 @@ async def flood_interceptor(client: Client, message: Message) -> None:
 
 
 @bot.on_message(
-    filters.private & is_waiting_for_input(["floodThreshold", "floodWindow"]), group=-101
+    filters.private & is_waiting_for_input(["floodThreshold", "floodWindow"]), group=-50
 )
 @safe_handler
 async def flood_settings_input_handler(client: Client, message: Message) -> None:

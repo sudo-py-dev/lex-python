@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .chats import ChatSettings
+    from .moderation import StickerBlock
 
 
 from sqlalchemy import (
@@ -35,6 +36,21 @@ class Blacklist(Base):
     )
 
     chat: Mapped["ChatSettings"] = relationship(back_populates="blacklist", lazy="raise")
+
+
+class StickerBlock(Base):
+    __tablename__ = "stickerblock"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chatId: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("chatsettings.id"), index=True, nullable=False
+    )
+    setName: Mapped[str] = mapped_column(String(100), index=True)
+    createdAt: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
+    )
+
+    chat: Mapped["ChatSettings"] = relationship(back_populates="stickerBlocks", lazy="raise")
 
 
 class BlockedEntity(Base):

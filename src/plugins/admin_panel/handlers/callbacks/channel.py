@@ -23,7 +23,15 @@ from src.plugins.admin_panel.repository import (
     toggle_service_type,
     update_chat_setting,
 )
-from src.utils.actions import cycle_action
+from src.utils.actions import (
+    REACTION_MODES,
+    VIDEO_MOTIONS,
+    VIDEO_QUALITIES,
+    WATERMARK_COLORS,
+    WATERMARK_STYLES,
+    ReactionMode,
+    cycle_action,
+)
 from src.utils.i18n import at
 from src.utils.media import build_watermark_config, parse_watermark_config
 from src.utils.permissions import is_admin
@@ -206,7 +214,7 @@ async def on_channel_toggle_setting(client: Client, callback: CallbackQuery):
 
     if field == "reactionMode":
         s = await get_ch_settings(ctx, channel_id)
-        new_mode = "random" if s.reactionMode == "all" else "all"
+        new_mode = cycle_action(s.reactionMode, REACTION_MODES, default_action=ReactionMode.ALL)
         await update_ch_setting(ctx, channel_id, field, new_mode)
     else:
         await toggle_ch_setting(ctx, channel_id, field)
@@ -234,22 +242,18 @@ async def on_channel_cycle_watermark(client: Client, callback: CallbackQuery):
     cfg = parse_watermark_config(s.watermarkText)
 
     if mode == "color":
-        cfg.color = cycle_action(
-            cfg.color, ["white", "black", "red", "blue", "gold"], default_action="white"
-        )
+        cfg.color = cycle_action(cfg.color, WATERMARK_COLORS, default_action=WATERMARK_COLORS.WHITE)
     elif mode == "video_quality":
         cfg.video_quality = cycle_action(
-            cfg.video_quality, ["high", "medium", "low"], default_action="high"
+            cfg.video_quality, VIDEO_QUALITIES, default_action=VIDEO_QUALITIES.HIGH
         )
     elif mode == "video_motion":
         cfg.video_motion = cycle_action(
-            cfg.video_motion, ["static", "float", "scroll_lr", "scroll_rl"], default_action="static"
+            cfg.video_motion, VIDEO_MOTIONS, default_action=VIDEO_MOTIONS.STATIC
         )
     else:
         cfg.style = cycle_action(
-            cfg.style,
-            ["soft_shadow", "outline", "clean", "pattern_grid", "pattern_diagonal"],
-            default_action="soft_shadow",
+            cfg.style, WATERMARK_STYLES, default_action=WATERMARK_STYLES.SOFT_SHADOW
         )
 
     await update_chat_setting(

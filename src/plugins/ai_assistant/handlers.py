@@ -241,7 +241,7 @@ async def ai_message_handler(client: Client, message: Message):
 AI_FIELDS = ["aiApiKey", "aiModelId", "aiSystemPrompt", "aiInstruction"]
 
 
-@bot.on_message(filters.private & is_waiting_for_input(AI_FIELDS), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input(AI_FIELDS), group=-50)
 @safe_handler
 async def ai_settings_handler(client: Client, message: Message) -> None:
     state = message.input_state

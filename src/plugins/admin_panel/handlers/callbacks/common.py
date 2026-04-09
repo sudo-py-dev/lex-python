@@ -5,11 +5,10 @@ from src.plugins.admin_panel.handlers.ai_kbs import ai_menu_kb
 from src.plugins.admin_panel.handlers.keyboards import ai_security_kb, channel_watermark_kb
 from src.plugins.admin_panel.repository import get_chat_settings
 from src.plugins.ai_assistant.repository import AIRepository
-from src.utils.actions import cycle_action
+from src.utils.actions import AI_PROVIDERS, cycle_action
 from src.utils.i18n import at
 from src.utils.media import parse_watermark_config
 
-AI_PROVIDERS = ["openai", "gemini", "deepseek", "groq", "qwen", "anthropic"]
 AI_PROVIDER_DEFAULT_MODELS = {
     "openai": "gpt-4o-mini",
     "gemini": "gemini-3.5-flash",

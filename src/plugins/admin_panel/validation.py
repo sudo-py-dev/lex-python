@@ -53,6 +53,8 @@ GROUP_ONLY_FIELDS: set[str] = {
     "entityblock",
     "langblock",
     "logging",
+    "stickers",
+    "stickerAction",
 }
 
 # Fields that only apply to Channels

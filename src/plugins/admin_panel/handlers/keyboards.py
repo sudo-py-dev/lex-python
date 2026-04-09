@@ -213,6 +213,16 @@ async def moderation_category_kb(
     if row3:
         buttons.append(row3)
 
+    # Row 4: Stickers
+    if is_setting_allowed("stickers", chat_type):
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_stickers"), callback_data="panel:stickers:0"
+                )
+            ]
+        )
+
     buttons.append(
         [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")]
     )

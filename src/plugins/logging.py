@@ -119,7 +119,7 @@ class LoggingPlugin(Plugin):
         items = []
         for ev in events:
             reason_str = (
-                f"\n{await at(chat_id, 'logging.reason_label')} {ev['reason']}"
+                f"\n   {await at(chat_id, 'logging.reason_label')} {ev['reason']}"
                 if ev["reason"]
                 else ""
             )
@@ -133,7 +133,7 @@ class LoggingPlugin(Plugin):
             )
             items.append(item)
 
-        final_text = header + "".join(items)
+        final_text = header + "\n\n" + "\n".join(items)
 
         try:
             await client.send_message(settings.logChannelId, final_text)
@@ -195,18 +195,14 @@ async def log_event(
     """
     Push a moderation event into the logging queue.
     """
-    plugin: LoggingPlugin = client.get_plugin("logging")
-    if not plugin:
-        return
-
     if chat_title:
-        plugin._chat_title_cache[chat_id] = chat_title
-    elif chat_id not in plugin._chat_title_cache:
+        logging_plugin._chat_title_cache[chat_id] = chat_title
+    elif chat_id not in logging_plugin._chat_title_cache:
         settings = await get_chat_settings(ctx, chat_id)
         if settings and settings.title:
-            plugin._chat_title_cache[chat_id] = settings.title
+            logging_plugin._chat_title_cache[chat_id] = settings.title
         else:
-            plugin._chat_title_cache[chat_id] = f"Chat {chat_id}"
+            logging_plugin._chat_title_cache[chat_id] = f"Chat {chat_id}"
 
     target_mention = target.mention if isinstance(target, User) else f"`{target}`"
     actor_mention = actor.mention if isinstance(actor, User) else f"`{actor}`"
@@ -220,7 +216,8 @@ async def log_event(
         "timestamp": time.time(),
     }
 
-    await plugin.log_queue.put(event_data)
+    await logging_plugin.log_queue.put(event_data)
 
 
-register(LoggingPlugin())
+logging_plugin = LoggingPlugin()
+register(logging_plugin)

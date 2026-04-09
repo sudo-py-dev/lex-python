@@ -3,7 +3,13 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .ai import AIGuardSettings, AISettings
-    from .moderation import Blacklist, BlockedEntity, BlockedLanguage, UserWarn
+    from .moderation import (
+        Blacklist,
+        BlockedEntity,
+        BlockedLanguage,
+        StickerBlock,
+        UserWarn,
+    )
     from .plugins import Filter, Note, Reminder
 
 from sqlalchemy import (
@@ -72,6 +78,9 @@ class ChatSettings(TimestampMixin, Base):
     blacklistAction: Mapped[str] = mapped_column(
         String(50), default="delete", server_default=sa_text("'delete'")
     )
+    stickerAction: Mapped[str] = mapped_column(
+        String(50), default="delete", server_default=sa_text("'delete'")
+    )
     timezone: Mapped[str] = mapped_column(
         String(50), default="UTC", server_default=sa_text("'UTC'")
     )
@@ -94,6 +103,7 @@ class ChatSettings(TimestampMixin, Base):
     filters: Mapped[list["Filter"]] = relationship(back_populates="chat", lazy="raise")
     notes: Mapped[list["Note"]] = relationship(back_populates="chat", lazy="raise")
     blacklist: Mapped[list["Blacklist"]] = relationship(back_populates="chat", lazy="raise")
+    stickerBlocks: Mapped[list["StickerBlock"]] = relationship(back_populates="chat", lazy="raise")
     langBlocks: Mapped[list["BlockedLanguage"]] = relationship(back_populates="chat", lazy="raise")
     blockedEntities: Mapped[list["BlockedEntity"]] = relationship(
         back_populates="chat", lazy="raise"

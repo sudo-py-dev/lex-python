@@ -158,7 +158,7 @@ async def raidactiontime_handler(client: Client, message: Message) -> None:
     await message.reply(await at(message.chat.id, "raid.action_time_updated", time=time_str))
 
 
-@bot.on_message(filters.group & filters.new_chat_members, group=11)
+@bot.on_message(filters.group & filters.new_chat_members, group=-70)
 @safe_handler
 async def raid_interceptor(client: Client, message: Message) -> None:
     if not message.from_user or message.from_user.is_bot:
@@ -227,7 +227,7 @@ async def raid_interceptor(client: Client, message: Message) -> None:
 @bot.on_message(
     filters.private
     & is_waiting_for_input(["raidThreshold", "raidWindow", "raidTime", "raidActionTime"]),
-    group=-101,
+    group=-50,
 )
 @safe_handler
 async def raid_settings_input_handler(client: Client, message: Message) -> None:

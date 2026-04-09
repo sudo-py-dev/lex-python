@@ -41,7 +41,7 @@ async def send_welcome(client: Client, chat_id: int, chat_title: str, user: User
     await TelegramFormatter.send_parsed(client, chat_id, parsed)
 
 
-@bot.on_message(filters.new_chat_members & filters.group)
+@bot.on_message(filters.new_chat_members & filters.group, group=-40)
 @safe_handler
 async def welcome_handler(client: Client, message: Message) -> None:
     """Detect new members and send welcome messages."""
@@ -57,7 +57,7 @@ async def welcome_handler(client: Client, message: Message) -> None:
         await send_welcome(client, message.chat.id, message.chat.title, new_member)
 
 
-@bot.on_message(filters.left_chat_member & filters.group)
+@bot.on_message(filters.left_chat_member & filters.group, group=-40)
 @safe_handler
 async def goodbye_handler(client: Client, message: Message) -> None:
     """Detect departing members and send goodbye messages."""
@@ -176,7 +176,7 @@ async def goodbye_test_handler(client: Client, message: Message) -> None:
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("welcomeText"), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input("welcomeText"), group=-50)
 @safe_handler
 async def welcome_input_handler(client: Client, message: Message) -> None:
     state = message.input_state

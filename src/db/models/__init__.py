@@ -18,6 +18,7 @@ from .moderation import (
     GlobalBan,
     ReportSetting,
     SlowmodeSetting,
+    StickerBlock,
     UserWarn,
 )
 from .plugins import Filter, Note, Reminder, ScheduledMessage
@@ -47,6 +48,7 @@ __all__ = [
     "ScheduledMessage",
     "AllowedChannel",
     "SlowmodeSetting",
+    "StickerBlock",
     "ReportSetting",
     "ChannelProtect",
     "Reminder",

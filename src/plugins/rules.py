@@ -95,13 +95,12 @@ async def start_rules_deeplink_handler(client: Client, message: Message) -> None
 
     header = await at(chat_id, "rules.header")
     await message.reply(f"{header}\n\n{rules.content}")
-    await message.stop_propagation()
 
 
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("rulesText"), group=-101)
+@bot.on_message(filters.private & is_waiting_for_input("rulesText"), group=-50)
 @safe_handler
 async def rules_input_handler(client: Client, message: Message) -> None:
     state = message.input_state

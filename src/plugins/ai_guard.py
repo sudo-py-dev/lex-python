@@ -35,7 +35,7 @@ class AIGuardPlugin(Plugin):
         pass
 
 
-@bot.on_message(filters.group & (filters.text | filters.caption), group=2)
+@bot.on_message(filters.group & (filters.text | filters.caption), group=-20)
 @safe_handler
 async def ai_guard_handler(client: Client, message: Message) -> None:
     """Analyze incoming messages for spam using AI."""
@@ -88,7 +88,7 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
     except AIServiceError as e:
         if "authentication" in str(e).lower():
             logger.warning(f"AI Guard: Auth failed for chat {message.chat.id}. Disabling.")
-            await update_ai_guard_settings(ctx, message.chat.id, isTextEnabled=False, apiKey=None)
+            await update_ai_guard_settings(ctx, message.chat.id, isTextEnabled=False, isImageEnabled=False, apiKey=None)
     except (json.JSONDecodeError, ValueError, TypeError):
         logger.warning("AI Guard: Failed to parse AI response.")
     except StopPropagation:
@@ -97,7 +97,7 @@ async def ai_guard_handler(client: Client, message: Message) -> None:
         logger.error(f"AI Guard: Unexpected error in {message.chat.id}: {e}")
 
 
-@bot.on_message(filters.group & (filters.photo | filters.document), group=3)
+@bot.on_message(filters.group & (filters.photo | filters.document), group=-20)
 @safe_handler
 async def ai_image_guard_handler(client: Client, message: Message) -> None:
     """Analyze incoming photos/images for spam using AI Vision."""
@@ -172,7 +172,11 @@ async def ai_image_guard_handler(client: Client, message: Message) -> None:
     except (json.JSONDecodeError, ValueError, TypeError):
         logger.warning("AI Image Guard: Failed to parse AI response.")
     except AIServiceError as e:
-        logger.error(f"AI Image Guard Service Error: {e}")
+        if "authentication" in str(e).lower():
+            logger.warning(f"AI Image Guard: Auth failed for chat {message.chat.id}. Disabling.")
+            await update_ai_guard_settings(ctx, message.chat.id, isImageEnabled=False, isTextEnabled=False, apiKey=None)
+        else:
+            logger.error(f"AI Image Guard Service Error: {e}")
     except Exception as e:
         logger.error(f"AI Image Guard: Unexpected error: {e}")
 
@@ -180,7 +184,7 @@ async def ai_image_guard_handler(client: Client, message: Message) -> None:
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("groqKey"), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input("groqKey"), group=-50)
 @safe_handler
 async def ai_guard_settings_input_handler(client: Client, message: Message) -> None:
     state = message.input_state
@@ -191,7 +195,7 @@ async def ai_guard_settings_input_handler(client: Client, message: Message) -> N
     str_value = str(value).strip()
 
     if str_value.lower() == "reset":
-        await update_ai_guard_settings(ctx, chat_id, apiKey=None, isTextEnabled=False)
+        await update_ai_guard_settings(ctx, chat_id, apiKey=None, isTextEnabled=False, isImageEnabled=False)
         str_value = None
     elif not str_value:
         await message.reply(await at(user_id, "panel.input_invalid_string"))

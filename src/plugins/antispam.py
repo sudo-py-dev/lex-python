@@ -22,7 +22,7 @@ class AntispamPlugin(Plugin):
         pass
 
 
-@bot.on_message(filters.group & filters.text, group=3)
+@bot.on_message(filters.group & filters.text, group=-30)
 @safe_handler
 async def antispam_handler(client: Client, message: Message) -> None:
     """

@@ -85,7 +85,6 @@ async def help_handler(client: Client, message: Message) -> None:
     await message.reply(
         await at(chat_id, "help.main_text"), reply_markup=await get_help_kb(chat_id)
     )
-    await message.stop_propagation()
 
 
 @bot.on_callback_query(filters.regex(r"^help:"))

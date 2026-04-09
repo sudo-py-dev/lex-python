@@ -64,7 +64,7 @@ async def slowmode_handler(client: Client, message: Message) -> None:
     await message.reply(await at(message.chat.id, "slowmode.set", duration=f"{interval}s"))
 
 
-@bot.on_message(filters.group, group=8)
+@bot.on_message(filters.group, group=40)
 @safe_handler
 async def slowmode_interceptor(client: Client, message: Message) -> None:
     """
@@ -108,7 +108,7 @@ async def slowmode_interceptor(client: Client, message: Message) -> None:
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("slowmode"), group=-100)
+@bot.on_message(filters.private & is_waiting_for_input("slowmode"), group=-50)
 @safe_handler
 async def slowmode_input_handler(client: Client, message: Message) -> None:
     state = message.input_state

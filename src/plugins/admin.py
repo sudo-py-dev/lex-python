@@ -64,7 +64,6 @@ async def start_handler(client: Client, message: Message) -> None:
         return
 
     await send_start_message(client, message)
-    await message.stop_propagation()
 
 
 async def send_start_message(client: Client, message: Message, edit: bool = False) -> None:
@@ -123,7 +122,6 @@ async def ping_handler(client: Client, message: Message) -> None:
         return
     latency = (time.time() - time.time()) * 1000
     await message.reply(await at(message.chat.id, "ping.response", ms=f"{latency:.2f}"))
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("id"))
@@ -155,7 +153,6 @@ async def id_handler(client: Client, message: Message) -> None:
             replied=replied,
         )
     )
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command(["pin", "permapin"]) & filters.group)
@@ -187,7 +184,6 @@ async def pin_handler(client: Client, message: Message) -> None:
         message.reply_to_message.id,
         disable_notification=True,
     )
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("unpin") & filters.group)
@@ -242,7 +238,6 @@ async def unpinall_handler(client: Client, message: Message) -> None:
         return
     await client.unpin_all_chat_messages(message.chat.id)
     await message.reply(await at(message.chat.id, "admin.unpinned_all"))
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("promote") & filters.group)
@@ -293,7 +288,6 @@ async def promote_handler(client: Client, message: Message, target_user: User) -
     if title:
         await client.set_administrator_custom_title(message.chat.id, target_user.id, title)
     await message.reply(await at(message.chat.id, "admin.promoted", mention=target_user.mention))
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("demote") & filters.group)
@@ -335,7 +329,6 @@ async def demote_handler(client: Client, message: Message, target_user: User) ->
         ),
     )
     await message.reply(await at(message.chat.id, "admin.demoted", mention=target_user.mention))
-    await message.stop_propagation()
 
 
 @bot.on_message(filters.command("invitelink") & filters.group)
@@ -438,7 +431,7 @@ async def chatinfo_handler(client: Client, message: Message) -> None:
 # --- Admin Panel Input Handlers ---
 
 
-@bot.on_message(filters.private & is_waiting_for_input("cleanerInactive"), group=-101)
+@bot.on_message(filters.private & is_waiting_for_input("cleanerInactive"), group=-50)
 @safe_handler
 async def cleaner_inactive_input_handler(client: Client, message: Message) -> None:
     state = message.input_state

@@ -79,11 +79,23 @@ def resolve_target(func: Handler) -> Handler:
         if message.reply_to_message and message.reply_to_message.from_user:
             target_user = message.reply_to_message.from_user
         elif len(message.command) > 1:
-            try:
-                target_user = await client.get_users(message.command[1])
-            except Exception:
-                await message.reply(await at(message.chat.id, "error.resolve_user_failed"))
-                return
+            from pyrogram.enums import MessageEntityType
+
+            if message.entities:
+                for ent in message.entities:
+                    if ent.type == MessageEntityType.TEXT_MENTION and ent.user:
+                        target_user = ent.user
+                        break
+
+            if not target_user:
+                try:
+                    cmd_arg = message.command[1]
+                    if cmd_arg.isdigit() or (cmd_arg.startswith("-") and cmd_arg[1:].isdigit()):
+                        cmd_arg = int(cmd_arg)
+                    target_user = await client.get_users(cmd_arg)
+                except Exception:
+                    await message.reply(await at(message.chat.id, "error.resolve_user_failed"))
+                    return
 
         if target_user is None:
             await message.reply(await at(message.chat.id, "error.provide_user"))
@@ -126,5 +138,28 @@ def callback_admin_only(func: Callable[..., Awaitable[None]]) -> Callable[..., A
             )
             return
         await func(client, callback, **kwargs)
+
+    return wrapper
+
+
+def sudo_only(func: Handler) -> Handler:
+    """Ignore command if sender is not bot owner or a sudo user."""
+    from src.config import config
+    from src.core.context import get_context
+    from src.db.repositories.gban import is_sudo
+
+    @functools.wraps(func)
+    async def wrapper(client: Client, message: Message, *args: Any, **kwargs: Any) -> None:
+        if not message.from_user:
+            return
+
+        user_id = message.from_user.id
+        if user_id == config.OWNER_ID:
+            await func(client, message, *args, **kwargs)
+            return
+
+        if await is_sudo(get_context(), user_id):
+            await func(client, message, *args, **kwargs)
+            return
 
     return wrapper

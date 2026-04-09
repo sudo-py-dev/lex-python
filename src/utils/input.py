@@ -24,7 +24,7 @@ def is_waiting_for_input(fields: str | list[str] | None = None):
 
     async def func(flt, client, message: Message) -> bool:
         fid = getattr(flt, "filter_id", "unknown")
-        # logger.debug(f"Input Filter Trace: {fid} triggered")
+        logger.debug(f"Input Filter Trace: {fid} triggered")
         if not message.from_user:
             return False
 
