@@ -44,7 +44,7 @@ async def is_channel_allowed(chat_id: int | None, channel_id: int | None) -> boo
     if cached:
         try:
             return channel_id in json.loads(cached)
-        except Exception:
+        except (json.JSONDecodeError, TypeError):
             pass
 
     allowed_ids = await _fetch_and_cache_allowed_channels(chat_id)

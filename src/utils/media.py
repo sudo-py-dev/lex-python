@@ -376,6 +376,6 @@ def apply_watermark(
             out = Image.alpha_composite(img, overlay).convert("RGB")
             out.save(output_path, "JPEG", quality=90)
             return True
-    except Exception as e:
-        print(f"Error applying watermark: {e}")
+    except Exception:
+        logger.exception(f"Error applying watermark to {image_path}")
         return False

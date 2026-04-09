@@ -1,4 +1,9 @@
+import asyncio
+import contextlib
+
+from loguru import logger
 from pyrogram import Client, filters
+from pyrogram.errors import BadRequest, FloodWait, Forbidden
 from pyrogram.types import Message, User
 
 from src.core.bot import bot
@@ -91,8 +96,16 @@ async def gban_interceptor(client: Client, message: Message) -> None:
                 await message.reply(
                     await at(message.chat.id, "gban.joined", mention=member.mention)
                 )
-            except Exception:
+            except BadRequest:
                 pass
+            except Forbidden:
+                logger.warning(f"Gban failed in {message.chat.id}: Bot lacks ban permissions.")
+            except FloodWait as e:
+                await asyncio.sleep(e.value + 1)
+                with contextlib.suppress(Exception):
+                    await client.ban_chat_member(message.chat.id, member.id)
+            except Exception as e:
+                logger.exception(f"Unexpected error in gban_interceptor: {e}")
 
 
 register(GbanPlugin())

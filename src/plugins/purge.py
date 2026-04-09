@@ -1,6 +1,9 @@
 import asyncio
+import contextlib
 
+from loguru import logger
 from pyrogram import Client, filters
+from pyrogram.errors import FloodWait, Forbidden, RPCError
 from pyrogram.types import Message
 
 from src.core.bot import bot
@@ -36,12 +39,26 @@ async def purge_handler(client: Client, message: Message) -> None:
     for msg_id in range(start_id, end_id + 1):
         message_ids.append(msg_id)
         if len(message_ids) >= 100:
-            await client.delete_messages(message.chat.id, message_ids)
+            try:
+                await client.delete_messages(message.chat.id, message_ids)
+            except FloodWait as e:
+                await asyncio.sleep(e.value + 1)
+                with contextlib.suppress(Exception):
+                    await client.delete_messages(message.chat.id, message_ids)
+            except (Forbidden, RPCError):
+                pass
             message_ids = []
             await asyncio.sleep(0.5)
 
     if message_ids:
-        await client.delete_messages(message.chat.id, message_ids)
+        try:
+            await client.delete_messages(message.chat.id, message_ids)
+        except FloodWait as e:
+            await asyncio.sleep(e.value + 1)
+            with contextlib.suppress(Exception):
+                await client.delete_messages(message.chat.id, message_ids)
+        except (Forbidden, RPCError):
+            pass
 
     status = await message.reply(
         await at(message.chat.id, "purge.done", count=end_id - start_id + 1)
@@ -112,11 +129,17 @@ async def purge_messages_input_handler(client: Client, message: Message) -> None
 
             for i in range(top_id, top_id - count - 1, -100):
                 batch_ids = list(range(i, max(i - 100, top_id - count - 1), -1))
-                with __import__("contextlib").suppress(Exception):
+                try:
                     await client.delete_messages(chat_id, batch_ids)
+                except FloodWait as e:
+                    await asyncio.sleep(e.value + 1)
+                    with contextlib.suppress(Exception):
+                        await client.delete_messages(chat_id, batch_ids)
+                except (Forbidden, RPCError):
+                    pass
                 await asyncio.sleep(0.5)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Background purge error in {chat_id}: {e}")
 
     asyncio.create_task(do_purge())
 

@@ -1,6 +1,16 @@
+import asyncio
+import contextlib
 import json
 
+from loguru import logger
 from pyrogram import Client, filters
+from pyrogram.errors import (
+    FloodWait,
+    MessageIdInvalid,
+    MessageNotModified,
+    QueryIdInvalid,
+    RPCError,
+)
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.cache.local_cache import get_cache
@@ -21,8 +31,20 @@ async def on_filters_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     kb = await filters_menu_kb(
         ap_ctx.ctx, chat_id, page=page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_text(await at(at_id, "panel.filters_text"), reply_markup=kb)
-    await callback.answer()
+    try:
+        await callback.message.edit_text(await at(at_id, "panel.filters_text"), reply_markup=kb)
+    except MessageNotModified:
+        pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await on_filters_panel(_, callback, ap_ctx)
+    except (MessageIdInvalid, QueryIdInvalid):
+        pass
+    except (RPCError, Exception) as e:
+        logger.debug(f"Filters panel UI update failed: {e}")
+
+    with contextlib.suppress(QueryIdInvalid):
+        await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:add_filter:?(\d+)?$"))
@@ -116,14 +138,22 @@ async def on_delete_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
     success = await remove_filter_by_id(ap_ctx.ctx, f_id)
     if success:
-        await callback.answer(_plain(await at(at_id, "common.done")))
+        with contextlib.suppress(QueryIdInvalid):
+            await callback.answer(_plain(await at(at_id, "common.done")))
     else:
         await callback.answer(_plain(await at(at_id, "panel.error_generic")), show_alert=True)
 
     kb = await filters_menu_kb(
         ap_ctx.ctx, chat_id, page=page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=kb)
+    except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+        pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        # Note: selective retry logic based on context would go here
+        pass
 
 
 @bot.on_callback_query(filters.regex(r"^panel:clear_filters$"))
@@ -134,11 +164,19 @@ async def on_clear_filters(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     await remove_all_filters(ap_ctx.ctx, chat_id)
-    await callback.answer(_plain(await at(at_id, "common.done")))
+    with contextlib.suppress(QueryIdInvalid):
+        await callback.answer(_plain(await at(at_id, "common.done")))
     kb = await filters_menu_kb(
         ap_ctx.ctx, chat_id, page=0, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=kb)
+    except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+        pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        # Note: selective retry logic based on context would go here
+        pass
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_filter:(\w+):(\d+)$"))
@@ -161,7 +199,14 @@ async def on_toggle_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
     await r.set(f"temp_filter_settings:{user_id}", json.dumps(settings), ttl=600)
     kb = await filter_options_kb(ap_ctx.ctx, ap_ctx.chat_id, user_id, page)
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=kb)
+    except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+        pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        # Note: selective retry logic based on context would go here
+        pass
     await callback.answer()
 
 

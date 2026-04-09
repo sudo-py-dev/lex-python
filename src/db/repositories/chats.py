@@ -5,6 +5,7 @@ from typing import Any
 
 from pyrogram import Client
 from pyrogram.enums import ChatType
+from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
 from sqlalchemy import and_, select
 
 from src.core.context import AppContext
@@ -149,7 +150,26 @@ async def get_user_admin_chats(
                     await update_chat_title(ctx, chat_id, title)
                     if chat.type.name.lower() != s.chatType:
                         await update_chat_setting(ctx, chat_id, "chatType", chat.type.name.lower())
-                except Exception:
+                except (BadRequest, Forbidden, RPCError):
+                    results.append((chat_id, await at(user_id, "panel.unknown_chat", id=chat_id)))
+                except FloodWait as e:
+                    await asyncio.sleep(e.value + 1)
+                    try:
+                        chat = await client.get_chat(chat_id)
+                        results.append(
+                            (
+                                chat_id,
+                                chat.title or await at(user_id, "panel.unknown_chat", id=chat_id),
+                            )
+                        )
+                    except Exception:
+                        results.append(
+                            (chat_id, await at(user_id, "panel.unknown_chat", id=chat_id))
+                        )
+                except Exception as e:
+                    from loguru import logger
+
+                    logger.error(f"Unexpected error getting chat {chat_id}: {e}")
                     results.append((chat_id, await at(user_id, "panel.unknown_chat", id=chat_id)))
 
     tasks = [check(s) for s in all_settings]
@@ -175,8 +195,19 @@ async def get_chat_info(ctx: AppContext, chat_id: int) -> tuple[ChatType, str]:
         title = chat.title or chat.first_name or title
         if title != settings.title:
             await update_chat_title(ctx, chat_id, title)
-    except Exception:
+    except (BadRequest, Forbidden, RPCError):
         pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        # Try once more
+        with contextlib.suppress(Exception):
+            chat = await bot.get_chat(chat_id)
+            chat_type = chat.type
+            title = chat.title or chat.first_name or title
+    except Exception as e:
+        from loguru import logger
+
+        logger.debug(f"Unexpected error resolving chat info for {chat_id}: {e}")
 
     return chat_type, title
 

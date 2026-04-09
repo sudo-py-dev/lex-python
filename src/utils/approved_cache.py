@@ -47,7 +47,7 @@ async def is_approved(chat_id: int | None, user_id: int | None) -> bool:
     if cached:
         try:
             return user_id in json.loads(cached)
-        except Exception:
+        except (json.JSONDecodeError, TypeError):
             pass
 
     approved_ids = await _fetch_and_cache_approved(chat_id)

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import uuid
 from datetime import datetime, timedelta
@@ -6,6 +7,7 @@ from datetime import datetime, timedelta
 from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.enums import PollType
+from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
 from pyrogram.raw import types as raw_types
 from pyrogram.types import (
     CallbackQuery,
@@ -197,8 +199,20 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
                     )
                 )
                 restricted_any = True
+        except Forbidden:
+            # Bot is not an admin or lacks ban/restrict permission
+            logger.warning(f"Captcha failed in {message.chat.id}: Bot lacks restrict permissions.")
+            # Don't try to process other members if bot lacks permissions
+            break
+        except FloodWait as e:
+            await asyncio.sleep(e.value + 1)
+            # Re-process this user
+            # Note: In a real bot, we might want a limit on retries here
+            continue
+        except (BadRequest, RPCError) as e:
+            logger.error(f"Captcha error for {new_member.id} in {message.chat.id}: {e}")
         except Exception:
-            logger.exception("Captcha execution error")
+            logger.exception("Unexpected Captcha execution error")
 
     if restricted_any:
         raise __import__("pyrogram").StopPropagation
@@ -235,8 +249,20 @@ async def _enforce_captcha_timeout(
                 chat_id, user_id, until_date=datetime.now() + timedelta(hours=7)
             )
             await client.delete_messages(chat_id, msg_id)
-        except Exception:
+        except BadRequest:
+            # User might have already left or message already deleted
             pass
+        except Forbidden:
+            logger.warning(f"Captcha timeout ban failed in {chat_id}: Bot lacks permissions.")
+        except FloodWait as e:
+            await asyncio.sleep(e.value + 1)
+            with contextlib.suppress(Exception):
+                await client.ban_chat_member(
+                    chat_id, user_id, until_date=datetime.now() + timedelta(hours=7)
+                )
+                await client.delete_messages(chat_id, msg_id)
+        except Exception as e:
+            logger.exception(f"Unexpected error in captcha timeout: {e}")
 
 
 @bot.on_callback_query(filters.regex(r"^captcha_verify:(\d+)"))
@@ -472,8 +498,21 @@ async def _handle_captcha_success(
         from src.plugins.welcome import send_welcome
 
         await send_welcome(client, chat_id, chat_title, user)
+    except BadRequest:
+        # Message might have been deleted manually or user already left
+        pass
+    except Forbidden:
+        logger.warning(
+            f"Captcha success restriction clear failed in {chat_id}: Bot lacks permissions."
+        )
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        # Attempt to clear restriction again
+        with contextlib.suppress(Exception):
+            await client.restrict_chat_member(chat_id, user.id, UNRESTRICTED_PERMISSIONS)
+            await client.delete_messages(chat_id, msg_id)
     except Exception as e:
-        logger.error(f"Captcha success handler error: {e}")
+        logger.exception(f"Unexpected error in captcha success handler: {e}")
 
 
 # --- Admin Panel Input Handlers ---

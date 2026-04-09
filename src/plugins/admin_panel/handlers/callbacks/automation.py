@@ -4,6 +4,7 @@ import contextlib
 from pyrogram import Client, filters
 from pyrogram.errors import (
     FloodWait,
+    MessageIdInvalid,
     MessageNotModified,
     QueryIdInvalid,
     RPCError,
@@ -137,18 +138,25 @@ async def on_toggle_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
             from src.plugins.scheduler.manager import SchedulerManager
 
             await SchedulerManager.sync_group(ctx, chat_id)
-            await callback.answer(
-                _plain(
-                    await at(
-                        _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
-                        "panel.setting_updated",
+            with contextlib.suppress(QueryIdInvalid):
+                await callback.answer(
+                    _plain(
+                        await at(
+                            _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
+                            "panel.setting_updated",
+                        )
                     )
                 )
-            )
             kb = await reminders_menu_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            await callback.message.edit_reply_markup(reply_markup=kb)
+            try:
+                await callback.message.edit_reply_markup(reply_markup=kb)
+            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+                pass
+            except FloodWait as e:
+                await asyncio.sleep(e.value + 1)
+                return await on_toggle_reminder(_, callback, ap_ctx)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:delete_reminder:(\d+)$"))
@@ -165,18 +173,25 @@ async def on_delete_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
             from src.plugins.scheduler.manager import SchedulerManager
 
             await SchedulerManager.sync_group(ctx, chat_id)
-            await callback.answer(
-                _plain(
-                    await at(
-                        _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
-                        "panel.setting_updated",
+            with contextlib.suppress(QueryIdInvalid):
+                await callback.answer(
+                    _plain(
+                        await at(
+                            _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
+                            "panel.setting_updated",
+                        )
                     )
                 )
-            )
             kb = await reminders_menu_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            await callback.message.edit_reply_markup(reply_markup=kb)
+            try:
+                await callback.message.edit_reply_markup(reply_markup=kb)
+            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+                pass
+            except FloodWait as e:
+                await asyncio.sleep(e.value + 1)
+                return await on_toggle_reminder(_, callback, ap_ctx)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_chatnightlock$"))
@@ -193,18 +208,25 @@ async def on_toggle_nightlock(_: Client, callback: CallbackQuery, ap_ctx: AdminP
             from src.plugins.scheduler.manager import SchedulerManager
 
             await SchedulerManager.sync_group(ctx, chat_id)
-            await callback.answer(
-                _plain(
-                    await at(
-                        _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
-                        "panel.setting_updated",
+            with contextlib.suppress(QueryIdInvalid):
+                await callback.answer(
+                    _plain(
+                        await at(
+                            _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
+                            "panel.setting_updated",
+                        )
                     )
                 )
-            )
             kb = await chatnightlock_menu_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            await callback.message.edit_reply_markup(reply_markup=kb)
+            try:
+                await callback.message.edit_reply_markup(reply_markup=kb)
+            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+                pass
+            except FloodWait as e:
+                await asyncio.sleep(e.value + 1)
+                return await on_toggle_reminder(_, callback, ap_ctx)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_cleaner:(\w+)$"))
@@ -225,19 +247,25 @@ async def on_toggle_cleaner(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
             from src.plugins.scheduler.manager import SchedulerManager
 
             await SchedulerManager.sync_group(ctx, chat_id)
-            await callback.answer(
-                _plain(
-                    await at(
-                        _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
-                        "panel.setting_updated",
+            with contextlib.suppress(QueryIdInvalid):
+                await callback.answer(
+                    _plain(
+                        await at(
+                            _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
+                            "panel.setting_updated",
+                        )
                     )
                 )
-            )
             kb = await cleaner_menu_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            with contextlib.suppress(MessageNotModified):
+            try:
                 await callback.message.edit_reply_markup(reply_markup=kb)
+            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+                pass
+            except FloodWait as e:
+                await asyncio.sleep(e.value + 1)
+                return await on_toggle_reminder(_, callback, ap_ctx)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:timezone:?(\d+)?$"))

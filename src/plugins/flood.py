@@ -1,5 +1,6 @@
 import contextlib
 
+from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
@@ -131,7 +132,8 @@ async def flood_interceptor(client: Client, message: Message) -> None:
     ctx = get_context()
     try:
         settings = await get_settings(ctx, message.chat.id)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Flood settings fetch error in {message.chat.id}: {e}")
         return
 
     if settings.floodThreshold <= 0:

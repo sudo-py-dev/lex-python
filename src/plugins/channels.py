@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 from PIL import Image, UnidentifiedImageError
 from pyrogram import Client, filters
-from pyrogram.errors import FloodWait
+from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 
 from src.config import config
@@ -362,7 +362,10 @@ class ChannelsPlugin(Plugin):
             if not host_message:
                 host_message = min(group, key=lambda m: m.id)
             return message.id == host_message.id
-        except Exception:
+        except (BadRequest, RPCError):
+            return True
+        except Exception as e:
+            logger.error(f"Error getting media group for caption host check: {e}")
             return True
 
     async def _handle_signature(self, message: Message, new_content: str, is_media: bool) -> None:
@@ -381,8 +384,15 @@ class ChannelsPlugin(Plugin):
 
         try:
             await self._run_with_retry(message.chat.id, self.METHOD_EDIT, do_edit)
+        except Forbidden:
+            logger.warning(f"Bot lacks edit permission for signature in {message.chat.id}")
+        except FloodWait as e:
+            # Note: _run_with_retry already handles FloodWait
+            logger.warning(f"FloodWait in signature handler: {e}")
+        except (BadRequest, RPCError) as e:
+            logger.error(f"RPC error adding signature to message {message.id}: {e}")
         except Exception as e:
-            logger.error(f"Error adding signature to message {message.id}: {e}")
+            logger.exception(f"Unexpected error adding signature to message {message.id}: {e}")
 
     async def _handle_watermarking(
         self,
@@ -654,7 +664,7 @@ async def channel_service_handler(client: Client, message: Message) -> None:
             should_delete = service_type.name in enabled_types
 
     if should_delete:
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(Forbidden, BadRequest, RPCError):
             await message.delete()
 
     await message.continue_propagation()

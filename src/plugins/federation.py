@@ -1,4 +1,9 @@
+import asyncio
+import contextlib
+
+from loguru import logger
 from pyrogram import Client, filters
+from pyrogram.errors import BadRequest, FloodWait, Forbidden
 from pyrogram.types import Message, User
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -250,8 +255,20 @@ async def federation_interceptor(client: Client, message: Message) -> None:
                         message.chat.id, "federation.interceptor_banned", mention=member.mention
                     )
                 )
-            except Exception:
+            except BadRequest:
+                # User might have already left or already banned
                 pass
+            except Forbidden:
+                logger.warning(
+                    f"Federation ban failed in {message.chat.id}: Bot lacks ban permissions."
+                )
+            except FloodWait as e:
+                await asyncio.sleep(e.value + 1)
+                # Retry once for federation join
+                with contextlib.suppress(Exception):
+                    await client.ban_chat_member(message.chat.id, member.id)
+            except Exception as e:
+                logger.exception(f"Unexpected error in federation_interceptor: {e}")
 
 
 register(FederationPlugin())
