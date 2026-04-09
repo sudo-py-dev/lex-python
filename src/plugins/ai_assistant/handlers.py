@@ -142,6 +142,10 @@ async def ai_message_handler(client: Client, message: Message):
         await client.send_chat_action(chat_id, ChatAction.TYPING)
 
         sys_prompt = settings.systemPrompt if settings.systemPrompt else BASE_PROMPT
+        sys_prompt = sys_prompt.format(
+            bot_name=client.me.first_name, bot_username=client.me.username
+        )
+
         sys_prompt = (
             f"IDENTITY: You are @{client.me.username} ({client.me.first_name})\n\n{sys_prompt}"
         )

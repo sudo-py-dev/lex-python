@@ -11,7 +11,6 @@ from src.core.plugin import Plugin, register
 from src.db.repositories.blacklist import (
     add_blacklist,
     get_all_blacklist,
-    get_blacklist_count,
     remove_blacklist,
 )
 from src.db.repositories.chats import get_chat_settings as get_settings
@@ -77,13 +76,19 @@ async def add_blacklist_handler(client: Client, message: Message) -> None:
     pattern = message.command[1].lower()
     is_regex, is_wildcard, pattern = detect_pattern_type(pattern)
 
-    success = await add_blacklist(
-        ctx, message.chat.id, pattern, is_regex=is_regex, is_wildcard=is_wildcard
-    )
-    if success:
-        await message.reply(await at(message.chat.id, "blacklist.added", pattern=pattern))
-    else:
-        await message.reply(await at(message.chat.id, "blacklist.limit_error"))
+    try:
+        success = await add_blacklist(
+            ctx, message.chat.id, pattern, is_regex=is_regex, is_wildcard=is_wildcard
+        )
+        if success:
+            await message.reply(await at(message.chat.id, "blacklist.added", pattern=pattern))
+    except ValueError as e:
+        if str(e) == "blacklist_limit_reached":
+            await message.reply(await at(message.chat.id, "blacklist.limit_reached"))
+        elif str(e) == "blacklist_already_exists":
+            await message.reply(await at(message.chat.id, "blacklist.err_already_exists"))
+        else:
+            raise e
 
 
 @bot.on_message(filters.command(["rmblacklist", "unblacklist"]) & filters.group)
@@ -276,12 +281,17 @@ async def blacklist_input_handler(client: Client, message: Message) -> None:
             await message.reply(await at(user_id, "panel.blacklist_invalid_regex"))
             return
 
-    count = await get_blacklist_count(ctx, chat_id)
-    if count >= 150:
-        await message.reply(await at(user_id, "panel.blacklist_limit_reached"))
-        return
-
-    await add_blacklist(ctx, chat_id, pattern, is_regex=is_regex, is_wildcard=is_wildcard)
+    try:
+        await add_blacklist(ctx, chat_id, pattern, is_regex=is_regex, is_wildcard=is_wildcard)
+    except ValueError as e:
+        if str(e) == "blacklist_already_exists":
+            await message.reply(await at(user_id, "blacklist.err_already_exists"))
+            return
+        elif str(e) == "blacklist_limit_reached":
+            await message.reply(await at(user_id, "panel.blacklist_limit_reached"))
+            return
+        else:
+            raise e
 
     from src.plugins.admin_panel.handlers.moderation_kbs import blacklist_kb
 

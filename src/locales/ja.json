@@ -259,7 +259,7 @@
   "logging.raid_reason": "襲撃が検出されました ({threshold} 参加 / {window}s)",
   "logging.reason_label": "📝 理由:",
   "logging.warn_limit_reason": "警告制限に達しました ({limit})",
-  "misc.about_text": "🌐 **Lex アドバンスト グループ マネージャー**\n\n正確さとスピードを追求して構築された、プレミアムで高性能な Telegram モデレーション システムです。\n\n🛡️ **バージョン**: `{version}`\n👨‍💻 **開発者**: {dev_name}\n📂 **リポジトリ**: [GitHub]({repo_url})\n\n📚 **技術スタック**:\n{tech_stack}\n\nLex は、ゼロ遅延と絶対的な信頼性で大規模なグループを管理するように設計されています。",
+  "misc.about_text": "🌐 **{bot_name} アドバンスト グループ マネージャー**\n\n正確さとスピードを追求して構築された、プレミアムで高性能な Telegram モデレーション システムです。\n\n🛡️ **バージョン**: `{version}`\n👨‍💻 **開発者**: {dev_name}\n📂 **リポジトリ**: [GitHub]({repo_url})\n\n📚 **技術スタック**:\n{tech_stack}\n\nLex は、ゼロ遅延と絶対的な信頼性で大規模なグループを管理するように設計されています。",
   "misc.run_1": "部屋の反対側に走ります。",
   "misc.run_2": "集団から逃げ出す。",
   "misc.run_3": "走ってベッドの下に隠れます。",

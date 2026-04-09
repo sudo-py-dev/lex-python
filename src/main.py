@@ -51,6 +51,7 @@ async def main() -> None:
 
     try:
         await bot.start()
+        config.BOT_NAME = bot.me.first_name
         logger.info(f"{config.BOT_NAME} is running!")
         await asyncio.Event().wait()
     except sqlite3.OperationalError as e:

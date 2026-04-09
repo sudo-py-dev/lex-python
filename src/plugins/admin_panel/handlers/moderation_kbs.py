@@ -296,9 +296,13 @@ async def blacklist_kb(
     kb.append(
         [
             InlineKeyboardButton(
+                await at(at_id, "panel.btn_blacklist_blocks"),
+                callback_data=f"panel:blacklist_blocks:{page}",
+            ),
+            InlineKeyboardButton(
                 await at(at_id, "panel.btn_add_blacklist"),
                 callback_data=f"panel:input:blacklistInput:{page}",
-            )
+            ),
         ]
     )
 
@@ -311,6 +315,39 @@ async def blacklist_kb(
     )
 
     return InlineKeyboardMarkup(kb)
+
+
+async def blacklist_defaults_kb(
+    ctx, chat_id: int, page: int = 0, user_id: int | None = None
+) -> InlineKeyboardMarkup:
+    at_id = user_id if user_id else chat_id
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_blacklist_level_low"),
+                    callback_data=f"panel:blacklist_inject:low:{page}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_blacklist_level_medium"),
+                    callback_data=f"panel:blacklist_inject:medium:{page}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_blacklist_level_hard"),
+                    callback_data=f"panel:blacklist_inject:hard:{page}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_back"), callback_data=f"panel:blacklist:{page}"
+                )
+            ],
+        ]
+    )
 
 
 async def user_warns_kb(

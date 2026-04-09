@@ -5,6 +5,7 @@ from src.core.bot import bot
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
 from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
 from src.plugins.admin_panel.handlers.moderation_kbs import (
+    blacklist_defaults_kb,
     blacklist_kb,
     entityblock_kb,
     langblock_kb,
@@ -520,3 +521,48 @@ async def on_user_warn_info(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
         f"{await at(at_id, 'common.user_id_label')} {target_uid}\n{await at(at_id, 'panel.user_warns_header')}\n{reasons}",
         show_alert=True,
     )
+
+
+@bot.on_callback_query(filters.regex(r"^panel:blacklist_blocks:(\d+)$"))
+@admin_panel_context
+async def on_blacklist_blocks(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    user_id = callback.from_user.id
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
+    page = int(callback.matches[0].group(1))
+
+    kb = await blacklist_defaults_kb(
+        ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_text(
+        await at(at_id, "panel.blacklist_blocks_text"), reply_markup=kb
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:blacklist_inject:(low|medium|hard):(\d+)$"))
+@admin_panel_context
+async def on_blacklist_inject(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    level = callback.matches[0].group(1)
+    page = int(callback.matches[0].group(2))
+    chat_id = ap_ctx.chat_id
+    user_id = callback.from_user.id
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
+
+    from src.core.blacklist_defaults import BAD_WORDS_BLOCKS
+    from src.db.repositories.blacklist import batch_add_blacklist
+
+    patterns = BAD_WORDS_BLOCKS.get(level, [])
+    added, skipped = await batch_add_blacklist(ap_ctx.ctx, chat_id, patterns)
+
+    level_name = await at(at_id, f"common.level_{level}")
+
+    if added > 0:
+        msg = await at(at_id, "panel.blacklist_inject_success", count=added, level=level_name)
+    else:
+        msg = await at(at_id, "panel.blacklist_inject_error", success=added, failed=skipped)
+
+    await callback.answer(msg, show_alert=True)
+
+    kb = await blacklist_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
+    await callback.message.edit_text(await at(at_id, "panel.blacklist_text"), reply_markup=kb)

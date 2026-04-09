@@ -120,6 +120,8 @@ async def add_filter_handler(client: Client, message: Message) -> None:
     except ValueError as e:
         if str(e) == "filter_limit_reached":
             await message.reply(await at(message.chat.id, "filter.limit_reached"))
+        elif str(e) == "filter_already_exists":
+            await message.reply(await at(message.chat.id, "filter.err_already_exists"))
         else:
             raise e
     await message.stop_propagation()

@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import httpx
 from loguru import logger
 
+from src.config import config
 from src.utils.i18n import t
 
 
@@ -31,7 +32,7 @@ async def is_url_malicious(urls: list[str], api_key: str, lang: str = "en") -> s
 
     endpoint = f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}"
     payload = {
-        "client": {"clientId": "lex-tg", "clientVersion": "1.0"},
+        "client": {"clientId": config.BOT_NAME, "clientVersion": "1.0"},
         "threatInfo": {
             "threatTypes": [
                 "MALWARE",

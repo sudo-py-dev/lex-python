@@ -20,12 +20,7 @@ async def add_filter(
         filter_obj = result.scalars().first()
 
         if filter_obj:
-            filter_obj.text = text
-            filter_obj.responseType = response_type
-            filter_obj.fileId = file_id
-            if settings is not None:
-                filter_obj.settings = settings
-            session.add(filter_obj)
+            raise ValueError("filter_already_exists")
         else:
             # Check limit
             from sqlalchemy import func

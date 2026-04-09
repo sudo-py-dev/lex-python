@@ -21,6 +21,14 @@ async def add_blacklist(
         if count >= 200:
             raise ValueError("blacklist_limit_reached")
 
+        # Check for duplicate
+        dup_stmt = select(Blacklist).where(
+            Blacklist.chatId == chat_id, Blacklist.pattern == pattern
+        )
+        dup_result = await session.execute(dup_stmt)
+        if dup_result.scalars().first():
+            raise ValueError("blacklist_already_exists")
+
         blacklist = Blacklist(
             chatId=chat_id,
             pattern=pattern,
@@ -62,3 +70,56 @@ async def get_blacklist_count(ctx: AppContext, chat_id: int) -> int:
         stmt = select(func.count()).select_from(Blacklist).where(Blacklist.chatId == chat_id)
         result = await session.execute(stmt)
         return result.scalar() or 0
+
+
+async def batch_add_blacklist(
+    ctx: AppContext,
+    chat_id: int,
+    patterns: list[str],
+    action: str = "delete",
+) -> tuple[int, int]:
+    """
+    Add multiple patterns to the blacklist.
+    Skips existing patterns and respects the 200 limit.
+    Returns (added_count, skipped_count).
+    """
+    async with ctx.db() as session:
+        # Get existing patterns to avoid duplicates
+        existing_stmt = select(Blacklist.pattern).where(Blacklist.chatId == chat_id)
+        existing_res = await session.execute(existing_stmt)
+        existing_patterns = set(existing_res.scalars().all())
+
+        # Get current count
+        count_stmt = select(func.count()).select_from(Blacklist).where(Blacklist.chatId == chat_id)
+        count_res = await session.execute(count_stmt)
+        current_count = count_res.scalar() or 0
+
+        added = 0
+        skipped = 0
+
+        from src.plugins.blacklist import detect_pattern_type
+
+        for p in patterns:
+            p = p.lower()
+            if p in existing_patterns:
+                skipped += 1
+                continue
+
+            if current_count >= 200:
+                skipped += 1
+                continue
+
+            is_regex, is_wildcard, pattern = detect_pattern_type(p)
+            obj = Blacklist(
+                chatId=chat_id,
+                pattern=pattern,
+                action=action,
+                isRegex=is_regex,
+                isWildcard=is_wildcard,
+            )
+            session.add(obj)
+            current_count += 1
+            added += 1
+
+        await session.commit()
+        return added, skipped

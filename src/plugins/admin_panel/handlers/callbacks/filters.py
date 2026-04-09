@@ -199,15 +199,23 @@ async def on_save_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
             settings=settings,
         )
     else:
-        await add_filter(
-            ap_ctx.ctx,
-            chat_id,
-            keyword,
-            text=resp_data.get("text") or "",
-            response_type=resp_data["type"],
-            file_id=resp_data.get("file_id"),
-            settings=settings,
-        )
+        try:
+            await add_filter(
+                ap_ctx.ctx,
+                chat_id,
+                keyword,
+                text=resp_data.get("text") or "",
+                response_type=resp_data["type"],
+                file_id=resp_data.get("file_id"),
+                settings=settings,
+            )
+        except ValueError as e:
+            if str(e) == "filter_already_exists":
+                await callback.answer(
+                    _plain(await at(at_id, "filter.err_already_exists")), show_alert=True
+                )
+                return
+            raise e
 
     await r.delete(f"temp_filter_kw:{user_id}")
     await r.delete(f"temp_filter_resp:{user_id}")
