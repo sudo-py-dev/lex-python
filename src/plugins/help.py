@@ -70,7 +70,6 @@ async def get_help_kb(chat_id: int) -> InlineKeyboardMarkup:
     if row:
         buttons.append(row)
 
-    # Back to start button
     buttons.append(
         [InlineKeyboardButton(await at(chat_id, "help.back_btn"), callback_data="help:start")]
     )

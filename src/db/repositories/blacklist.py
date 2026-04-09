@@ -21,7 +21,6 @@ async def add_blacklist(
         if count >= 200:
             raise ValueError("blacklist_limit_reached")
 
-        # Check for duplicate
         dup_stmt = select(Blacklist).where(
             Blacklist.chatId == chat_id, Blacklist.pattern == pattern
         )
@@ -84,12 +83,9 @@ async def batch_add_blacklist(
     Returns (added_count, skipped_count).
     """
     async with ctx.db() as session:
-        # Get existing patterns to avoid duplicates
         existing_stmt = select(Blacklist.pattern).where(Blacklist.chatId == chat_id)
         existing_res = await session.execute(existing_stmt)
         existing_patterns = set(existing_res.scalars().all())
-
-        # Get current count
         count_stmt = select(func.count()).select_from(Blacklist).where(Blacklist.chatId == chat_id)
         count_res = await session.execute(count_stmt)
         current_count = count_res.scalar() or 0

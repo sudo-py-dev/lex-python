@@ -1,6 +1,9 @@
+import asyncio
 from datetime import datetime, timedelta
 
+from loguru import logger
 from pyrogram import Client, filters
+from pyrogram.errors import BadRequest, ChatAdminRequired, FloodWait, Forbidden, RPCError
 from pyrogram.types import Message, User
 
 from src.core.bot import bot
@@ -85,8 +88,16 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
                     action=await at(message.chat.id, f"action.{action}"),
                 )
             )
-        except Exception:
-            pass
+        except ChatAdminRequired:
+            await message.reply(await at(message.chat.id, "error.bot_not_admin"))
+        except FloodWait as e:
+            await asyncio.sleep(e.value + 1)
+            # Re-run punishment logic or just let the user try again
+            await message.reply(await at(message.chat.id, "error.flood_wait", seconds=e.value))
+        except (BadRequest, Forbidden, RPCError) as e:
+            logger.warning(f"Warn punishment error in {message.chat.id}: {e}")
+        except Exception as e:
+            logger.exception(f"Unexpected warn punishment error: {e}")
     else:
         await message.reply(
             await at(

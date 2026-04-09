@@ -1,7 +1,13 @@
+import asyncio
 import contextlib
 
 from pyrogram import Client, filters
-from pyrogram.errors import MessageNotModified
+from pyrogram.errors import (
+    FloodWait,
+    MessageNotModified,
+    QueryIdInvalid,
+    RPCError,
+)
 from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
@@ -31,8 +37,18 @@ async def on_welcome_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     kb = await welcome_kb(
         ap_ctx.ctx, ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_text(await at(at_id, "panel.welcome_text"), reply_markup=kb)
-    await callback.answer()
+    try:
+        await callback.message.edit_text(await at(at_id, "panel.welcome_text"), reply_markup=kb)
+    except MessageNotModified:
+        pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await on_welcome_panel(_, callback, ap_ctx)
+    except (RPCError, Exception):
+        pass
+
+    with contextlib.suppress(QueryIdInvalid):
+        await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:rules$"))
@@ -40,8 +56,18 @@ async def on_welcome_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 async def on_rules_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     kb = await rules_kb(ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
-    await callback.message.edit_text(await at(at_id, "panel.rules_text"), reply_markup=kb)
-    await callback.answer()
+    try:
+        await callback.message.edit_text(await at(at_id, "panel.rules_text"), reply_markup=kb)
+    except MessageNotModified:
+        pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await on_rules_panel(_, callback, ap_ctx)
+    except (RPCError, Exception):
+        pass
+
+    with contextlib.suppress(QueryIdInvalid):
+        await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:reminders$"))

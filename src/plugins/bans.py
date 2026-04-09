@@ -1,7 +1,17 @@
+import asyncio
 import datetime as dt_module
 from datetime import datetime
 
+from loguru import logger
 from pyrogram import Client, filters
+from pyrogram.errors import (
+    BadRequest,
+    ChatAdminRequired,
+    FloodWait,
+    Forbidden,
+    RPCError,
+    UserNotParticipant,
+)
 from pyrogram.types import Message, User
 
 from src.core.bot import bot
@@ -66,8 +76,18 @@ async def ban_handler(client: Client, message: Message, target_user: User) -> No
             msg_link=message.link,
         )
         await message.reply(await at(message.chat.id, "ban.success", mention=target_user.mention))
-    except Exception:
-        pass
+    except ChatAdminRequired:
+        await message.reply(await at(message.chat.id, "error.bot_not_admin"))
+    except UserNotParticipant:
+        await message.reply(await at(message.chat.id, "error.user_not_found"))
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await ban_handler(client, message, target_user)
+    except (BadRequest, Forbidden, RPCError) as e:
+        logger.warning(f"Ban error in {message.chat.id}: {e}")
+        await message.reply(await at(message.chat.id, "error.unauthorized_admin"))
+    except Exception as e:
+        logger.exception(f"Unexpected ban error: {e}")
 
 
 @bot.on_message(filters.command("unban") & filters.group)
@@ -101,8 +121,15 @@ async def unban_handler(client: Client, message: Message, target_user: User) -> 
         await message.reply(
             await at(message.chat.id, "ban.unban_success", mention=target_user.mention)
         )
-    except Exception:
-        pass
+    except ChatAdminRequired:
+        await message.reply(await at(message.chat.id, "error.bot_not_admin"))
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await unban_handler(client, message, target_user)
+    except (BadRequest, Forbidden, RPCError) as e:
+        logger.warning(f"Unban error in {message.chat.id}: {e}")
+    except Exception as e:
+        logger.exception(f"Unexpected unban error: {e}")
 
 
 @bot.on_message(filters.command("kick") & filters.group)
@@ -139,8 +166,17 @@ async def kick_handler(client: Client, message: Message, target_user: User) -> N
         )
         await log_action(ctx, message.chat.id, message.from_user.id, target_user.id, "kick")
         await message.reply(await at(message.chat.id, "kick.success", mention=target_user.mention))
-    except Exception:
-        pass
+    except ChatAdminRequired:
+        await message.reply(await at(message.chat.id, "error.bot_not_admin"))
+    except UserNotParticipant:
+        await message.reply(await at(message.chat.id, "error.user_not_found"))
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await kick_handler(client, message, target_user)
+    except (BadRequest, Forbidden, RPCError) as e:
+        logger.warning(f"Kick error in {message.chat.id}: {e}")
+    except Exception as e:
+        logger.exception(f"Unexpected kick error: {e}")
 
 
 @bot.on_message(filters.command("mute") & filters.group)
@@ -172,8 +208,17 @@ async def mute_handler(client: Client, message: Message, target_user: User) -> N
         await client.restrict_chat_member(message.chat.id, target_user.id, RESTRICTED_PERMISSIONS)
         await log_action(ctx, message.chat.id, message.from_user.id, target_user.id, "mute")
         await message.reply(await at(message.chat.id, "mute.success", mention=target_user.mention))
-    except Exception:
-        pass
+    except ChatAdminRequired:
+        await message.reply(await at(message.chat.id, "error.bot_not_admin"))
+    except UserNotParticipant:
+        await message.reply(await at(message.chat.id, "error.user_not_found"))
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await mute_handler(client, message, target_user)
+    except (BadRequest, Forbidden, RPCError) as e:
+        logger.warning(f"Mute error in {message.chat.id}: {e}")
+    except Exception as e:
+        logger.exception(f"Unexpected mute error: {e}")
 
 
 @bot.on_message(filters.command("unmute") & filters.group)
@@ -211,8 +256,15 @@ async def unmute_handler(client: Client, message: Message, target_user: User) ->
         await message.reply(
             await at(message.chat.id, "mute.unmute_success", mention=target_user.mention)
         )
-    except Exception:
-        pass
+    except ChatAdminRequired:
+        await message.reply(await at(message.chat.id, "error.bot_not_admin"))
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await unmute_handler(client, message, target_user)
+    except (BadRequest, Forbidden, RPCError) as e:
+        logger.warning(f"Unmute error in {message.chat.id}: {e}")
+    except Exception as e:
+        logger.exception(f"Unexpected unmute error: {e}")
 
 
 @bot.on_message(filters.command("tban") & filters.group)
@@ -273,8 +325,17 @@ async def tban_handler(client: Client, message: Message, target_user: User) -> N
                 message.chat.id, "tban.success", mention=target_user.mention, duration=delay_str
             )
         )
-    except Exception:
-        pass
+    except ChatAdminRequired:
+        await message.reply(await at(message.chat.id, "error.bot_not_admin"))
+    except UserNotParticipant:
+        await message.reply(await at(message.chat.id, "error.user_not_found"))
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await tban_handler(client, message, target_user)
+    except (BadRequest, Forbidden, RPCError) as e:
+        logger.warning(f"Tban error in {message.chat.id}: {e}")
+    except Exception as e:
+        logger.exception(f"Unexpected tban error: {e}")
 
 
 @bot.on_message(filters.command("tmute") & filters.group)
@@ -335,8 +396,17 @@ async def tmute_handler(client: Client, message: Message, target_user: User) -> 
                 message.chat.id, "tmute.success", mention=target_user.mention, duration=delay_str
             )
         )
-    except Exception:
-        pass
+    except ChatAdminRequired:
+        await message.reply(await at(message.chat.id, "error.bot_not_admin"))
+    except UserNotParticipant:
+        await message.reply(await at(message.chat.id, "error.user_not_found"))
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await tmute_handler(client, message, target_user)
+    except (BadRequest, Forbidden, RPCError) as e:
+        logger.warning(f"Tmute error in {message.chat.id}: {e}")
+    except Exception as e:
+        logger.exception(f"Unexpected tmute error: {e}")
 
 
 register(BansPlugin())

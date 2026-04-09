@@ -50,7 +50,6 @@ class TelegramFormatter:
             "has_media_spoiler": False,
         }
 
-        # 1. Handle special modifiers
         kwargs["text"] = kwargs["text"].replace("{nonotif}", "")
         if "{nonotif}" in text:
             kwargs["disable_notification"] = True
@@ -72,7 +71,6 @@ class TelegramFormatter:
         elif "{preview}" in text:
             kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=False)
 
-        # 2. Handle Fillings
         if user:
             kwargs["text"] = (
                 kwargs["text"]
@@ -96,7 +94,6 @@ class TelegramFormatter:
 
         buttons: list[tuple[str, str, bool]] = []
 
-        # Parse {rules} and {rules:same}
         if "{rules:same}" in kwargs["text"]:
             kwargs["text"] = kwargs["text"].replace("{rules:same}", "")
             buttons.append(
@@ -119,16 +116,14 @@ class TelegramFormatter:
 
         for match in btn_pattern.finditer(kwargs["text"]):
             btn_text = match.group(1)
-            btn_style_str = match.group(2)  # may be None
+            btn_style_str = match.group(2)
             btn_url = match.group(3)
             is_same = bool(match.group(4))
             btn_style = _style_map.get(btn_style_str) if btn_style_str else None
 
-            # Handle deep link to note (includes chat_id so bot knows which chat to look up)
             if btn_url.startswith("#"):
                 note_name = btn_url[1:]
                 btn_url = f"https://t.me/{bot_username}?start=note_{chat_id}_{note_name}"
-            # Ensure proper URL formatting
             elif (
                 not btn_url.startswith("http://")
                 and not btn_url.startswith("https://")
@@ -138,10 +133,8 @@ class TelegramFormatter:
 
             buttons.append((btn_text, btn_url, is_same, btn_style))
 
-        # Remove matched buttons from text
         kwargs["text"] = btn_pattern.sub("", kwargs["text"]).strip()
 
-        # Build Keyboard
         if buttons:
             keyboard = []
             for text_lbl, url, same, style in buttons:

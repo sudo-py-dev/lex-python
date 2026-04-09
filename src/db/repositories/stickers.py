@@ -12,7 +12,7 @@ async def add_blocked_sticker_set(ctx: AppContext, chat_id: int, set_name: str) 
         )
         result = await session.execute(stmt)
         if result.scalars().first():
-            return False  # Already blocked
+            return False
 
         session.add(StickerBlock(chatId=chat_id, setName=set_name))
         await session.commit()

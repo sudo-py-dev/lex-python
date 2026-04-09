@@ -187,7 +187,6 @@ def apply_video_watermark(
     palette = {
         "white": "white",
         "black": "black",
-        # Use ffmpeg-safe hex format (0xRRGGBB) instead of #RRGGBB.
         "red": "0xff3c3c",
         "blue": "0x50a0ff",
         "gold": "0xffc83c",

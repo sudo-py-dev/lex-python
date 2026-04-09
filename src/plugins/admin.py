@@ -375,12 +375,9 @@ async def info_handler(client: Client, message: Message, target_user: User) -> N
     if not message.chat:
         return
 
-    # Localization helpers
     not_set = await at(message.chat.id, "common.not_set")
     yes = await at(message.chat.id, "common.yes")
     no = await at(message.chat.id, "common.no")
-
-    # Data normalization
     username = f"@{target_user.username}" if target_user.username else not_set
     last_name = target_user.last_name or not_set
     is_bot = yes if target_user.is_bot else no

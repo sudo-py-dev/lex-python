@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import time
 from collections.abc import Awaitable, Callable
@@ -10,6 +11,14 @@ from typing import Any
 from loguru import logger
 from pyrogram import Client, ContinuePropagation, StopPropagation
 from pyrogram.enums import ChatType
+from pyrogram.errors import (
+    FloodWait,
+    PeerIdInvalid,
+    RPCError,
+    UserIdInvalid,
+    UsernameInvalid,
+    UsernameNotOccupied,
+)
 from pyrogram.types import CallbackQuery, Message
 
 from src.utils.i18n import at
@@ -93,7 +102,18 @@ def resolve_target(func: Handler) -> Handler:
                     if cmd_arg.isdigit() or (cmd_arg.startswith("-") and cmd_arg[1:].isdigit()):
                         cmd_arg = int(cmd_arg)
                     target_user = await client.get_users(cmd_arg)
-                except Exception:
+                except (UsernameInvalid, UsernameNotOccupied, PeerIdInvalid, UserIdInvalid):
+                    await message.reply(await at(message.chat.id, "error.resolve_user_failed"))
+                    return
+                except FloodWait as e:
+                    await asyncio.sleep(e.value + 1)
+                    return await wrapper(client, message, **kwargs)
+                except RPCError as e:
+                    logger.error(f"RPC Error in resolve_target: {e}")
+                    await message.reply(await at(message.chat.id, "error.resolve_user_failed"))
+                    return
+                except Exception as e:
+                    logger.exception(f"Unexpected error in resolve_target: {e}")
                     await message.reply(await at(message.chat.id, "error.resolve_user_failed"))
                     return
 

@@ -16,7 +16,6 @@ async def add_allowed_channel(ctx: AppContext, chat_id: int, channel_id: int) ->
         if allowed:
             return allowed
 
-        # Check limit
         count_stmt = (
             select(func.count()).select_from(AllowedChannel).where(AllowedChannel.chatId == chat_id)
         )

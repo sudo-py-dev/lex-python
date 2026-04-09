@@ -728,7 +728,9 @@
   "donate.crypto_btn": "Crypto (BTC/ETH)",
   "donate.back_btn": "Back",
   "donate.stars_select_text": "Select the amount of stars you wish to contribute:",
+  "donate.admin_notify": "🎉 **New Donation Received!**\n\n👤 **From:** {mention}\n💰 **Amount:** {amount} {currency}\n📦 **Payload:** `{payload}`",
   "donate.stars_amount": "{amount} Stars",
   "donate.invoice_title": "Support {bot_name}",
-  "donate.invoice_desc": "A contribution of {amount} stars to support development."
+  "donate.invoice_desc": "A contribution of {amount} stars to support development.",
+  "donate.thanks": "Thank you for your generous donation of {amount} {currency}! Your support is greatly appreciated. 💖"
 }

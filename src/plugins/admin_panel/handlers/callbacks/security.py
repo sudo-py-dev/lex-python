@@ -1,7 +1,9 @@
+import asyncio
 import contextlib
 
+from loguru import logger
 from pyrogram import Client, ContinuePropagation, filters
-from pyrogram.errors import MessageNotModified
+from pyrogram.errors import FloodWait, MessageNotModified, QueryIdInvalid, RPCError
 from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
@@ -32,18 +34,28 @@ async def on_flood_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     status = await at(
         at_id, "panel.status_enabled" if s.floodThreshold > 0 else "panel.status_disabled"
     )
-    await callback.message.edit_text(
-        await at(
-            at_id,
-            "panel.flood_text",
-            status=status,
-            threshold=s.floodThreshold,
-            window=s.floodWindow,
-            action=await at(at_id, f"action.{s.floodAction.lower()}"),
-        ),
-        reply_markup=kb,
-    )
-    await callback.answer()
+    try:
+        await callback.message.edit_text(
+            await at(
+                at_id,
+                "panel.flood_text",
+                status=status,
+                threshold=s.floodThreshold,
+                window=s.floodWindow,
+                action=await at(at_id, f"action.{s.floodAction.lower()}"),
+            ),
+            reply_markup=kb,
+        )
+    except MessageNotModified:
+        pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await on_flood_panel(_, callback, ap_ctx)
+    except (RPCError, Exception) as e:
+        logger.debug(f"Flood panel UI update failed: {e}")
+
+    with contextlib.suppress(QueryIdInvalid):
+        await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:raid$"))
@@ -54,20 +66,30 @@ async def on_raid_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
     s = await get_chat_settings(ap_ctx.ctx, chat_id)
     kb = await raid_kb(ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
     status = await at(at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled")
-    await callback.message.edit_text(
-        await at(
-            at_id,
-            "panel.raid_text",
-            status=status,
-            threshold=s.raidThreshold,
-            window=s.raidWindow,
-            time=s.raidTime,
-            actiontime=s.raidActionTime,
-            action=await at(at_id, f"action.{s.raidAction.lower()}"),
-        ),
-        reply_markup=kb,
-    )
-    await callback.answer()
+    try:
+        await callback.message.edit_text(
+            await at(
+                at_id,
+                "panel.raid_text",
+                status=status,
+                threshold=s.raidThreshold,
+                window=s.raidWindow,
+                time=s.raidTime,
+                actiontime=s.raidActionTime,
+                action=await at(at_id, f"action.{s.raidAction.lower()}"),
+            ),
+            reply_markup=kb,
+        )
+    except MessageNotModified:
+        pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await on_raid_panel(_, callback, ap_ctx)
+    except (RPCError, Exception) as e:
+        logger.debug(f"Raid panel UI update failed: {e}")
+
+    with contextlib.suppress(QueryIdInvalid):
+        await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:captcha$"))
@@ -241,7 +263,6 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
-    from loguru import logger
 
     logger.debug(f"on_cycle_raid_action triggered for chat {chat_id}")
 
@@ -258,7 +279,6 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
         logger.info(f"Raid action cycle: {chat_id} | {old_action} -> {next_action}")
         await update_chat_setting(ctx, chat_id, "raidAction", next_action)
 
-        # Re-fetch for UI to ensure we have the absolute latest state
         s = await get_chat_settings(ctx, chat_id)
         kb = await raid_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
         status = await at(
@@ -279,12 +299,17 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
         with contextlib.suppress(MessageNotModified):
             await callback.message.edit_text(text, reply_markup=kb)
 
+    except QueryIdInvalid:
+        pass
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+        return await on_cycle_raid_action(_, callback, ap_ctx)
     except Exception as e:
         logger.exception(f"CRITICAL ERROR in on_cycle_raid_action for chat {chat_id}: {e}")
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(QueryIdInvalid):
             await callback.answer(f"UI Error: {e}", show_alert=True)
     finally:
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(QueryIdInvalid):
             await callback.answer()
 
 

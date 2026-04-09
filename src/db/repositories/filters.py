@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 
 from src.core.context import AppContext
 from src.db.models import Filter
@@ -22,9 +22,6 @@ async def add_filter(
         if filter_obj:
             raise ValueError("filter_already_exists")
         else:
-            # Check limit
-            from sqlalchemy import func
-
             count_stmt = select(func.count()).select_from(Filter).where(Filter.chatId == chat_id)
             count_result = await session.execute(count_stmt)
             count = count_result.scalar()
@@ -100,8 +97,6 @@ async def remove_filter_by_id(ctx: AppContext, filter_id: int) -> bool:
 async def remove_all_filters(ctx: AppContext, chat_id: int) -> int:
     """Remove all filters from a chat. Returns the number of removed filters."""
     async with ctx.db() as session:
-        from sqlalchemy import delete
-
         stmt = delete(Filter).where(Filter.chatId == chat_id)
         result = await session.execute(stmt)
         await session.commit()
@@ -135,8 +130,6 @@ async def get_filters_paginated(
 async def get_filters_count(ctx: AppContext, chat_id: int) -> int:
     """Get the total count of filters for a specific chat."""
     async with ctx.db() as session:
-        from sqlalchemy import func
-
         stmt = select(func.count()).where(Filter.chatId == chat_id)
         result = await session.execute(stmt)
         return result.scalar() or 0

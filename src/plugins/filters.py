@@ -258,7 +258,6 @@ async def filter_keyword_handler(client: Client, message: Message) -> None:
     r = get_cache()
     await r.set(f"temp_filter_kw:{user_id}", keyword, ttl=300)
 
-    # Arm capture for response
     await capture_next_input(user_id, chat_id, "filterResponse", prompt_msg_id, page)
 
     prompt_text = await at(user_id, "panel.input_prompt_filterResponse", keyword=keyword)
@@ -305,7 +304,6 @@ async def filter_response_handler(client: Client, message: Message) -> None:
     data = await extract_message_data(message)
     await r.set(f"temp_filter_resp:{user_id}", json.dumps(data), ttl=600)
 
-    # Default settings
     settings = {"matchMode": "contains", "caseSensitive": False, "isAdminOnly": False}
     await r.set(f"temp_filter_settings:{user_id}", json.dumps(settings), ttl=600)
 

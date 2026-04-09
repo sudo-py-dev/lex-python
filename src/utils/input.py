@@ -1,8 +1,15 @@
+import asyncio
 import contextlib
 import json
 
 from loguru import logger
 from pyrogram import filters
+from pyrogram.errors import (
+    FloodWait,
+    MessageIdInvalid,
+    MessageNotModified,
+    RPCError,
+)
 from pyrogram.types import (
     InlineKeyboardMarkup,
     LinkPreviewOptions,
@@ -69,7 +76,6 @@ def is_waiting_for_input(fields: str | list[str] | None = None):
         message.input_state = state
         return True
 
-    # Use a cleaner filter_id based on fields instead of id(func) which changes every time
     filter_id = (
         f"input_{fields}"
         if isinstance(fields, str)
@@ -117,24 +123,17 @@ async def finalize_input_capture(
     4. Remove the capture state from cache.
     """
 
-    # 1. Cleanup user message
-    with contextlib.suppress(Exception):
+    with contextlib.suppress(MessageIdInvalid, RPCError):
         await message.delete()
 
-    # 2. Cleanup capture state
     r = get_cache()
     await r.delete(f"panel_input:{user_id}")
     logger.debug(f"Finalize: Cache cleared for user {user_id}")
 
-    # 3. Handle success notification
     if success_text:
         with contextlib.suppress(Exception):
-            # Since we are answering a message input, we can't answer_callback_query.
-            # We can either send a brief reply or just rely on the UI edit.
-            # For now, let's keep it quiet to keep the chat clean, or use a reply if preferred.
             pass
 
-    # 4. Update UI
     link_preview = LinkPreviewOptions(is_disabled=True)
 
     if prompt_msg_id:
@@ -156,7 +155,18 @@ async def finalize_input_capture(
                     link_preview_options=link_preview,
                 )
                 logger.debug(f"Finalize: UI Sent (New) for user {user_id}")
-        except Exception as e:
+        except MessageNotModified:
+            pass
+        except MessageIdInvalid:
+            await client.send_message(
+                user_id, panel_text, reply_markup=kb, link_preview_options=link_preview
+            )
+        except FloodWait as e:
+            await asyncio.sleep(e.value + 1)
+            await finalize_input_capture(
+                client, message, user_id, prompt_msg_id, panel_text, kb, success_text
+            )
+        except (RPCError, Exception) as e:
             logger.debug(f"Finalize Error: UI update failed: {e}")
             await client.send_message(
                 user_id, panel_text, reply_markup=kb, link_preview_options=link_preview

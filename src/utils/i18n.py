@@ -55,9 +55,6 @@ async def at(chat_id: int | None, key: str, /, user_id: int | None = None, **kwa
     if chat_id is None and user_id is None:
         return t("en", key, **kwargs)
 
-    # In private chats, many call sites pass the user's id as chat_id.
-    # Treat positive chat ids as user context by default to ensure
-    # personal language preferences are respected.
     if user_id is None and chat_id is not None and chat_id > 0:
         user_id = chat_id
 

@@ -1,3 +1,5 @@
+import contextlib
+
 from pyrogram import Client, filters
 from pyrogram.types import (
     CallbackQuery,
@@ -5,6 +7,7 @@ from pyrogram.types import (
     InlineKeyboardMarkup,
     LabeledPrice,
     Message,
+    PreCheckoutQuery,
 )
 
 from src.config import config
@@ -109,7 +112,6 @@ async def donate_callback_handler(client: Client, callback_query: CallbackQuery)
         title = await at(chat_id, "donate.invoice_title", bot_name=config.BOT_NAME)
         description = await at(chat_id, "donate.invoice_desc", amount=amount)
 
-        # Invoices must be sent to private chats
         try:
             await client.send_invoice(
                 chat_id=user_id,
@@ -125,11 +127,42 @@ async def donate_callback_handler(client: Client, callback_query: CallbackQuery)
             await callback_query.answer(f"Error: {str(e)}", show_alert=True)
 
     elif data == "donate:crypto":
-        # Placeholder for crypto addresses
         await callback_query.answer(
             "Crypto support coming soon! Please use Telegram Stars for now.",
             show_alert=True,
         )
+
+
+@bot.on_pre_checkout_query()
+@safe_handler
+async def pre_checkout_handler(client: Client, query: PreCheckoutQuery) -> None:
+    """Approve checkout queries for Telegram Stars."""
+    await query.answer(ok=True)
+
+
+@bot.on_message(filters.successful_payment)
+@safe_handler
+async def successful_payment_handler(client: Client, message: Message) -> None:
+    """Handle successful donation payments and notify admin."""
+    payment = message.successful_payment
+    amount = payment.total_amount
+    currency = payment.currency
+
+    await message.reply(
+        await at(message.chat.id, "donate.thanks", amount=amount, currency=currency)
+    )
+
+    if config.OWNER_ID:
+        with contextlib.suppress(Exception):
+            admin_msg = await at(
+                config.OWNER_ID,
+                "donate.admin_notify",
+                mention=message.from_user.mention,
+                amount=amount,
+                currency=currency,
+                payload=payment.invoice_payload,
+            )
+            await client.send_message(config.OWNER_ID, admin_msg)
 
 
 register(DonatePlugin())

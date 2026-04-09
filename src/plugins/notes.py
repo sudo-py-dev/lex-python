@@ -1,6 +1,8 @@
-import contextlib
+import asyncio
 
+from loguru import logger
 from pyrogram import Client, filters
+from pyrogram.errors import FloodWait, Forbidden, RPCError, UserIsBlocked
 from pyrogram.types import Message
 from sqlalchemy import func, select
 
@@ -132,7 +134,14 @@ async def get_note_handler(client: Client, message: Message) -> None:
             )
             await TelegramFormatter.send_parsed(client, message.from_user.id, parsed)
             await message.reply(await at(message.chat.id, "note.sent_dm"))
-        except Exception:
+        except UserIsBlocked:
+            await message.reply(await at(message.chat.id, "common.err_start_private"))
+        except FloodWait as e:
+            await asyncio.sleep(e.value + 1)
+            # Standard retry pattern not applicable here as it might double-reply send_parsed
+            pass
+        except (Forbidden, RPCError, Exception) as e:
+            logger.debug(f"Note DM failed: {e}")
             await message.reply(await at(message.chat.id, "common.err_start_private"))
     else:
         parsed = TelegramFormatter.parse_message(
@@ -187,7 +196,7 @@ async def hash_note_handler(client: Client, message: Message) -> None:
         return
 
     if note.isPrivate:
-        with contextlib.suppress(Exception):
+        try:
             parsed = TelegramFormatter.parse_message(
                 text=note.content,
                 user=message.from_user,
@@ -196,6 +205,8 @@ async def hash_note_handler(client: Client, message: Message) -> None:
                 bot_username=client.me.username,
             )
             await TelegramFormatter.send_parsed(client, message.from_user.id, parsed)
+        except (UserIsBlocked, Forbidden, RPCError, Exception):
+            pass
     else:
         parsed = TelegramFormatter.parse_message(
             text=note.content,

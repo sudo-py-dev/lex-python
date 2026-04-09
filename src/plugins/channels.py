@@ -623,7 +623,9 @@ class ChannelsPlugin(Plugin):
 channels_plugin = ChannelsPlugin()
 
 
-@bot.on_message(filters.channel & ~filters.forwarded & ~filters.service & ~filters.via_bot, group=-100)
+@bot.on_message(
+    filters.channel & ~filters.forwarded & ~filters.service & ~filters.via_bot, group=-100
+)
 async def channel_post_handler(client: Client, message: Message) -> None:
     """EntryPoint for channel posts: push to queue for sequential processing."""
     await channels_plugin.queue.put(message)

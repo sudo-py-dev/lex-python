@@ -3,7 +3,8 @@ import contextlib
 from datetime import datetime, timedelta
 
 from loguru import logger
-from pyrogram import Client
+from pyrogram import Client, ContinuePropagation, StopPropagation
+from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
 from pyrogram.types import Message
 
 from src.core.context import get_context
@@ -144,8 +145,21 @@ async def execute_moderation_action(
         asyncio.create_task(_delete_after(warn_msg, 10))
         return True
 
+    except (StopPropagation, ContinuePropagation):
+        raise
+    except FloodWait as e:
+        logger.warning(f"{log_tag} FloodWait: sleeping {e.value}s in {message.chat.id}")
+        await asyncio.sleep(e.value + 1)
+        # We don't retry here to avoid blocking; let the next update or manual retry handle it
+        return True
+    except (BadRequest, Forbidden) as e:
+        logger.warning(f"{log_tag} Permission/API Error in {message.chat.id}: {e}")
+        return True
+    except RPCError as e:
+        logger.error(f"{log_tag} Telegram API Error in {message.chat.id}: {e}")
+        return True
     except Exception:
-        logger.exception(f"{log_tag} Action Error in {message.chat.id}")
+        logger.exception(f"{log_tag} Unexpected Error in {message.chat.id}")
         return True
 
 

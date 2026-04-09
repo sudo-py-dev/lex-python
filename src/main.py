@@ -8,6 +8,14 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from loguru import logger
+from pyrogram.errors import (
+    AccessTokenExpired,
+    AccessTokenInvalid,
+    AuthKeyDuplicated,
+    AuthKeyInvalid,
+    AuthKeyUnregistered,
+    Unauthorized,
+)
 
 from src.cache.local_cache import get_cache
 from src.config import config
@@ -63,6 +71,18 @@ async def main() -> None:
             )
         else:
             logger.error(f"Database error: {e}")
+    except AuthKeyDuplicated:
+        logger.critical(
+            f"🚨 {config.BOT_NAME} startup failed: Auth key is duplicated. Make sure only one instance is using the session file."
+        )
+    except (AccessTokenInvalid, AccessTokenExpired):
+        logger.critical(
+            f"🚨 {config.BOT_NAME} startup failed: Bot token is invalid or expired. Check your .env file."
+        )
+    except (AuthKeyInvalid, AuthKeyUnregistered, Unauthorized) as e:
+        logger.critical(
+            f"🚨 {config.BOT_NAME} startup failed: Unauthorized ({e}). Try deleting the session file and logging in again."
+        )
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.warning(f"{config.BOT_NAME} is shutting down...")
     except Exception as e:

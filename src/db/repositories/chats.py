@@ -139,17 +139,13 @@ async def get_user_admin_chats(
         async with semaphore:
             chat_id = int(s.id)
             if await is_admin(client, chat_id, user_id):
-                # If we already have a title in the DB, use it to avoid expensive API calls.
                 if s.title:
                     results.append((chat_id, s.title))
                     return
-
-                # Fallback to fetching live data if title is missing.
                 try:
                     chat = await client.get_chat(chat_id)
                     title = chat.title or await at(user_id, "panel.unknown_chat", id=chat_id)
                     results.append((chat_id, title))
-                    # Update DB with current title and type for future requests.
                     await update_chat_title(ctx, chat_id, title)
                     if chat.type.name.lower() != s.chatType:
                         await update_chat_setting(ctx, chat_id, "chatType", chat.type.name.lower())

@@ -23,15 +23,11 @@ async def resolve_lang(
         except RuntimeError:
             return "en"
 
-    # 1. Try personal user preference (explicit "en" is valid too)
     if user_id:
         user_lang = await get_user_lang(ctx, user_id)
         if user_lang:
             return user_lang
-
-    # 2. Fallback to chat/group level
     if chat_id:
         return await get_chat_lang(ctx, chat_id)
 
-    # 3. Last fallback
     return "en"
