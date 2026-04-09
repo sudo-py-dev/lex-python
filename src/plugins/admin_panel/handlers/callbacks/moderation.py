@@ -118,6 +118,35 @@ async def on_cycle_blacklist_action(_: Client, callback: CallbackQuery, ap_ctx: 
         ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
     await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:toggle_blacklist_buttons:(\d+)$"))
+@admin_panel_context
+async def on_toggle_blacklist_buttons(
+    _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
+):
+    page = int(callback.matches[0].group(1))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    settings = await get_chat_settings(ap_ctx.ctx, chat_id)
+
+    new_val = not settings.blacklistScanButtons
+
+    await update_chat_setting(ap_ctx.ctx, chat_id, "blacklistScanButtons", new_val)
+    await callback.answer(
+        await at(
+            at_id,
+            "panel.blacklist_scan_buttons_updated",
+            status=await at(at_id, "panel.status_enabled" if new_val else "panel.status_disabled"),
+        ),
+        show_alert=True,
+    )
+
+    kb = await blacklist_kb(
+        ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle_langblock_action:(\d+):(\d+)$"))

@@ -318,6 +318,8 @@
   "panel.blacklist_not_found": "❌ Pattern not found.",
   "panel.blacklist_removed_success": "✅ Pattern removed from blacklist.",
   "panel.blacklist_text": "🚫 **Blacklist Settings**\nManage blocked patterns. Supports literal, wildcard (`*`), and regex (`re:`) matching.",
+  "panel.btn_blacklist_scan_buttons": "Scan Buttons: {status}",
+  "panel.blacklist_scan_buttons_updated": "Button scanning is now {status}.",
   "panel.btn_blacklist_blocks": "📦 Default Blocks",
   "panel.blacklist_blocks_text": "📦 **Default Bad Word Blocks**\nChoose a severity level to inject into your chat's blacklist. This will help you quickly set up protection against common offensive words.",
   "panel.btn_blacklist_level_low": "🟢 Low Severity",

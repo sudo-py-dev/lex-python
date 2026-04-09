@@ -2,13 +2,14 @@ import json
 
 from loguru import logger
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import InlineKeyboardMarkup, Message
 from sqlalchemy import select
 
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.models import BlockedEntity, ChatSettings
+from src.db.repositories.chats import get_chat_settings as get_settings
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
 from src.utils.moderation import execute_moderation_action, resolve_sender
@@ -179,6 +180,19 @@ async def entity_block_interceptor(client: Client, message: Message) -> None:
         if e_type_str in blocked_types:
             violated_block = blocked_types[e_type_str]
             break
+    
+    # Check buttons for URLs if "url" is blocked and button scanning is enabled
+    if not violated_block and "url" in blocked_types:
+        settings = await get_settings(ctx, message.chat.id)
+        if getattr(settings, "blacklistScanButtons", False) and message.reply_markup and isinstance(message.reply_markup, InlineKeyboardMarkup):
+            for row in message.reply_markup.inline_keyboard:
+                for button in row:
+                    if button.url:
+                        violated_block = blocked_types["url"]
+                        break
+                if violated_block:
+                    break
+
     if not violated_block:
         if message.poll and "poll" in blocked_types:
             violated_block = blocked_types["poll"]

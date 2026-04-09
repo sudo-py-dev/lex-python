@@ -263,6 +263,24 @@ async def blacklist_kb(
         ]
     )
 
+    kb.append(
+        [
+            InlineKeyboardButton(
+                await at(
+                    at_id,
+                    "panel.btn_blacklist_scan_buttons",
+                    status=await at(
+                        at_id,
+                        "panel.status_enabled"
+                        if settings.blacklistScanButtons
+                        else "panel.status_disabled",
+                    ),
+                ),
+                callback_data=f"panel:toggle_blacklist_buttons:{page}",
+            )
+        ]
+    )
+
     PAGE_SIZE = 8
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE

@@ -333,6 +333,8 @@
   "panel.blacklist_not_found": "❌ תבנית לא נמצאה.",
   "panel.blacklist_removed_success": "✅ תבנית הוסרה מהרשימה השחורה.",
   "panel.blacklist_text": "🚫 **הגדרות רשימה שחורה**\nנהל דפוסים חסומים. תומך בהתאמה מילולית, תווים כלליים (`*`) ו-Regex (`re:`).",
+  "panel.btn_blacklist_scan_buttons": "סריקת כפתורים: {status}",
+  "panel.blacklist_scan_buttons_updated": "סריקת כפתורים מוגדרת כעת כ-{status}.",
   "panel.btn_add_blacklist": "➕ הוסף תבנית",
   "panel.btn_add_entity": "➕ הוסף סוג",
   "panel.btn_add_filter": "➕ הוסף מסנן",

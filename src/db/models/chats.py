@@ -89,6 +89,9 @@ class ChatSettings(TimestampMixin, Base):
     urlScannerAction: Mapped[str] = mapped_column(
         String(50), default="delete", server_default=sa_text("'delete'")
     )
+    blacklistScanButtons: Mapped[bool] = mapped_column(
+        default=False, server_default=sa_text("false")
+    )
     isActive: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
 
     reactionsEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))

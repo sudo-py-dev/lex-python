@@ -3,7 +3,7 @@ import re
 
 from loguru import logger
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import InlineKeyboardMarkup, Message
 
 from src.core.bot import bot
 from src.core.context import get_context
@@ -178,7 +178,24 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
     if not blacklist:
         return
 
-    text = (message.text or message.caption).lower()
+    text = (message.text or message.caption or "").lower()
+
+    # Extract button content if enabled
+    settings = await get_settings(ctx, message.chat.id)
+    scan_buttons = getattr(settings, "blacklistScanButtons", False)
+
+    if (
+        scan_buttons
+        and message.reply_markup
+        and isinstance(message.reply_markup, InlineKeyboardMarkup)
+    ):
+        for row in message.reply_markup.inline_keyboard:
+            for button in row:
+                if button.text:
+                    text += f" {button.text.lower()}"
+                if button.url:
+                    text += f" {button.url.lower()}"
+
     triggered_blacklist = None
 
     for b in blacklist:
@@ -206,7 +223,6 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
             break
 
     if triggered_blacklist:
-        settings = await get_settings(ctx, message.chat.id)
         action = settings.blacklistAction.lower()
         reason = await at(message.chat.id, "blacklist.reason", pattern=triggered_blacklist.pattern)
 
