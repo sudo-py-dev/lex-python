@@ -429,7 +429,7 @@
   "panel.error_not_admin": "Bu grupta yönetici değilsiniz.",
   "panel.filter_options_header": "🛠 **Filtre Ayarları: `{keyword}`**\n\nAşağıdaki geçiş düğmelerini kullanarak bu filtrenin nasıl davranması gerektiğini yapılandırın:",
   "panel.filters_text": "📋 **Otomatik Yanıt Filtreleri**\nSSS'ler, kurallar ve hızlı yanıtlar için anahtar kelimeye dayalı akıllı yanıtlar oluşturun.\n\n💡 İpucu: \"/filter anahtar kelimesini\" kullanarak sohbet içinde de filtreler ekleyebilirsiniz.",
-  "panel.flood_text": "🌊 **Su Baskını Koruması**\nOtomatik işlem tetiklenmeden önce kaç hızlı mesaja izin verildiğini kontrol edin.",
+  "panel.flood_text": "🌊 **Su Baskını Koruması**\nOtomatik işlem tetiklenmeden önce kaç hızlı mesaja izin verildiğini kontrol edin.\n\n**Etkinleştirildi**: {status}\n**Eşik: {window} saniye başına**: {threshold} / {window} saniye başına {threshold} birleştirme\n**Eylem**: {action}",
   "panel.general_text": "⚙️ **Genel Ayarlar**\nGrubun günlük davranışını ve arayüz seçeneklerini özelleştirin.\n\n🌐 Dil\n👋 Hoş geldiniz/Hoşçakalın\n🧹 Servis temizliği",
   "panel.group_lang_set": "✅ Grup dili {lang} olarak ayarlandı!",
   "panel.groups_list_title": "👥 **Gruplarınız**\nDenetleme ve otomasyon ayarlarını yapılandırmak için bir grup seçin.",

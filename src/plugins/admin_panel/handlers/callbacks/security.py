@@ -16,11 +16,50 @@ from src.utils.i18n import at
 @bot.on_callback_query(filters.regex(r"^panel:flood$"))
 @admin_panel_context
 async def on_flood_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    s = await get_chat_settings(ap_ctx.ctx, chat_id)
     kb = await flood_kb(
-        ap_ctx.ctx, ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+        ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_text(await at(at_id, "panel.flood_text"), reply_markup=kb)
+    status = await at(
+        at_id, "panel.status_enabled" if s.floodThreshold > 0 else "panel.status_disabled"
+    )
+    await callback.message.edit_text(
+        await at(
+            at_id,
+            "panel.flood_text",
+            status=status,
+            threshold=s.floodThreshold,
+            window=s.floodWindow,
+            action=await at(at_id, f"action.{s.floodAction.lower()}"),
+        ),
+        reply_markup=kb,
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:raid$"))
+@admin_panel_context
+async def on_raid_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    s = await get_chat_settings(ap_ctx.ctx, chat_id)
+    kb = await raid_kb(ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
+    status = await at(
+        at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled"
+    )
+    await callback.message.edit_text(
+        await at(
+            at_id,
+            "panel.raid_text",
+            status=status,
+            threshold=s.raidThreshold,
+            window=s.raidWindow,
+            action=await at(at_id, f"action.{s.raidAction.lower()}"),
+        ),
+        reply_markup=kb,
+    )
     await callback.answer()
 
 
@@ -82,13 +121,39 @@ async def on_toggle_flood_action(_: Client, callback: CallbackQuery, ap_ctx: Adm
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
     async with ctx.db() as session:
-        settings = await get_chat_settings(ctx, chat_id)
-        next_action = {"mute": "kick", "kick": "ban", "ban": "mute"}[settings.floodAction]
+        from src.db.models import ChatSettings
+        settings = await session.get(ChatSettings, chat_id)
+        if not settings:
+            settings = ChatSettings(id=chat_id)
+            session.add(settings)
+            
+        # Cycle: mute -> kick -> ban -> mute
+        actions = ["mute", "kick", "ban"]
+        current = settings.floodAction.lower() if settings.floodAction else "mute"
+        if current in actions:
+            next_action = actions[(actions.index(current) + 1) % len(actions)]
+        else:
+            next_action = "mute"
+            
         settings.floodAction = next_action
-        session.add(settings)
         await session.commit()
+        # Refresh to get updated values for UI
+        await session.refresh(settings)
     kb = await flood_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    status = await at(
+        at_id, "panel.status_enabled" if settings.floodThreshold > 0 else "panel.status_disabled"
+    )
+    await callback.message.edit_text(
+        await at(
+            at_id,
+            "panel.flood_text",
+            status=status,
+            threshold=settings.floodThreshold,
+            window=settings.floodWindow,
+            action=await at(at_id, f"action.{settings.floodAction.lower()}"),
+        ),
+        reply_markup=kb,
+    )
     await callback.answer(
         await at(at_id, "panel.action_updated", action=await at(at_id, f"action.{next_action}"))
     )
@@ -171,11 +236,20 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
     async with ctx.db() as session:
-        s = await get_chat_settings(ctx, chat_id)
-        nxt = {"lock": "kick", "kick": "ban", "ban": "lock"}[s.raidAction]
+        from src.db.models import ChatSettings
+        s = await session.get(ChatSettings, chat_id)
+        if not s:
+            s = ChatSettings(id=chat_id)
+            session.add(s)
+
+        # Cycle: lock -> kick -> ban -> lock
+        actions = ["lock", "kick", "ban"]
+        current = s.raidAction.lower() if s.raidAction else "lock"
+        nxt = actions[(actions.index(current) + 1) % len(actions)] if current in actions else "lock"
+            
         s.raidAction = nxt
-        session.add(s)
         await session.commit()
+        await session.refresh(s)
     kb = await raid_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
     status = await at(at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled")
     await callback.message.edit_text(
@@ -233,13 +307,23 @@ async def on_cycle_url_scanner_action(
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
     async with ctx.db() as session:
-        s = await get_chat_settings(ctx, chat_id)
-        nxt = {"delete": "warn", "warn": "mute", "mute": "kick", "kick": "ban", "ban": "delete"}[
-            s.urlScannerAction
-        ]
+        from src.db.models import ChatSettings
+        s = await session.get(ChatSettings, chat_id)
+        if not s:
+            s = ChatSettings(id=chat_id)
+            session.add(s)
+            
+        # Cycle: delete -> warn -> mute -> kick -> ban -> delete
+        actions = ["delete", "warn", "mute", "kick", "ban"]
+        current = s.urlScannerAction.lower() if s.urlScannerAction else "delete"
+        if current in actions:
+            nxt = actions[(actions.index(current) + 1) % len(actions)]
+        else:
+            nxt = "delete"
+            
         s.urlScannerAction = nxt
-        session.add(s)
         await session.commit()
+        await session.refresh(s)
     kb = await url_scanner_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
     status = await at(
         at_id, "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled"

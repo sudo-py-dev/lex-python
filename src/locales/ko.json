@@ -429,7 +429,7 @@
   "panel.error_not_admin": "귀하는 해당 그룹의 관리자가 아닙니다.",
   "panel.filter_options_header": "🛠 **필터 설정: `{keyword}`**\n\n아래 토글을 사용하여 이 필터가 어떻게 작동해야 하는지 구성하십시오:",
   "panel.filters_text": "📋 **자동 응답 필터**\nFAQ, 규칙, 빠른 답변을 위한 스마트 키워드 기반 응답을 만드세요.\n\n💡 팁: `/filter 키워드`를 사용하여 채팅에 필터를 추가할 수도 있습니다.",
-  "panel.flood_text": "🌊 **홍수 예방**\n자동 작업이 트리거되기 전에 허용되는 빠른 메시지 수를 제어합니다.",
+  "panel.flood_text": "🌊 **홍수 예방**\n자동 작업이 트리거되기 전에 허용되는 빠른 메시지 수를 제어합니다.\n\n**활성화됨**: {status}\n**임계값: {window}당**: {threshold} / {window}당 {threshold}개의 조인\n**조치**: {action}",
   "panel.general_text": "⚙️ **일반 설정**\n그룹의 일일 행동과 인터페이스 옵션을 맞춤설정하세요.\n\n🌐 언어\n👋 환영합니다/안녕하세요\n🧹 서비스 정리",
   "panel.group_lang_set": "✅ 그룹 언어가 {lang}로 설정되었습니다!",
   "panel.groups_list_title": "👥 **귀하의 그룹**\n중재 및 자동화 설정을 구성할 그룹을 선택하세요.",

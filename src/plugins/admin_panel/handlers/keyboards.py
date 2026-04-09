@@ -318,7 +318,11 @@ async def flood_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeybo
             ],
             [
                 InlineKeyboardButton(
-                    await at(at_id, "common.btn_action", action=settings.floodAction.capitalize()),
+                    await at(
+                        at_id,
+                        "common.btn_action",
+                        action=await at(at_id, f"action.{settings.floodAction.lower()}"),
+                    ),
                     callback_data="panel:toggle_flood_action",
                 ),
             ],

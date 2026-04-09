@@ -429,7 +429,7 @@
   "panel.error_not_admin": "U bent geen beheerder in die groep.",
   "panel.filter_options_header": "🛠 **Filterinstellingen: `{keyword}`**\n\nConfigureer hoe dit filter zich moet gedragen met behulp van de onderstaande schakelaars:",
   "panel.filters_text": "📋 **Automatische antwoordfilters**\nCreëer slimme, op trefwoorden gebaseerde reacties voor veelgestelde vragen, regels en snelle antwoorden.\n\n💡 Tip: je kunt in de chat ook filters toevoegen met `/filter trefwoord`.",
-  "panel.flood_text": "🌊 **Bescherming tegen overstromingen**\nBepaal hoeveel snelle berichten zijn toegestaan voordat automatische actie wordt geactiveerd.",
+  "panel.flood_text": "🌊 **Bescherming tegen overstromingen**\nBepaal hoeveel snelle berichten zijn toegestaan voordat automatische actie wordt geactiveerd.\n\n**Ingeschakeld**: {status}\n**Drempel**: {threshold} / {window}s\n**Actie**: {action}",
   "panel.general_text": "⚙️ **Algemene instellingen**\nPas het dagelijkse gedrag en de interface-opties van de groep aan.\n\n🌐 Taal\n👋 Welkom/tot ziens\n🧹 Dienstopruiming",
   "panel.group_lang_set": "✅ Groepstaal ingesteld op {lang}!",
   "panel.groups_list_title": "👥 **Jouw groepen**\nSelecteer een groep om de moderatie- en automatiseringsinstellingen te configureren.",

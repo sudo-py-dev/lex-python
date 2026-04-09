@@ -429,7 +429,7 @@
   "panel.error_not_admin": "Sie sind kein Administrator in dieser Gruppe.",
   "panel.filter_options_header": "🛠 **Filtereinstellungen: `{keyword}`**\n\nKonfigurieren Sie mit den folgenden Schaltern, wie sich dieser Filter verhalten soll:",
   "panel.filters_text": "📋 **Automatische Antwortfilter**\nErstellen Sie intelligente, schlüsselwortbasierte Antworten für FAQs, Regeln und Schnellantworten.\n\n💡 Tipp: Sie können im Chat auch Filter hinzufügen, indem Sie „/filter keyword“ verwenden.",
-  "panel.flood_text": "🌊 **Hochwasserschutz**\nSteuern Sie, wie viele schnelle Nachrichten zulässig sind, bevor eine automatische Aktion ausgelöst wird.",
+  "panel.flood_text": "🌊 **Hochwasserschutz**\nSteuern Sie, wie viele schnelle Nachrichten zulässig sind, bevor eine automatische Aktion ausgelöst wird.\n\n**Aktiviert**: {status}\n**Schwellenwert**: {threshold} / {window}s\n**Aktion**: {action}",
   "panel.general_text": "⚙️ **Allgemeine Einstellungen**\nPassen Sie das tägliche Verhalten und die Schnittstellenoptionen der Gruppe an.\n\n🌐 Sprache\n👋 Willkommen/Auf Wiedersehen\n🧹 Service-Bereinigung",
   "panel.group_lang_set": "✅ Gruppensprache auf {lang} eingestellt!",
   "panel.groups_list_title": "👥 **Deine Gruppen**\nWählen Sie eine Gruppe aus, um deren Moderations- und Automatisierungseinstellungen zu konfigurieren.",

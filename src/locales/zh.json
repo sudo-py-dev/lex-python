@@ -429,7 +429,7 @@
   "panel.error_not_admin": "您不是该组的管理员。",
   "panel.filter_options_header": "🛠 **过滤器设置：`{keyword}`**\n\n使用以下开关配置此过滤器的行为方式：",
   "panel.filters_text": "📋 **自动回复过滤器**\n为常见问题解答、规则和快速回复创建基于关键字的智能响应。\n\n💡提示：您还可以使用“/filter keywords”在聊天中添加过滤器。",
-  "panel.flood_text": "🌊 **防洪**\n控制在触发自动操作之前允许的快速消息数量。",
+  "panel.flood_text": "🌊 **防洪**\n控制在触发自动操作之前允许的快速消息数量。\n\n**启用**：{status}\n**阈值：每 {window} 秒加入**：{threshold} / {window} 秒加入 {threshold} 次\n**行动**：{action}",
   "panel.general_text": "⚙️ **常规设置**\n自定义群组的日常行为和界面选项。\n\n🌐 语言\n👋 欢迎/再见\n🧹 服务清理",
   "panel.group_lang_set": "✅ 群组语言设置为 {lang}！",
   "panel.groups_list_title": "👥 **您的群组**\n选择一个组来配置其审核和自动化设置。",

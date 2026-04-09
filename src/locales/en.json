@@ -430,7 +430,7 @@
   "panel.error_not_admin": "You are not an admin in that group.",
   "panel.filter_options_header": "🛠 **Filter Settings: `{keyword}`**\n\nConfigure how this filter should behave using the toggles below:",
   "panel.filters_text": "📋 **Auto-Reply Filters**\nCreate smart keyword-based responses for FAQs, rules, and quick replies.\n\n💡 Tip: You can also add filters in-chat using `/filter keyword`.",
-  "panel.flood_text": "🌊 **Flood Protection**\nControl how many rapid messages are allowed before automatic action is triggered.",
+  "panel.flood_text": "🌊 **Flood Protection**\nControl how many rapid messages are allowed before automatic action is triggered.\n\n**Enabled**: {status}\n**Threshold**: {threshold} / {window}s\n**Action**: {action}",
   "panel.general_text": "⚙️ **General Settings**\nCustomize the group's daily behavior and interface options.\n\n🌐 Language\n👋 Welcome/Goodbye\n🧹 Service cleanup",
   "panel.group_lang_set": "✅ Group language set to {lang}!",
   "panel.groups_list_title": "👥 **Your Groups**\nSelect a group to configure its moderation and automation settings.",

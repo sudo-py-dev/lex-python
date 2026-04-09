@@ -35,7 +35,7 @@ async def raid_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboa
             [
                 InlineKeyboardButton(
                     await at(
-                        chat_id,
+                        at_id,
                         "common.btn_action",
                         action=await at(at_id, f"action.{settings.raidAction.lower()}"),
                     ),

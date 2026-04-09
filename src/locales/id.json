@@ -429,7 +429,7 @@
   "panel.error_not_admin": "Anda bukan admin di grup itu.",
   "panel.filter_options_header": "🛠 **Pengaturan Filter: `{keyword}`**\n\nKonfigurasikan perilaku filter ini menggunakan tombol di bawah:",
   "panel.filters_text": "📋 **Filter Balasan Otomatis**\nBuat tanggapan cerdas berbasis kata kunci untuk FAQ, aturan, dan balasan cepat.\n\n💡 Tip: Anda juga dapat menambahkan filter dalam obrolan menggunakan `/kata kunci filter`.",
-  "panel.flood_text": "🌊 **Perlindungan Banjir**\nKontrol berapa banyak pesan cepat yang diizinkan sebelum tindakan otomatis dipicu.",
+  "panel.flood_text": "🌊 **Perlindungan Banjir**\nKontrol berapa banyak pesan cepat yang diizinkan sebelum tindakan otomatis dipicu.\n\n**Diaktifkan**: {status}\n**Ambang batas**: {threshold} / {window}dtk\n**Tindakan**: {action}",
   "panel.general_text": "⚙️ **Pengaturan Umum**\nSesuaikan perilaku harian grup dan opsi antarmuka.\n\n🌐 Bahasa\n👋 Selamat datang/Selamat tinggal\n🧹 Pembersihan layanan",
   "panel.group_lang_set": "✅ Bahasa grup disetel ke {lang}!",
   "panel.groups_list_title": "👥 **Grup Anda**\nPilih grup untuk mengonfigurasi pengaturan moderasi dan otomatisasinya.",
