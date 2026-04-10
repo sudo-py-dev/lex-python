@@ -148,6 +148,12 @@ class ChatCleaner(Base):
     cleanDeleted: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     cleanFake: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     cleanInactiveDays: Mapped[int] = mapped_column(default=0, server_default=sa_text("0"))
+    cleanerRunTime: Mapped[str] = mapped_column(
+        String(5), default="04:00", server_default=sa_text("'04:00'")
+    )
+    cleanerTimeChangedAt: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     lastRunDate: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     updatedAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

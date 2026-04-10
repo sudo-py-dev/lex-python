@@ -64,6 +64,7 @@ async def on_panel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
             "chatnightlockStart": "panel:chatnightlock",
             "chatnightlockEnd": "panel:chatnightlock",
             "cleanerInactive": "panel:cleaner",
+            "cleanerRunTime": "panel:cleaner",
             "purgeMessagesCount": "panel:category:moderation",
         }
         if field.startswith("ai"):

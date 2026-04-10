@@ -50,7 +50,7 @@ class SchedulerManager:
             cleaners = await SchedulerRepository.get_active_group_cleaners(ctx)
             for cleaner in cleaners:
                 tz = tz_map.get(cleaner.chatId, "UTC")
-                cls.schedule_cleaner(ctx, cleaner.chatId, tz)
+                cls.schedule_cleaner(ctx, cleaner.chatId, tz, cleaner.cleanerRunTime)
 
             logger.info("Scheduler: Successfully synced all jobs.")
         except Exception as e:
@@ -73,7 +73,7 @@ class SchedulerManager:
             cls.schedule_night_lock(ctx, chat_id, night_lock.startTime, night_lock.endTime, tz)
 
         if cleaner:
-            cls.schedule_cleaner(ctx, chat_id, tz)
+            cls.schedule_cleaner(ctx, chat_id, tz, cleaner.cleanerRunTime)
 
     @classmethod
     def schedule_timed_action(
@@ -153,13 +153,18 @@ class SchedulerManager:
             logger.error("Scheduler: Failed to schedule night lock for {}: {}", chat_id, e)
 
     @classmethod
-    def schedule_cleaner(cls, ctx: AppContext, chat_id: int, tz: str) -> None:
+    def schedule_cleaner(
+        cls, ctx: AppContext, chat_id: int, tz: str, run_time: str | None = None
+    ) -> None:
+        hour, minute = cls._parse_time(run_time) if run_time else (4, 0)
+        if hour is None:
+            hour, minute = 4, 0
         try:
             ctx.scheduler.add_job(
                 run_group_cleaner,
                 trigger="cron",
-                hour=4,
-                minute=0,
+                hour=hour,
+                minute=minute,
                 args=[chat_id],
                 id=f"cleaner:{chat_id}",
                 replace_existing=True,

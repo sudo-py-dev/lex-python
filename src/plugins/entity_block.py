@@ -180,11 +180,14 @@ async def entity_block_interceptor(client: Client, message: Message) -> None:
         if e_type_str in blocked_types:
             violated_block = blocked_types[e_type_str]
             break
-    
-    # Check buttons for URLs if "url" is blocked and button scanning is enabled
+
     if not violated_block and "url" in blocked_types:
         settings = await get_settings(ctx, message.chat.id)
-        if getattr(settings, "blacklistScanButtons", False) and message.reply_markup and isinstance(message.reply_markup, InlineKeyboardMarkup):
+        if (
+            getattr(settings, "blacklistScanButtons", False)
+            and message.reply_markup
+            and isinstance(message.reply_markup, InlineKeyboardMarkup)
+        ):
             for row in message.reply_markup.inline_keyboard:
                 for button in row:
                     if button.url:

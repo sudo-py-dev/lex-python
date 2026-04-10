@@ -763,7 +763,11 @@ async def cleaner_menu_kb(ctx, chat_id: int, user_id: int | None = None) -> Inli
                 InlineKeyboardButton(
                     await at(at_id, "panel.btn_clean_inactive", days=cleaner.cleanInactiveDays),
                     callback_data="panel:input:cleanerInactive",
-                )
+                ),
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_clean_time", time=cleaner.cleanerRunTime),
+                    callback_data="panel:input:cleanerRunTime",
+                ),
             ],
             [
                 InlineKeyboardButton(

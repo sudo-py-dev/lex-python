@@ -35,6 +35,7 @@ GROUP_ONLY_FIELDS: set[str] = {
     "chatnightlockStart",
     "chatnightlockEnd",
     "cleanerInactive",
+    "cleanerRunTime",
     "timezoneSearch",
     # UI Slugs
     "flood",

@@ -1,4 +1,6 @@
+import re
 import time
+from datetime import UTC, datetime
 
 from pyrogram import Client, filters
 from pyrogram.types import (
@@ -455,7 +457,84 @@ async def cleaner_inactive_input_handler(client: Client, message: Message) -> No
 
     kb = await cleaner_menu_kb(ctx, chat_id)
 
-    text = await at(user_id, "panel.cleaner_text")
+    s_del = await at(
+        user_id, "panel.status_enabled" if cleaner.cleanDeleted else "panel.status_disabled"
+    )
+    s_fake = await at(
+        user_id, "panel.status_enabled" if cleaner.cleanFake else "panel.status_disabled"
+    )
+    text = await at(
+        user_id,
+        "panel.cleaner_text",
+        s_del=s_del,
+        s_fake=s_fake,
+        days=cleaner.cleanInactiveDays,
+        time=cleaner.cleanerRunTime,
+    )
+
+    await finalize_input_capture(
+        client,
+        message,
+        user_id,
+        state["prompt_msg_id"],
+        text,
+        kb,
+        success_text=await at(user_id, "panel.input_success"),
+    )
+
+
+@bot.on_message(filters.private & is_waiting_for_input("cleanerRunTime"), group=-50)
+@safe_handler
+async def cleaner_time_input_handler(client: Client, message: Message) -> None:
+    state = message.input_state
+    chat_id = state["chat_id"]
+    user_id = message.from_user.id
+    ctx = get_context()
+    value = str(message.text).strip()
+
+    if not re.match(r"^([01]\d|2[0-3]):([0-5]\d)$", value):
+        await message.reply(await at(user_id, "panel.input_invalid_time"))
+        return
+
+    from src.db.models import ChatCleaner
+
+    async with ctx.db() as session:
+        cleaner = await session.get(ChatCleaner, chat_id)
+        if not cleaner:
+            cleaner = ChatCleaner(chatId=chat_id)
+
+        # Enforce once-per-day change limit
+        now = datetime.now(UTC)
+        if cleaner.cleanerTimeChangedAt and cleaner.cleanerTimeChangedAt.date() == now.date():
+            await message.reply(await at(user_id, "panel.error_cleaner_time_cooldown"))
+            return
+
+        cleaner.cleanerRunTime = value
+        cleaner.cleanerTimeChangedAt = now
+        session.add(cleaner)
+        await session.commit()
+
+        from src.plugins.scheduler.manager import SchedulerManager
+
+        await SchedulerManager.sync_group(ctx, chat_id)
+
+    from src.plugins.admin_panel.handlers.keyboards import cleaner_menu_kb
+
+    kb = await cleaner_menu_kb(ctx, chat_id)
+    s_del = await at(
+        user_id, "panel.status_enabled" if cleaner.cleanDeleted else "panel.status_disabled"
+    )
+    s_fake = await at(
+        user_id, "panel.status_enabled" if cleaner.cleanFake else "panel.status_disabled"
+    )
+    text = await at(
+        user_id,
+        "panel.cleaner_text",
+        s_del=s_del,
+        s_fake=s_fake,
+        days=cleaner.cleanInactiveDays,
+        time=cleaner.cleanerRunTime,
+    )
 
     await finalize_input_capture(
         client,

@@ -116,7 +116,12 @@ async def on_cleaner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     )
     await callback.message.edit_text(
         await at(
-            at_id, "panel.cleaner_text", s_del=s_del, s_fake=s_fake, days=cleaner.cleanInactiveDays
+            at_id,
+            "panel.cleaner_text",
+            s_del=s_del,
+            s_fake=s_fake,
+            days=cleaner.cleanInactiveDays,
+            time=cleaner.cleanerRunTime,
         ),
         reply_markup=kb,
     )
