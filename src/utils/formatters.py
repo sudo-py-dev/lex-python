@@ -41,7 +41,7 @@ class TelegramFormatter:
                 has_media_spoiler=False,
             )
 
-        kwargs: ParsedMessage = {
+        res: ParsedMessage = {
             "text": text,
             "reply_markup": None,
             "link_preview_options": LinkPreviewOptions(is_disabled=True),
@@ -50,102 +50,85 @@ class TelegramFormatter:
             "has_media_spoiler": False,
         }
 
-        kwargs["text"] = kwargs["text"].replace("{nonotif}", "")
-        if "{nonotif}" in text:
-            kwargs["disable_notification"] = True
+        tags = {
+            "{nonotif}": "disable_notification",
+            "{protect}": "protect_content",
+            "{mediaspoiler}": "has_media_spoiler",
+        }
+        for tag, key in tags.items():
+            if tag in res["text"]:
+                res[key] = True
+                res["text"] = res["text"].replace(tag, "")
 
-        kwargs["text"] = kwargs["text"].replace("{protect}", "")
-        if "{protect}" in text:
-            kwargs["protect_content"] = True
-
-        kwargs["text"] = kwargs["text"].replace("{mediaspoiler}", "")
-        if "{mediaspoiler}" in text:
-            kwargs["has_media_spoiler"] = True
-
-        kwargs["text"] = kwargs["text"].replace("{preview}", "")
-        kwargs["text"] = kwargs["text"].replace("{preview:top}", "")
-        if "{preview:top}" in text:
-            kwargs["link_preview_options"] = LinkPreviewOptions(
-                is_disabled=False, show_above_text=True
+        if "{preview:top}" in res["text"]:
+            res["link_preview_options"], res["text"] = (
+                LinkPreviewOptions(is_disabled=False, show_above_text=True),
+                res["text"].replace("{preview:top}", ""),
             )
-        elif "{preview}" in text:
-            kwargs["link_preview_options"] = LinkPreviewOptions(is_disabled=False)
+        elif "{preview}" in res["text"]:
+            res["link_preview_options"], res["text"] = (
+                LinkPreviewOptions(is_disabled=False),
+                res["text"].replace("{preview}", ""),
+            )
 
         if user:
-            kwargs["text"] = (
-                kwargs["text"]
-                .replace("{first}", user.first_name)
-                .replace("{first_name}", user.first_name)
-                .replace("{name}", user.first_name)
-                .replace("{last}", user.last_name or "")
-                .replace("{last_name}", user.last_name or "")
-                .replace("{fullname}", f"{user.first_name} {user.last_name or ''}".strip())
-                .replace("{username}", f"@{user.username}" if user.username else user.first_name)
-                .replace("{mention}", user.mention)
-                .replace("{id}", str(user.id))
-            )
+            replaces = {
+                "{first}": user.first_name,
+                "{first_name}": user.first_name,
+                "{name}": user.first_name,
+                "{last}": user.last_name or "",
+                "{last_name}": user.last_name or "",
+                "{fullname}": f"{user.first_name} {user.last_name or ''}".strip(),
+                "{username}": f"@{user.username}" if user.username else user.first_name,
+                "{mention}": user.mention,
+                "{id}": str(user.id),
+            }
+            for k, v in replaces.items():
+                res["text"] = res["text"].replace(k, v)
 
-        kwargs["text"] = (
-            kwargs["text"]
-            .replace("{chat}", chat_title)
-            .replace("{chatname}", chat_title)
-            .replace("{chat_name}", chat_title)
-        )
+        for tag in ("{chat}", "{chatname}", "{chat_name}"):
+            res["text"] = res["text"].replace(tag, chat_title)
 
-        buttons: list[tuple[str, str, bool]] = []
-
-        if "{rules:same}" in kwargs["text"]:
-            kwargs["text"] = kwargs["text"].replace("{rules:same}", "")
-            buttons.append(
-                ("Rules", f"https://t.me/{bot_username}?start=rules_{chat_id}", True, None)
-            )
-        elif "{rules}" in kwargs["text"]:
-            kwargs["text"] = kwargs["text"].replace("{rules}", "")
-            buttons.append(
+        btns: list[tuple] = []
+        if "{rules:same}" in res["text"]:
+            res["text"] = res["text"].replace("{rules:same}", "")
+            btns.append(("Rules", f"https://t.me/{bot_username}?start=rules_{chat_id}", True, None))
+        elif "{rules}" in res["text"]:
+            res["text"] = res["text"].replace("{rules}", "")
+            btns.append(
                 ("Rules", f"https://t.me/{bot_username}?start=rules_{chat_id}", False, None)
             )
 
-        _style_map = {
+        style_map = {
             "primary": ButtonStyle.PRIMARY,
             "danger": ButtonStyle.DANGER,
             "success": ButtonStyle.SUCCESS,
         }
-        btn_pattern = re.compile(
+        btn_re = re.compile(
             r"\[([^\]]+)\]\(buttonurl(?:#(primary|danger|success))?:\/\/([^\)]+?)(?::(same))?\)"
         )
 
-        for match in btn_pattern.finditer(kwargs["text"]):
-            btn_text = match.group(1)
-            btn_style_str = match.group(2)
-            btn_url = match.group(3)
-            is_same = bool(match.group(4))
-            btn_style = _style_map.get(btn_style_str) if btn_style_str else None
+        for m in btn_re.finditer(res["text"]):
+            lbl, style_str, url, same = m.groups()
+            style = style_map.get(style_str) if style_str else None
+            if url.startswith("#"):
+                url = f"https://t.me/{bot_username}?start=note_{chat_id}_{url[1:]}"
+            elif not any(url.startswith(x) for x in ("http://", "https://", "t.me")):
+                url = f"http://{url}"
+            btns.append((lbl, url, bool(same), style))
 
-            if btn_url.startswith("#"):
-                note_name = btn_url[1:]
-                btn_url = f"https://t.me/{bot_username}?start=note_{chat_id}_{note_name}"
-            elif (
-                not btn_url.startswith("http://")
-                and not btn_url.startswith("https://")
-                and not btn_url.startswith("t.me")
-            ):
-                btn_url = f"http://{btn_url}"
-
-            buttons.append((btn_text, btn_url, is_same, btn_style))
-
-        kwargs["text"] = btn_pattern.sub("", kwargs["text"]).strip()
-
-        if buttons:
-            keyboard = []
-            for text_lbl, url, same, style in buttons:
-                btn = InlineKeyboardButton(text_lbl, url=url, style=style)
-                if same and keyboard:
-                    keyboard[-1].append(btn)
+        res["text"] = btn_re.sub("", res["text"]).strip()
+        if btns:
+            kb = []
+            for lbl, url, same, style in btns:
+                btn = InlineKeyboardButton(lbl, url=url, style=style)
+                if same and kb:
+                    kb[-1].append(btn)
                 else:
-                    keyboard.append([btn])
-            kwargs["reply_markup"] = InlineKeyboardMarkup(keyboard)
+                    kb.append([btn])
+            res["reply_markup"] = InlineKeyboardMarkup(kb)
 
-        return kwargs
+        return res
 
     @staticmethod
     async def send_parsed(

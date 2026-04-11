@@ -2,7 +2,6 @@ from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
-from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
 from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
@@ -12,6 +11,7 @@ from src.plugins.admin_panel.validation import is_setting_allowed
 from src.plugins.ai_assistant.repository import AIRepository
 from src.utils.i18n import at
 from src.utils.input import capture_next_input
+from src.utils.local_cache import get_cache
 
 
 @bot.on_callback_query(filters.regex(r"^panel:input:(\w+):?(-?\d+)?$"))
@@ -25,7 +25,7 @@ async def on_panel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 
     logger.debug(f"Admin Panel: input action triggered for field {field} by user {user_id}")
 
-    is_channel_field = field in ("reactions", "watermarkText", "signatureText")
+    is_channel_field = field in ("reactions", "watermarkText", "signatureText", "buttonsText")
     validate_chat_id = int(target_id_str) if is_channel_field and target_id_str else chat_id
 
     chat_type = await resolve_chat_type(ctx, validate_chat_id)

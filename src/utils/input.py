@@ -16,7 +16,7 @@ from pyrogram.types import (
     Message,
 )
 
-from src.cache.local_cache import get_cache
+from src.utils.local_cache import get_cache
 
 
 def is_waiting_for_input(fields: str | list[str] | None = None):

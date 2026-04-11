@@ -2,9 +2,9 @@ from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.types import Message, ReplyKeyboardRemove
 
-from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.utils.i18n import at
+from src.utils.local_cache import get_cache
 
 from ..repository import get_chat_settings, update_chat_setting
 from .moderation_kbs import logging_kb

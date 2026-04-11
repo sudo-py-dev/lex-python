@@ -1,4 +1,5 @@
 import contextlib
+import json
 import math
 
 from pyrogram import Client, filters
@@ -12,7 +13,11 @@ from src.plugins.admin_panel.handlers.callbacks.common import (
     _plain,
     _render_channel_watermark_panel,
 )
-from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb
+from src.plugins.admin_panel.handlers.keyboards import (
+    channel_reactions_kb,
+    channel_settings_kb,
+    channel_signature_kb,
+)
 from src.plugins.admin_panel.handlers.service_cleaner import (
     get_available_service_types,
     service_cleaner_kb,
@@ -24,12 +29,18 @@ from src.plugins.admin_panel.repository import (
     update_chat_setting,
 )
 from src.utils.actions import (
+    BUTTON_STYLES,
     REACTION_MODES,
     VIDEO_MOTIONS,
     VIDEO_QUALITIES,
     WATERMARK_COLORS,
     WATERMARK_STYLES,
+    ButtonStyle,
     ReactionMode,
+    VideoMotion,
+    VideoQuality,
+    WatermarkColor,
+    WatermarkStyle,
     cycle_action,
 )
 from src.utils.i18n import at
@@ -54,6 +65,40 @@ async def on_channel_settings(client: Client, callback: CallbackQuery):
     await callback.message.edit_text(
         await at(user_id, "panel.channel_settings_text", title=title, id=channel_id),
         reply_markup=kb,
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:channel_reactions:(-?\d+)$"))
+async def on_channel_reactions(client: Client, callback: CallbackQuery):
+    ctx = get_context()
+    user_id = callback.from_user.id
+    channel_id = int(callback.matches[0].group(1))
+
+    if not await is_admin(client, channel_id, user_id):
+        await callback.answer(await at(user_id, "error.no_membership_admin"), show_alert=True)
+        return
+
+    kb = await channel_reactions_kb(ctx, channel_id, user_id)
+    await callback.message.edit_text(
+        await at(user_id, "panel.channel_reactions_text"), reply_markup=kb
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:channel_signature:(-?\d+)$"))
+async def on_channel_signature(client: Client, callback: CallbackQuery):
+    ctx = get_context()
+    user_id = callback.from_user.id
+    channel_id = int(callback.matches[0].group(1))
+
+    if not await is_admin(client, channel_id, user_id):
+        await callback.answer(await at(user_id, "error.no_membership_admin"), show_alert=True)
+        return
+
+    kb = await channel_signature_kb(ctx, channel_id, user_id)
+    await callback.message.edit_text(
+        await at(user_id, "panel.channel_signature_text"), reply_markup=kb
     )
     await callback.answer()
 
@@ -216,10 +261,17 @@ async def on_channel_toggle_setting(client: Client, callback: CallbackQuery):
         s = await get_ch_settings(ctx, channel_id)
         new_mode = cycle_action(s.reactionMode, REACTION_MODES, default_action=ReactionMode.ALL)
         await update_ch_setting(ctx, channel_id, field, new_mode)
+        kb = await channel_reactions_kb(ctx, channel_id, user_id)
+    elif field == "reactionsEnabled":
+        await toggle_ch_setting(ctx, channel_id, field)
+        kb = await channel_reactions_kb(ctx, channel_id, user_id)
+    elif field == "signatureEnabled":
+        await toggle_ch_setting(ctx, channel_id, field)
+        kb = await channel_signature_kb(ctx, channel_id, user_id)
     else:
         await toggle_ch_setting(ctx, channel_id, field)
+        kb = await channel_settings_kb(ctx, channel_id, user_id)
 
-    kb = await channel_settings_kb(ctx, channel_id, user_id)
     with contextlib.suppress(MessageNotModified):
         await callback.message.edit_reply_markup(reply_markup=kb)
     await callback.answer(_plain(await at(user_id, "panel.setting_updated")))
@@ -242,18 +294,18 @@ async def on_channel_cycle_watermark(client: Client, callback: CallbackQuery):
     cfg = parse_watermark_config(s.watermarkText)
 
     if mode == "color":
-        cfg.color = cycle_action(cfg.color, WATERMARK_COLORS, default_action=WATERMARK_COLORS.WHITE)
+        cfg.color = cycle_action(cfg.color, WATERMARK_COLORS, default_action=WatermarkColor.WHITE)
     elif mode == "video_quality":
         cfg.video_quality = cycle_action(
-            cfg.video_quality, VIDEO_QUALITIES, default_action=VIDEO_QUALITIES.HIGH
+            cfg.video_quality, VIDEO_QUALITIES, default_action=VideoQuality.HIGH
         )
     elif mode == "video_motion":
         cfg.video_motion = cycle_action(
-            cfg.video_motion, VIDEO_MOTIONS, default_action=VIDEO_MOTIONS.STATIC
+            cfg.video_motion, VIDEO_MOTIONS, default_action=VideoMotion.STATIC
         )
     else:
         cfg.style = cycle_action(
-            cfg.style, WATERMARK_STYLES, default_action=WATERMARK_STYLES.SOFT_SHADOW
+            cfg.style, WATERMARK_STYLES, default_action=WatermarkStyle.SOFT_SHADOW
         )
 
     await update_chat_setting(
@@ -340,3 +392,94 @@ async def on_channel_toggle_wm_video(client: Client, callback: CallbackQuery):
     )
     await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, user_id)
     await callback.answer(await at(user_id, "panel.setting_updated"))
+
+
+@bot.on_callback_query(filters.regex(r"^panel:channel_buttons:(-?\d+)$"))
+async def on_channel_buttons(client: Client, callback: CallbackQuery):
+    ctx = get_context()
+    user_id = callback.from_user.id
+    channel_id = int(callback.matches[0].group(1))
+
+    if not await is_admin(client, channel_id, user_id):
+        await callback.answer(await at(user_id, "error.no_membership_admin"), show_alert=True)
+        return
+
+    from src.plugins.admin_panel.handlers.keyboards import channel_buttons_kb
+
+    s = await get_chat_settings(ctx, channel_id)
+    buttons_raw = s.buttons or "[]"
+    try:
+        rows = json.loads(buttons_raw)
+        btn_count = sum(len(row) for row in rows)
+    except Exception:
+        btn_count = 0
+
+    text = await at(user_id, "panel.channel_buttons_text", count=btn_count)
+    kb = await channel_buttons_kb(ctx, channel_id, user_id)
+
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:delete_ch_btn:(-?\d+):(\d+):(\d+)$"))
+async def on_channel_button_delete(client: Client, callback: CallbackQuery):
+    ctx = get_context()
+    user_id = callback.from_user.id
+    channel_id = int(callback.matches[0].group(1))
+    row_idx = int(callback.matches[0].group(2))
+    btn_idx = int(callback.matches[0].group(3))
+
+    if not await is_admin(client, channel_id, user_id):
+        await callback.answer(await at(user_id, "error.no_membership_admin"), show_alert=True)
+        return
+
+    s = await get_chat_settings(ctx, channel_id)
+    try:
+        rows = json.loads(s.buttons or "[]")
+        if 0 <= row_idx < len(rows) and 0 <= btn_idx < len(rows[row_idx]):
+            rows[row_idx].pop(btn_idx)
+            if not rows[row_idx]:
+                rows.pop(row_idx)
+            await update_chat_setting(ctx, channel_id, "buttons", json.dumps(rows))
+    except Exception:
+        pass
+
+    from src.plugins.admin_panel.handlers.keyboards import channel_buttons_kb
+
+    kb = await channel_buttons_kb(ctx, channel_id, user_id)
+    with contextlib.suppress(MessageNotModified):
+        await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.answer(await at(user_id, "panel.setting_updated"))
+
+
+@bot.on_callback_query(filters.regex(r"^panel:cycle_ch_btn_style:(-?\d+):(\d+):(\d+)$"))
+async def on_channel_button_cycle_style(client: Client, callback: CallbackQuery):
+    ctx = get_context()
+    user_id = callback.from_user.id
+    channel_id = int(callback.matches[0].group(1))
+    row_idx = int(callback.matches[0].group(2))
+    btn_idx = int(callback.matches[0].group(3))
+
+    if not await is_admin(client, channel_id, user_id):
+        await callback.answer(await at(user_id, "error.no_membership_admin"), show_alert=True)
+        return
+
+    s = await get_chat_settings(ctx, channel_id)
+    try:
+        rows = json.loads(s.buttons or "[]")
+        if 0 <= row_idx < len(rows) and 0 <= btn_idx < len(rows[row_idx]):
+            current_style = rows[row_idx][btn_idx].get("style", ButtonStyle.DEFAULT)
+            new_style = cycle_action(
+                current_style, BUTTON_STYLES, default_action=ButtonStyle.DEFAULT
+            )
+            rows[row_idx][btn_idx]["style"] = new_style
+            await update_chat_setting(ctx, channel_id, "buttons", json.dumps(rows))
+    except Exception:
+        pass
+
+    from src.plugins.admin_panel.handlers.keyboards import channel_buttons_kb
+
+    kb = await channel_buttons_kb(ctx, channel_id, user_id)
+    with contextlib.suppress(MessageNotModified):
+        await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.answer()

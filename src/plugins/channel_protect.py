@@ -34,54 +34,38 @@ class ChannelProtectPlugin(Plugin):
 
 
 async def set_channel_protect(
-    ctx, chat_id: int, anti_channel: bool = False, anti_anon: bool = False
+    ctx, cid: int, anti_c: bool = False, anti_a: bool = False
 ) -> ChannelProtect:
-    """
-    Update or create the channel protection configuration for a specific chat.
-    """
-    async with ctx.db() as session:
-        obj = await session.get(ChannelProtect, chat_id)
-        if obj:
-            obj.antiChannel = anti_channel
-            obj.antiAnon = anti_anon
-            session.add(obj)
-        else:
-            obj = ChannelProtect(chatId=chat_id, antiChannel=anti_channel, antiAnon=anti_anon)
-            session.add(obj)
-        await session.commit()
-        await session.refresh(obj)
-        return obj
+    async with ctx.db() as s:
+        if not (o := await s.get(ChannelProtect, cid)):
+            o = ChannelProtect(chatId=cid)
+            s.add(o)
+        o.antiChannel, o.antiAnon = anti_c, anti_a
+        await s.commit()
+        await s.refresh(o)
+        return o
 
 
-async def get_channel_protect(ctx, chat_id: int) -> ChannelProtect | None:
-    """
-    Retrieve the current channel protection configuration for a chat.
-    """
-    async with ctx.db() as session:
-        return await session.get(ChannelProtect, chat_id)
+async def get_channel_protect(ctx, cid: int) -> ChannelProtect | None:
+    async with ctx.db() as s:
+        return await s.get(ChannelProtect, cid)
 
 
 @bot.on_message(filters.command("antichannel") & filters.group)
 @safe_handler
 @admin_only
 async def antichannel_handler(client: Client, message: Message) -> None:
-    """
-    Toggle the 'Anti-channel' protection mode in the current group.
-    """
     if len(message.command) < 2:
         return
-    ctx = get_context()
-    mode = message.command[1].lower() in ("on", "yes", "true")
+    ctx, m = get_context(), message.command[1].lower() in ("on", "yes", "true")
     cp = await get_channel_protect(ctx, message.chat.id)
-    await set_channel_protect(
-        ctx, message.chat.id, anti_channel=mode, anti_anon=cp.antiAnon if cp else False
-    )
+    await set_channel_protect(ctx, message.chat.id, anti_c=m, anti_a=cp.antiAnon if cp else False)
     await message.reply(
         await at(
             message.chat.id,
             "channel_protect.set",
             type="Anti-channel",
-            mode="enabled" if mode else "disabled",
+            mode="enabled" if m else "disabled",
         )
     )
 
@@ -90,23 +74,19 @@ async def antichannel_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def antianon_handler(client: Client, message: Message) -> None:
-    """
-    Toggle the 'Anti-anonymous' protection mode in the current group.
-    """
     if len(message.command) < 2:
         return
-    ctx = get_context()
-    mode = message.command[1].lower() in ("on", "yes", "true")
+    ctx, m = get_context(), message.command[1].lower() in ("on", "yes", "true")
     cp = await get_channel_protect(ctx, message.chat.id)
     await set_channel_protect(
-        ctx, message.chat.id, anti_channel=cp.antiChannel if cp else False, anti_anon=mode
+        ctx, message.chat.id, anti_c=cp.antiChannel if cp else False, anti_a=m
     )
     await message.reply(
         await at(
             message.chat.id,
             "channel_protect.set",
             type="Anti-anon",
-            mode="enabled" if mode else "disabled",
+            mode="enabled" if m else "disabled",
         )
     )
 
@@ -115,25 +95,20 @@ async def antianon_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def allowlist_handler(client: Client, message: Message) -> None:
-    """
-    Whitelist a channel for the current group.
-    Format: /allowlist [channel_id | reply to channel message]
-    """
-    target_id = None
-    if message.reply_to_message and message.reply_to_message.sender_chat:
-        target_id = message.reply_to_message.sender_chat.id
-    elif len(message.command) > 1:
+    tid = (
+        message.reply_to_message.sender_chat.id
+        if message.reply_to_message and message.reply_to_message.sender_chat
+        else None
+    )
+    if not tid and len(message.command) > 1:
         with contextlib.suppress(ValueError):
-            target_id = int(message.command[1])
-
-    if not target_id:
+            tid = int(message.command[1])
+    if not tid:
         return
-
-    ctx = get_context()
     try:
-        await add_allowed_channel(ctx, message.chat.id, target_id)
+        await add_allowed_channel(get_context(), message.chat.id, tid)
         await invalidate_allowlist_cache(message.chat.id)
-        await message.reply(await at(message.chat.id, "allowlist.added", channel_id=target_id))
+        await message.reply(await at(message.chat.id, "allowlist.added", channel_id=tid))
     except ValueError as e:
         if str(e) == "allowlist_limit_reached":
             await message.reply(await at(message.chat.id, "allowlist.limit_reached"))
@@ -145,21 +120,19 @@ async def allowlist_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def unallowlist_handler(client: Client, message: Message) -> None:
-    """Remove a channel from the whitelist."""
-    target_id = None
-    if message.reply_to_message and message.reply_to_message.sender_chat:
-        target_id = message.reply_to_message.sender_chat.id
-    elif len(message.command) > 1:
+    tid = (
+        message.reply_to_message.sender_chat.id
+        if message.reply_to_message and message.reply_to_message.sender_chat
+        else None
+    )
+    if not tid and len(message.command) > 1:
         with contextlib.suppress(ValueError):
-            target_id = int(message.command[1])
-
-    if not target_id:
+            tid = int(message.command[1])
+    if not tid:
         return
-
-    ctx = get_context()
-    if await remove_allowed_channel(ctx, message.chat.id, target_id):
+    if await remove_allowed_channel(get_context(), message.chat.id, tid):
         await invalidate_allowlist_cache(message.chat.id)
-        await message.reply(await at(message.chat.id, "allowlist.removed", channel_id=target_id))
+        await message.reply(await at(message.chat.id, "allowlist.removed", channel_id=tid))
     else:
         await message.reply(await at(message.chat.id, "allowlist.not_found"))
 
@@ -167,41 +140,28 @@ async def unallowlist_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.command("allowlisted") & filters.group)
 @safe_handler
 async def list_allowed_handler(client: Client, message: Message) -> None:
-    """List all whitelisted channels."""
-    ctx = get_context()
-    allowed = await get_allowed_channels(ctx, message.chat.id)
-    if not allowed:
-        await message.reply(await at(message.chat.id, "allowlist.empty"))
-        return
-
-    text = await at(message.chat.id, "allowlist.header")
-    for a in allowed:
-        text += f"\n• `{a.channelId}`"
-    await message.reply(text)
+    if not (als := await get_allowed_channels(get_context(), message.chat.id)):
+        return await message.reply(await at(message.chat.id, "allowlist.empty"))
+    await message.reply(
+        f"{await at(message.chat.id, 'allowlist.header')}\n"
+        + "\n".join(f"• `{a.channelId}`" for a in als)
+    )
 
 
 @bot.on_message(filters.group, group=-80)
 @safe_handler
 async def channel_protect_interceptor(client: Client, message: Message) -> None:
-    """
-    Monitor and moderate incoming group messages based on sender type.
-    """
-    # Skip if whitelisted channel
     if (
         message.sender_chat
         and message.sender_chat.type == ChatType.CHANNEL
         and await cached_is_channel_allowed(message.chat.id, message.sender_chat.id)
     ):
         return
-
-    ctx = get_context()
-    cp = await get_channel_protect(ctx, message.chat.id)
-    if not cp:
+    if not (cp := await get_channel_protect(get_context(), message.chat.id)):
         return
-    if cp.antiChannel and message.sender_chat and message.sender_chat.type == ChatType.CHANNEL:
-        with contextlib.suppress(Exception):
-            await message.delete()
     if (
+        cp.antiChannel and message.sender_chat and message.sender_chat.type == ChatType.CHANNEL
+    ) or (
         cp.antiAnon
         and not message.from_user
         and message.sender_chat

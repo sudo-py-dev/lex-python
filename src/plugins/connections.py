@@ -20,7 +20,9 @@ class ConnectionsPlugin(Plugin):
         pass
 
 
-async def set_active_chat(ctx, user_id: int, chat_id: int | None) -> UserConnection:
+async def set_active_chat(
+    ctx, user_id: int, chat_id: int | None, chat_type: str | None = None
+) -> UserConnection:
     """
     Set the active group connection for an administrator.
 
@@ -31,6 +33,7 @@ async def set_active_chat(ctx, user_id: int, chat_id: int | None) -> UserConnect
         ctx (Context): The application context.
         user_id (int): The ID of the administrator.
         chat_id (int | None): The ID of the group chat to connect to, or None to disconnect.
+        chat_type (str | None): The type of the chat (e.g., 'supergroup', 'channel').
 
     Returns:
         UserConnection: The updated or created connection record.
@@ -41,31 +44,27 @@ async def set_active_chat(ctx, user_id: int, chat_id: int | None) -> UserConnect
         conn = result.scalars().first()
         if conn:
             conn.activeChatId = chat_id
+            conn.chatType = chat_type
             session.add(conn)
         else:
-            conn = UserConnection(userId=user_id, activeChatId=chat_id)
+            conn = UserConnection(userId=user_id, activeChatId=chat_id, chatType=chat_type)
             session.add(conn)
         await session.commit()
         await session.refresh(conn)
         return conn
 
 
-async def get_active_chat(ctx, user_id: int) -> int | None:
+async def get_active_chat(ctx, user_id: int) -> tuple[int | None, str | None]:
     """
-    Retrieve the ID of the group currently connected to the user's private session.
-
-    Args:
-        ctx (Context): The application context.
-        user_id (int): The ID of the administrator.
-
-    Returns:
-        int | None: The active group chat ID, or None if no connection exists.
+    Retrieve the ID and Type of the chat currently connected to the user's private session.
     """
     async with ctx.db() as session:
         stmt = select(UserConnection).where(UserConnection.userId == user_id)
         result = await session.execute(stmt)
         conn = result.scalars().first()
-        return int(conn.activeChatId) if conn and conn.activeChatId else None
+        if not conn or not conn.activeChatId:
+            return None, None
+        return int(conn.activeChatId), conn.chatType
 
 
 async def clear_connection(ctx, user_id: int) -> bool:
@@ -109,7 +108,9 @@ async def connect_handler(client: Client, message: Message) -> None:
         - Sends a confirmation message.
     """
     ctx = get_context()
-    await set_active_chat(ctx, message.from_user.id, message.chat.id)
+    await set_active_chat(
+        ctx, message.from_user.id, message.chat.id, message.chat.type.name.lower()
+    )
     await message.reply(await at(message.chat.id, "connection.connected", chat=message.chat.title))
 
 
@@ -147,7 +148,7 @@ async def connection_handler(client: Client, message: Message) -> None:
         - Sends a message with the connection details.
     """
     ctx = get_context()
-    chat_id = await get_active_chat(ctx, message.from_user.id)
+    chat_id, _ = await get_active_chat(ctx, message.from_user.id)
     if not chat_id:
         await message.reply(await at(message.chat.id, "connection.none"))
         return
@@ -172,13 +173,13 @@ async def pm_settings_handler(client: Client, message: Message) -> None:
         - Triggers the visual settings panel in the private chat.
     """
     ctx = get_context()
-    chat_id = await get_active_chat(ctx, message.from_user.id)
+    chat_id, chat_type = await get_active_chat(ctx, message.from_user.id)
     if not chat_id:
         await message.reply(await at(message.chat.id, "connection.none"))
         return
     from src.plugins.admin_panel.handlers import open_settings_panel
 
-    await open_settings_panel(client, message, chat_id)
+    await open_settings_panel(client, message, chat_id, chat_type=chat_type)
 
 
 register(ConnectionsPlugin())

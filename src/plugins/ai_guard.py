@@ -125,7 +125,6 @@ async def ai_image_guard_handler(client: Client, message: Message) -> None:
         return
 
     try:
-        # Download image into memory
         bio = io.BytesIO()
         await message.download(file_name=bio)
         base64_image = encode_image_to_base64(bio)

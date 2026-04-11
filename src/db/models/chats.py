@@ -81,6 +81,9 @@ class ChatSettings(TimestampMixin, Base):
     stickerAction: Mapped[str] = mapped_column(
         String(50), default="delete", server_default=sa_text("'delete'")
     )
+    langBlockAction: Mapped[str] = mapped_column(
+        String(50), default="delete", server_default=sa_text("'delete'")
+    )
     timezone: Mapped[str] = mapped_column(
         String(50), default="UTC", server_default=sa_text("'UTC'")
     )
@@ -101,6 +104,7 @@ class ChatSettings(TimestampMixin, Base):
     watermarkText: Mapped[str | None] = mapped_column(Text, nullable=True)
     signatureEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     signatureText: Mapped[str | None] = mapped_column(Text, nullable=True)
+    buttons: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     warns: Mapped[list["UserWarn"]] = relationship(back_populates="chat", lazy="raise")
     filters: Mapped[list["Filter"]] = relationship(back_populates="chat", lazy="raise")

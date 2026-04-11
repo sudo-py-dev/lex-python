@@ -37,7 +37,12 @@ async def open_settings_panel(
 
     # Telegram managed groups/channels are negative and usually start with -1 (e.g. -100...)
     if is_pm and str(chat_id).startswith("-1"):
-        await set_active_chat(ctx, user_id, chat_id)
+        if not chat_type:
+            chat_type_obj = await resolve_chat_type(ctx, chat_id)
+            chat_type = chat_type_obj.name.lower()
+
+        chat_type_str = chat_type if isinstance(chat_type, str) else chat_type.name.lower()
+        await set_active_chat(ctx, user_id, chat_id, chat_type=chat_type_str)
 
     logger.debug(f"Verifying admin status for {user_id} in {chat_id}")
     if chat_id >= 0 or not await is_admin(client, chat_id, user_id):
@@ -47,11 +52,23 @@ async def open_settings_panel(
             await message.reply(await at(user_id, "panel.my_groups_title"), reply_markup=kb)
         return
 
+    from ..repository import get_chat_info
+
+    chat_type_obj, chat_title = await get_chat_info(ctx, chat_id)
     if not chat_type:
-        chat_type = await resolve_chat_type(ctx, chat_id)
+        chat_type = chat_type_obj
+
+    if chat_type == ChatType.CHANNEL or chat_type == "channel":
+        from .keyboards import channel_settings_kb
+
+        kb = await channel_settings_kb(ctx, chat_id, user_id if is_pm else None)
+        main_text_key = "panel.main_text_channel"
+    else:
+        kb = await main_menu_kb(chat_id, user_id if is_pm else None, chat_type=chat_type)
+        main_text_key = "panel.main_text"
 
     await client.send_message(
         user_id,
-        await at(user_id if is_pm else chat_id, "panel.main_text"),
-        reply_markup=await main_menu_kb(chat_id, user_id if is_pm else None, chat_type=chat_type),
+        await at(user_id if is_pm else chat_id, main_text_key, title=chat_title),
+        reply_markup=kb,
     )

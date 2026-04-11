@@ -119,59 +119,48 @@ def detect_language_with_confidence(text: str) -> list[tuple[str, float]]:
         return []
 
 
-async def get_lang_blocks(ctx, chat_id: int) -> list[BlockedLanguage]:
+async def get_lang_blocks(ctx, chat_id: int) -> dict:
     """
-    Retrieve all blocked languages for a specific chat, with caching.
-
-    Caches the results in Cache for 24 hours to reduce database load.
-
-    Args:
-        ctx (Context): The application context.
-        chat_id (int): The ID of the chat.
+    Retrieve language block configuration for a specific chat, with caching.
 
     Returns:
-        list[BlockedLanguage]: A list of blocked language database objects.
+        dict: {
+            "action": str (global moderation action),
+            "blocked": list[str] (list of ISO codes)
+        }
     """
     key = f"{CACHE_KEY_PREFIX}{chat_id}"
     cached = await ctx.cache.get(key)
     if cached:
         try:
             data = json.loads(cached)
-            return [
-                BlockedLanguage(
-                    id=b["id"],
-                    chatId=b["chatId"],
-                    langCode=b["langCode"],
-                    action=b["action"],
-                )
-                for b in data
-            ]
+            if isinstance(data, dict) and "blocked" in data:
+                return data
+            # Stale format, force refresh
+            await ctx.cache.delete(key)
         except Exception as e:
             logger.error(f"Failed to parse LangBlock cache for {chat_id}: {e}")
             await ctx.cache.delete(key)
+
     async with ctx.db() as session:
+        settings = await session.get(ChatSettings, chat_id)
+        action = settings.langBlockAction if settings else "delete"
+
         stmt = select(BlockedLanguage).where(BlockedLanguage.chatId == chat_id)
         result = await session.execute(stmt)
         blocks = list(result.scalars().all())
+
+    data = {"action": action, "blocked": [b.langCode for b in blocks]}
+
     try:
-        data = [
-            {
-                "id": b.id,
-                "chatId": b.chatId,
-                "langCode": b.langCode,
-                "action": b.action,
-            }
-            for b in blocks
-        ]
         await ctx.cache.setex(key, 86400, json.dumps(data))
     except Exception as e:
         logger.error(f"Failed to cache LangBlocks for {chat_id}: {e}")
-    return blocks
+
+    return data
 
 
-async def add_lang_block(
-    ctx, chat_id: int, lang_code: str, action: str = "delete"
-) -> BlockedLanguage:
+async def add_lang_block(ctx, chat_id: int, lang_code: str) -> BlockedLanguage:
     """
     Block a new language in a specific chat.
 
@@ -182,10 +171,9 @@ async def add_lang_block(
         ctx (Context): The application context.
         chat_id (int): The ID of the chat.
         lang_code (str): The ISO 639-1 language code to block.
-        action (str, optional): The moderation action to take on violation. Defaults to "delete".
 
     Returns:
-        BlockedLanguage: The created or updated blocked language entry.
+        BlockedLanguage: The created blocked language entry.
 
     Raises:
         ValueError: If the language code is not supported.
@@ -200,19 +188,19 @@ async def add_lang_block(
             session.add(settings)
             await session.commit()
             await session.refresh(settings)
+
         stmt = select(BlockedLanguage).where(
             BlockedLanguage.chatId == chat_id, BlockedLanguage.langCode == lang_code
         )
         result = await session.execute(stmt)
         res = result.scalars().first()
-        if res:
-            res.action = action
+
+        if not res:
+            res = BlockedLanguage(chatId=chat_id, langCode=lang_code)
             session.add(res)
-        else:
-            res = BlockedLanguage(chatId=chat_id, langCode=lang_code, action=action)
-            session.add(res)
-        await session.commit()
-        await session.refresh(res)
+            await session.commit()
+            await session.refresh(res)
+
         await ctx.cache.delete(f"{CACHE_KEY_PREFIX}{chat_id}")
         return res
 
@@ -276,23 +264,25 @@ async def lang_block_interceptor(client: Client, message: Message) -> None:
     detections = detect_language_with_confidence(text)
     if not detections:
         return
-    blocked_codes = {b.langCode: b for b in blocks}
-    violated_block = None
+
+    violated_lang = None
     for code, prob in detections:
-        if prob > 0.5 and code in blocked_codes:
-            violated_block = blocked_codes[code]
+        if prob > 0.5 and code in blocks["blocked"]:
+            violated_lang = code
             break
-    if not violated_block:
+
+    if not violated_lang:
         return
-    reason = await at(message.chat.id, "reason.blocked_language", lang=violated_block.langCode)
+
+    reason = await at(message.chat.id, "reason.blocked_language", lang=violated_lang)
     acted = await execute_moderation_action(
         client=client,
         message=message,
-        action=violated_block.action,
+        action=blocks["action"],
         reason=reason,
         log_tag="LangBlock",
         violation_key="langblock.violation",
-        lang=violated_block.langCode.upper(),
+        lang=violated_lang.upper(),
     )
     if acted:
         await message.stop_propagation()

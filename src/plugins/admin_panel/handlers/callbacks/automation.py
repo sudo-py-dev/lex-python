@@ -20,7 +20,8 @@ from src.plugins.admin_panel.handlers.keyboards import (
     cleaner_menu_kb,
     reminders_menu_kb,
     rules_kb,
-    scheduler_menu_kb,
+    settings_category_kb,
+    timezone_picker_kb,
     welcome_kb,
 )
 from src.plugins.admin_panel.handlers.service_cleaner import (
@@ -38,6 +39,7 @@ async def on_welcome_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     kb = await welcome_kb(
         ap_ctx.ctx, ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
+    # The rules and welcome keyboards have back buttons to panel:category:general
     try:
         await callback.message.edit_text(await at(at_id, "panel.welcome_text"), reply_markup=kb)
     except MessageNotModified:
@@ -76,7 +78,10 @@ async def on_rules_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 async def on_reminders_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     kb = await reminders_menu_kb(
-        ap_ctx.ctx, ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+        ap_ctx.ctx,
+        ap_ctx.chat_id,
+        user_id=callback.from_user.id if ap_ctx.is_pm else None,
+        back_callback="panel:category:automation",
     )
     await callback.message.edit_text(await at(at_id, "panel.reminder_text"), reply_markup=kb)
     await callback.answer()
@@ -87,7 +92,10 @@ async def on_reminders_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
 async def on_nightlock_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     kb = await chatnightlock_menu_kb(
-        ap_ctx.ctx, ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+        ap_ctx.ctx,
+        ap_ctx.chat_id,
+        user_id=callback.from_user.id if ap_ctx.is_pm else None,
+        back_callback="panel:category:automation",
     )
     await callback.message.edit_text(await at(at_id, "panel.nightlock_text"), reply_markup=kb)
     await callback.answer()
@@ -100,7 +108,10 @@ async def on_cleaner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
     kb = await cleaner_menu_kb(
-        ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+        ctx,
+        chat_id,
+        user_id=callback.from_user.id if ap_ctx.is_pm else None,
+        back_callback="panel:category:automation",
     )
     async with ctx.db() as session:
         cleaner = await session.get(ChatCleaner, chat_id)
@@ -280,7 +291,6 @@ async def on_timezone_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
-    from .keyboards import timezone_picker_kb
 
     settings = await get_chat_settings(ctx, chat_id)
     kb = await timezone_picker_kb(
@@ -299,7 +309,6 @@ async def on_timezone_region(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
     page = int(callback.matches[0].group(2))
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
-    from .keyboards import timezone_picker_kb
 
     kb = await timezone_picker_kb(
         ap_ctx.ctx,
@@ -321,7 +330,6 @@ async def on_timezone_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
     page = int(callback.matches[0].group(2))
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
-    from .keyboards import timezone_picker_kb
 
     kb = await timezone_picker_kb(
         ap_ctx.ctx,
@@ -366,8 +374,12 @@ async def on_set_timezone(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
             await session.commit()
             await SchedulerManager.sync_group(ctx, chat_id)
     await callback.answer(_plain(await at(at_id, "panel.timezone_set_success", tz=new_tz)))
-    kb = await scheduler_menu_kb(chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
-    await callback.message.edit_text(await at(at_id, "panel.scheduler_text"), reply_markup=kb)
+    chat_type_str = ap_ctx.chat_type.name.lower() if ap_ctx.chat_type else "supergroup"
+    kb = await settings_category_kb(
+        chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None, chat_type=chat_type_str
+    )
+    title_key = "panel.general_text_channel" if chat_type_str == "channel" else "panel.general_text"
+    await callback.message.edit_text(await at(at_id, title_key), reply_markup=kb)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_private_rules$"))
@@ -404,7 +416,11 @@ async def on_service_cleaner_nav(_: Client, callback: CallbackQuery, ap_ctx: Adm
     if sub == "types":
         page = int(callback.matches[0].group(2)) if callback.matches[0].group(2) else 0
         kb = await service_cleaner_types_kb(
-            ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None
+            ctx,
+            chat_id,
+            page,
+            user_id=user_id if ap_ctx.is_pm else None,
+            back_callback="panel:svc",
         )
         total = __import__("math").ceil(
             len(
@@ -421,7 +437,12 @@ async def on_service_cleaner_nav(_: Client, callback: CallbackQuery, ap_ctx: Adm
         )
         await callback.message.edit_text(text, reply_markup=kb)
     else:
-        kb = await service_cleaner_kb(ctx, chat_id, user_id=user_id if ap_ctx.is_pm else None)
+        kb = await service_cleaner_kb(
+            ctx,
+            chat_id,
+            user_id=user_id if ap_ctx.is_pm else None,
+            back_callback="panel:category:automation",
+        )
         await callback.message.edit_text(
             await at(at_id, "panel.service_cleaner_text"), reply_markup=kb
         )

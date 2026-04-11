@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.cache.local_cache import AsyncSnapshotCache
+from src.utils.local_cache import AsyncSnapshotCache
 
 _context_var: ContextVar[AppContext] = ContextVar("app_context")
 

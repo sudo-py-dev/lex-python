@@ -5,7 +5,6 @@ import re
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
@@ -24,6 +23,7 @@ from src.utils.input import (
     finalize_input_capture,
     is_waiting_for_input,
 )
+from src.utils.local_cache import get_cache
 from src.utils.permissions import is_admin
 from src.utils.telegram_storage import extract_message_data
 
@@ -42,116 +42,77 @@ class FiltersPlugin(Plugin):
 @safe_handler
 @admin_only
 async def add_filter_handler(client: Client, message: Message) -> None:
-    """Add a new auto-reply filter to the current group."""
     if len(message.command) < 2:
         return
-
-    text_after_cmd = message.text.split(None, 1)[1] if " " in message.text else ""
-    keyword = ""
-    response = ""
-
-    if text_after_cmd.startswith('"') or text_after_cmd.startswith("'"):
-        quote_char = text_after_cmd[0]
-        end_idx = text_after_cmd.find(quote_char, 1)
-        if end_idx != -1:
-            keyword = text_after_cmd[1:end_idx].lower()
-            response = text_after_cmd[end_idx + 1 :].strip()
-        else:
-            keyword = message.command[1].lower()
-            response = message.text.split(None, 2)[2] if len(message.command) > 2 else ""
-    else:
-        keyword = message.command[1].lower()
-        response = message.text.split(None, 2)[2] if len(message.command) > 2 else ""
-
-    response_type = "text"
-    file_id = None
-
-    if message.reply_to_message:
-        reply = message.reply_to_message
-
-        media_obj = (
-            reply.photo
-            or reply.video
-            or reply.document
-            or reply.animation
-            or reply.sticker
-            or reply.audio
-            or reply.voice
-            or reply.video_note
+    txt = message.text.split(None, 1)[1] if " " in message.text else ""
+    kw, resp = "", ""
+    if txt.startswith(('"', "'")):
+        q = txt[0]
+        if (idx := txt.find(q, 1)) != -1:
+            kw, resp = txt[1:idx].lower(), txt[idx + 1 :].strip()
+    if not kw:
+        kw, resp = (
+            message.command[1].lower(),
+            (message.text.split(None, 2)[2] if len(message.command) > 2 else ""),
         )
 
-        if media_obj:
-            file_id = getattr(media_obj, "file_id", None)
-            if reply.photo:
-                response_type = "photo"
-            elif reply.video:
-                response_type = "video"
-            elif reply.document:
-                response_type = "document"
-            elif reply.animation:
-                response_type = "animation"
-            elif reply.sticker:
-                response_type = "sticker"
-            elif reply.audio:
-                response_type = "audio"
-            elif reply.voice:
-                response_type = "voice"
-            elif reply.video_note:
-                response_type = "video_note"
-
-            if not response:
-                response = reply.caption or ""
-        else:
-            if not response:
-                response = reply.text or ""
-
-    if not response and not file_id:
+    fid, rtype = None, "text"
+    if message.reply_to_message:
+        r = message.reply_to_message
+        m = (
+            r.photo
+            or r.video
+            or r.document
+            or r.animation
+            or r.sticker
+            or r.audio
+            or r.voice
+            or r.video_note
+        )
+        if m:
+            fid, rtype = m.file_id, m.__class__.__name__.lower()
+            if not resp:
+                resp = r.caption or ""
+        elif not resp:
+            resp = r.text or ""
+    if not resp and not fid:
         return
 
-    limit = 64
-    if len(keyword) > limit:
-        await message.reply(await at(message.chat.id, "filter.keyword_too_long", limit=limit))
-        return
-
-    ctx = get_context()
+    if len(kw) > 64:
+        return await message.reply(await at(message.chat.id, "filter.keyword_too_long", limit=64))
     try:
-        await add_filter(ctx, message.chat.id, keyword, response, response_type, file_id)
-        await message.reply(await at(message.chat.id, "filter.added", keyword=keyword))
+        await add_filter(get_context(), message.chat.id, kw, resp, rtype, fid)
+        await message.reply(await at(message.chat.id, "filter.added", keyword=kw))
     except ValueError as e:
-        if str(e) == "filter_limit_reached":
-            await message.reply(await at(message.chat.id, "filter.limit_reached"))
-        elif str(e) == "filter_already_exists":
-            await message.reply(await at(message.chat.id, "filter.err_already_exists"))
-        else:
-            raise e
+        k = (
+            "filter.limit_reached"
+            if str(e) == "filter_limit_reached"
+            else "filter.err_already_exists"
+            if str(e) == "filter_already_exists"
+            else "error.generic"
+        )
+        await message.reply(await at(message.chat.id, k))
 
 
 @bot.on_message(filters.command("stop") & filters.group)
 @safe_handler
 @admin_only
 async def stop_filter_handler(client: Client, message: Message) -> None:
-    """Remove a previously added filter from the current group."""
     if len(message.command) < 2:
         return
-
-    ctx = get_context()
-    keyword = message.command[1].lower()
-    success = await remove_filter(ctx, message.chat.id, keyword)
-    if success:
-        await message.reply(await at(message.chat.id, "filter.removed", keyword=keyword))
+    kw = message.command[1].lower()
+    if await remove_filter(get_context(), message.chat.id, kw):
+        await message.reply(await at(message.chat.id, "filter.removed", keyword=kw))
     else:
-        await message.reply(await at(message.chat.id, "filter.not_found", keyword=keyword))
+        await message.reply(await at(message.chat.id, "filter.not_found", keyword=kw))
 
 
 @bot.on_message(filters.command("stopall") & filters.group)
 @safe_handler
 @admin_only
 async def stopall_filters_handler(client: Client, message: Message) -> None:
-    """Stop ALL filters in the current chat."""
-    ctx = get_context()
-    count = await remove_all_filters(ctx, message.chat.id)
-    if count > 0:
-        await message.reply(await at(message.chat.id, "filter.stopall_done", count=count))
+    if (c := await remove_all_filters(get_context(), message.chat.id)) > 0:
+        await message.reply(await at(message.chat.id, "filter.stopall_done", count=c))
     else:
         await message.reply(await at(message.chat.id, "filter.stopall_empty"))
 
@@ -159,75 +120,61 @@ async def stopall_filters_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.command("filters") & filters.group)
 @safe_handler
 async def list_filters_handler(client: Client, message: Message) -> None:
-    """List all active filters for the current group."""
-    ctx = get_context()
-    all_filters = await get_all_filters(ctx, message.chat.id)
-    if not all_filters:
-        await message.reply(await at(message.chat.id, "filter.list_empty"))
-        return
-
-    text = await at(message.chat.id, "filter.list_header")
-    for f in all_filters:
-        text += f"\n• `{f.keyword}`"
-    await message.reply(text)
+    if not (fs := await get_all_filters(get_context(), message.chat.id)):
+        return await message.reply(await at(message.chat.id, "filter.list_empty"))
+    await message.reply(
+        f"{await at(message.chat.id, 'filter.list_header')}\n"
+        + "\n".join(f"• `{f.keyword}`" for f in fs)
+    )
 
 
 @bot.on_message(filters.group & filters.text, group=10)
 @safe_handler
 async def filters_interceptor(client: Client, message: Message) -> None:
-    """Intercept messages and check if any filter keywords are triggered."""
     if not message.text or getattr(message, "command", None):
         return
-
-    ctx = get_context()
-    all_filters = await get_filters_for_chat(ctx, message.chat.id)
-    if not all_filters:
+    if not (fs := await get_filters_for_chat(get_context(), message.chat.id)):
         return
-
-    text = message.text
-    user_is_admin = None
-
-    for f in all_filters:
-        settings = f.settings or {}
-        match_mode = settings.get("matchMode", "contains")
-        case_sensitive = settings.get("caseSensitive", False)
-        is_admin_only = settings.get("isAdminOnly", False)
-
-        if is_admin_only:
-            if user_is_admin is None:
-                user_is_admin = await is_admin(client, message.chat.id, message.from_user.id)
-
-            if not user_is_admin:
-                continue
-
-        kw = f.keyword if case_sensitive else f.keyword.lower()
-        t = text if case_sensitive else text.lower()
-
-        is_match = t == kw if match_mode == "full" else re.search(rf"\b{re.escape(kw)}\b", t)
-
-        if is_match:
-            parsed = TelegramFormatter.parse_message(
+    t, adm = message.text, None
+    for f in fs:
+        s = f.settings or {}
+        if (
+            s.get("isAdminOnly")
+            and (
+                adm := (
+                    adm
+                    if adm is not None
+                    else await is_admin(client, message.chat.id, message.from_user.id)
+                )
+            )
+            is False
+        ):
+            continue
+        kw, msg = (
+            (f.keyword if s.get("caseSensitive") else f.keyword.lower()),
+            (t if s.get("caseSensitive") else t.lower()),
+        )
+        if msg == kw if s.get("matchMode") == "full" else re.search(rf"\b{re.escape(kw)}\b", msg):
+            p = TelegramFormatter.parse_message(
                 text=f.text,
                 user=message.from_user,
                 chat_id=message.chat.id,
                 chat_title=message.chat.title,
                 bot_username=client.me.username,
             )
-
             if f.fileId:
                 await TelegramFormatter.send_media_parsed(
                     client,
                     message.chat.id,
                     f.responseType,
                     f.fileId,
-                    parsed,
+                    p,
                     reply_to_message_id=message.id,
                 )
             else:
                 await TelegramFormatter.send_parsed(
-                    client, message.chat.id, parsed, reply_to_message_id=message.id
+                    client, message.chat.id, p, reply_to_message_id=message.id
                 )
-
             await message.stop_propagation()
             break
 

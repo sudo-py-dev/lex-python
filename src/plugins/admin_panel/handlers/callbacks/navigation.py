@@ -10,11 +10,12 @@ from src.plugins.admin_panel.handlers.callbacks.common import (
     _render_ai_panel,
 )
 from src.plugins.admin_panel.handlers.keyboards import (
-    general_category_kb,
+    automation_category_kb,
+    greetings_category_kb,
     main_menu_kb,
     moderation_category_kb,
-    scheduler_menu_kb,
     security_category_kb,
+    settings_category_kb,
 )
 from src.utils.i18n import at
 
@@ -28,23 +29,20 @@ async def on_panel_main(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
     ctx = ap_ctx.ctx
 
     if ap_ctx.chat_type == ChatType.CHANNEL:
-        from src.db.repositories.chats import get_chat_settings as get_ch_settings
         from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb
 
-        s = await get_ch_settings(ctx, chat_id)
-        title = s.title or f"Channel {chat_id}"
+        text_key = "panel.main_text_channel"
         kb = await channel_settings_kb(ctx, chat_id, user_id)
-        await callback.message.edit_text(
-            await at(at_id, "panel.channel_settings_text", title=title, id=chat_id),
-            reply_markup=kb,
-        )
     else:
-        await callback.message.edit_text(
-            await at(at_id, "panel.main_text", user_id=user_id, title=ap_ctx.chat_title),
-            reply_markup=await main_menu_kb(
-                chat_id, user_id=user_id if ap_ctx.is_pm else None, chat_type=ap_ctx.chat_type
-            ),
+        text_key = "panel.main_text"
+        kb = await main_menu_kb(
+            chat_id, user_id=user_id if ap_ctx.is_pm else None, chat_type=ap_ctx.chat_type
         )
+
+    await callback.message.edit_text(
+        await at(at_id, text_key, title=ap_ctx.chat_title),
+        reply_markup=kb,
+    )
     await callback.answer()
 
 
@@ -65,7 +63,9 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
         title_key = (
             "panel.security_text_channel" if chat_type_str == "channel" else "panel.security_text"
         )
-        await callback.message.edit_text(await at(at_id, title_key), reply_markup=kb)
+        await callback.message.edit_text(
+            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        )
     elif cat == "moderation":
         kb = await moderation_category_kb(
             chat_id, user_id=user_id if is_pm else None, chat_type=chat_type_str
@@ -75,23 +75,39 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
             if chat_type_str == "channel"
             else "panel.moderation_text"
         )
-        await callback.message.edit_text(await at(at_id, title_key), reply_markup=kb)
-    elif cat == "general":
-        kb = await general_category_kb(
+        await callback.message.edit_text(
+            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        )
+    elif cat == "greetings":
+        kb = await greetings_category_kb(
             chat_id, user_id=user_id if is_pm else None, chat_type=chat_type_str
         )
         title_key = (
             "panel.general_text_channel" if chat_type_str == "channel" else "panel.general_text"
         )
-        await callback.message.edit_text(await at(at_id, title_key), reply_markup=kb)
-    elif cat == "scheduler":
-        kb = await scheduler_menu_kb(
+        await callback.message.edit_text(
+            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        )
+    elif cat == "automation":
+        kb = await automation_category_kb(
             chat_id, user_id=user_id if is_pm else None, chat_type=chat_type_str
         )
         title_key = (
             "panel.scheduler_text_channel" if chat_type_str == "channel" else "panel.scheduler_text"
         )
-        await callback.message.edit_text(await at(at_id, title_key), reply_markup=kb)
+        await callback.message.edit_text(
+            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        )
+    elif cat == "settings":
+        kb = await settings_category_kb(
+            chat_id, user_id=user_id if is_pm else None, chat_type=chat_type_str
+        )
+        title_key = (
+            "panel.general_text_channel" if chat_type_str == "channel" else "panel.general_text"
+        )
+        await callback.message.edit_text(
+            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        )
     elif cat == "ai":
         await _render_ai_panel(callback, ap_ctx.ctx, chat_id, at_id, user_id)
     elif cat == "ai_security":

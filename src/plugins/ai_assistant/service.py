@@ -57,7 +57,7 @@ class AIService:
             test_msg = [{"role": "user", "content": "hi"}]
             await AIService.call_ai(provider, api_key, model_id, "Validator", None, test_msg)
             return True
-        except Exception as e:
+        except (httpx.RequestError, ValueError) as e:
             logger.error(f"API Validation failed for {provider}: {e}")
             return False
 
@@ -99,7 +99,7 @@ class AIService:
                 else:
                     logger.error(f"API error from {url}: {error_body}")
                 raise AIServiceError(f"API Error ({e.response.status_code}): {error_body}") from e
-            except Exception as e:
+            except (httpx.RequestError, ValueError, KeyError) as e:
                 logger.error(f"Request failed for {url}: {e}")
                 raise AIServiceError(f"Request failed: {str(e)}") from e
 
@@ -142,6 +142,6 @@ class AIService:
                 error_body = e.response.text
                 logger.error(f"Anthropic API error: {error_body}")
                 raise AIServiceError(f"Anthropic API Error ({e.response.status_code})") from e
-            except Exception as e:
+            except (httpx.RequestError, ValueError, KeyError) as e:
                 logger.error(f"Anthropic request failed: {e}")
                 raise AIServiceError(str(e)) from e

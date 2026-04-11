@@ -1,3 +1,5 @@
+import itertools
+
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.core.context import get_context
@@ -6,7 +8,7 @@ from src.utils.i18n import at
 
 
 async def ai_menu_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     ctx = get_context()
     settings = await AIRepository.get_settings(ctx, chat_id)
 
@@ -62,7 +64,7 @@ async def ai_menu_kb(chat_id: int, user_id: int | None = None) -> InlineKeyboard
 async def model_selection_kb(
     provider: str, chat_id: int, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     models = {
         "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
         "gemini": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"],
@@ -85,15 +87,12 @@ async def model_selection_kb(
         "qwen": "https://help.aliyun.com/zh/dashscope/developer-reference/model-introduction",
     }
 
-    buttons = []
     provider_models = models.get(provider.lower(), [])
 
-    for i in range(0, len(provider_models), 2):
-        row = [
-            InlineKeyboardButton(m, callback_data=f"panel:ai:set_model:{m}")
-            for m in provider_models[i : i + 2]
-        ]
-        buttons.append(row)
+    buttons = [
+        [InlineKeyboardButton(m, callback_data=f"panel:ai:set_model:{m}") for m in row]
+        for row in itertools.batched(provider_models, 2)
+    ]
 
     if provider.lower() in links:
         buttons.append(

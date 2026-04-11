@@ -4,7 +4,6 @@ import re
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.core.context import get_context
 from src.db.models import ChatNightLock, Reminder
@@ -15,6 +14,7 @@ from src.utils.input import (
     finalize_input_capture,
     is_waiting_for_input,
 )
+from src.utils.local_cache import get_cache
 from src.utils.telegram_storage import extract_message_data
 
 
@@ -118,7 +118,6 @@ async def reminder_time_input_handler(client: Client, message: Message) -> None:
         await message.reply(await at(user_id, "panel.input_invalid_time"))
         return
 
-    # Save logic
     r = get_cache()
     data_str = await r.get(f"temp_rem_data:{user_id}")
     if data_str:

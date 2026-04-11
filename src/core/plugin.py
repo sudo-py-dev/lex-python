@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import operator
 import pkgutil
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -35,7 +36,7 @@ def register(plugin: Plugin) -> None:
 
 
 def get_plugins() -> list[Plugin]:
-    return sorted(_registry, key=lambda p: p.priority)
+    return sorted(_registry, key=operator.attrgetter("priority"))
 
 
 def autodiscover(package: str = "src.plugins") -> None:

@@ -304,7 +304,7 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
         return await on_cycle_raid_action(_, callback, ap_ctx)
-    except Exception as e:
+    except (RPCError, Exception) as e:
         logger.exception(f"CRITICAL ERROR in on_cycle_raid_action for chat {chat_id}: {e}")
         with contextlib.suppress(QueryIdInvalid):
             await callback.answer(f"UI Error: {e}", show_alert=True)

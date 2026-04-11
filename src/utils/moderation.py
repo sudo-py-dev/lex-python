@@ -20,29 +20,17 @@ from src.utils.permissions import (
 
 
 async def resolve_sender(client: Client, message: Message) -> tuple[int | None, str, bool]:
-    """
-    Resolve the sender's ID, mention string, and whitelist status.
-    Supports regular users, channels, and anonymous admins.
-    Returns (None, ..., False) for bots or unresolvable senders.
-    """
-    user_id = None
-    mention = "Unknown"
-
+    """Resolve ID, mention, and whitelist. Returns (None, ..., False) for bots/unresolvable."""
     if message.from_user:
         if message.from_user.is_bot:
-            return None, mention, False
-        user_id = message.from_user.id
-        mention = message.from_user.mention
+            return None, "Unknown", False
+        user_id, mention = message.from_user.id, message.from_user.mention
     elif message.sender_chat:
-        user_id = message.sender_chat.id
-        mention = message.sender_chat.title
+        user_id, mention = message.sender_chat.id, message.sender_chat.title
+    else:
+        return None, await at(message.chat.id, "common.unknown"), False
 
-    if user_id is None:
-        unknown_label = await at(message.chat.id, "common.unknown")
-        return None, unknown_label, False
-
-    is_white = await is_whitelisted(client, message.chat.id, user_id)
-    return user_id, mention, is_white
+    return user_id, mention, await is_whitelisted(client, message.chat.id, user_id)
 
 
 async def execute_moderation_action(
@@ -52,36 +40,32 @@ async def execute_moderation_action(
     reason: str,
     log_tag: str,
     violation_key: str,
-    **i18n_kwargs,
+    **kwargs,
 ) -> bool:
-    """
-    Perform a moderation action: delete, punish, and notify.
-    Returns True if an action was taken and propagation should stop.
-    """
+    """Delete, punish, and notify. Return True to stop propagation."""
     user_id, mention, is_white = await resolve_sender(client, message)
-    if not user_id or is_white:
-        return False
-
-    action = action.lower()
-
-    if not await has_permission(client, message.chat.id, Permission.CAN_DELETE):
+    if (
+        not user_id
+        or is_white
+        or not await has_permission(client, message.chat.id, Permission.CAN_DELETE)
+    ):
         return False
 
     try:
         await message.delete()
-
+        action = action.lower()
         ctx = get_context()
         from src.db.repositories.actions import log_action
         from src.plugins.logging import log_event
 
-        log_action_type = f"{log_tag.lower()}_{action}"
-        await log_action(ctx, message.chat.id, client.me.id, user_id, log_action_type)
+        log_type = f"{log_tag.lower()}_{action}"
+        await log_action(ctx, message.chat.id, client.me.id, user_id, log_type)
         if message.chat:
             await log_event(
                 ctx,
                 client,
                 message.chat.id,
-                log_action_type,
+                log_type,
                 user_id,
                 client.me,
                 reason=reason,
@@ -90,19 +74,17 @@ async def execute_moderation_action(
 
         if action == ModerationAction.DELETE:
             return True
-
         if not await can_restrict_members(client, message.chat.id):
             return True
 
-        apply_punishment = None
-        notify_action = await at(message.chat.id, f"action.{action}")
+        apply_punishment, notify_action = None, await at(message.chat.id, f"action.{action}")
 
         if action == ModerationAction.WARN:
-            from src.db.repositories.chats import get_chat_settings as get_warn_settings
+            from src.db.repositories.chats import get_chat_settings as get_s
             from src.db.repositories.warns import add_warn, reset_warns
 
             count = await add_warn(ctx, message.chat.id, user_id, client.me.id, reason=reason)
-            s = await get_warn_settings(ctx, message.chat.id)
+            s = await get_s(ctx, message.chat.id)
 
             if count >= s.warnLimit:
                 apply_punishment = s.warnAction.lower()
@@ -126,10 +108,6 @@ async def execute_moderation_action(
         elif apply_punishment == ModerationAction.MUTE:
             await client.restrict_chat_member(message.chat.id, user_id, RESTRICTED_PERMISSIONS)
 
-        logger.debug(
-            f"{log_tag}: Moderated {user_id} in {message.chat.id} (Action: {notify_action})"
-        )
-
         warn_msg = await client.send_message(
             message.chat.id,
             await at(
@@ -138,10 +116,9 @@ async def execute_moderation_action(
                 mention=mention,
                 reason=reason,
                 action=notify_action,
-                **i18n_kwargs,
+                **kwargs,
             ),
         )
-
         asyncio.create_task(_delete_after(warn_msg, 10))
         return True
 
@@ -150,7 +127,6 @@ async def execute_moderation_action(
     except FloodWait as e:
         logger.warning(f"{log_tag} FloodWait: sleeping {e.value}s in {message.chat.id}")
         await asyncio.sleep(e.value + 1)
-        # We don't retry here to avoid blocking; let the next update or manual retry handle it
         return True
     except (BadRequest, Forbidden) as e:
         logger.warning(f"{log_tag} Permission/API Error in {message.chat.id}: {e}")
@@ -165,5 +141,5 @@ async def execute_moderation_action(
 
 async def _delete_after(msg: Message, delay: int) -> None:
     await asyncio.sleep(delay)
-    with contextlib.suppress(Exception):
+    with contextlib.suppress(RPCError, Exception):
         await msg.delete()

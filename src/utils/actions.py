@@ -1,6 +1,8 @@
 from enum import Enum, StrEnum
 from typing import TypeVar
 
+from pyrogram.enums import ButtonStyle
+
 T = TypeVar("T", bound=str | Enum)
 
 
@@ -83,7 +85,6 @@ def cycle_action[T: str | Enum](
     if not allowed_actions:
         raise ValueError("allowed_actions cannot be empty")
 
-    # Convert Enum members to strings for comparison and return
     def _to_str(val: T | None) -> str | None:
         if val is None:
             return None
@@ -99,14 +100,12 @@ def cycle_action[T: str | Enum](
 
     if current_str in normalized_allowed:
         idx = normalized_allowed.index(current_str)
-        # Return the string value of the next element
         next_val = allowed_actions[(idx + 1) % len(allowed_actions)]
         return _to_str(next_val)
 
     return fallback
 
 
-# Centralized Action Sequences using Enums
 MODERATION_ACTIONS = [
     ModerationAction.DELETE,
     ModerationAction.MUTE,
@@ -157,6 +156,7 @@ RAID_ACTIONS = [
     ModerationAction.KICK,
     ModerationAction.BAN,
 ]
+
 
 CAPTCHA_MODES = [
     CaptchaMode.BUTTON,
@@ -221,3 +221,5 @@ VIDEO_MOTIONS = [
     VideoMotion.SCROLL_LR,
     VideoMotion.SCROLL_RL,
 ]
+
+BUTTON_STYLES = list(ButtonStyle)

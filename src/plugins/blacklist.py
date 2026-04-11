@@ -1,7 +1,6 @@
 import fnmatch
 import re
 
-from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, Message
 
@@ -30,90 +29,42 @@ class BlacklistPlugin(Plugin):
         pass
 
 
-def detect_pattern_type(pattern: str) -> tuple[bool, bool, str]:
-    """
-    Auto-detects the matching strategy for a given blacklist pattern.
-
-    Identifies if a pattern should be treated as a Regular Expression, a
-    Wildcard pattern (using *), or a literal string.
-
-    Args:
-        pattern (str): The pattern string to analyze.
-
-    Returns:
-        tuple[bool, bool, str]: A tuple containing (is_regex, is_wildcard, pattern).
-    """
-    regex_chars = "^$+.?{}[]()|"
-    is_regex = any(c in regex_chars for c in pattern)
-    is_wildcard = "*" in pattern and not is_regex
-    return is_regex, is_wildcard, pattern
+def detect_pattern_type(p: str) -> tuple[bool, bool, str]:
+    is_r = any(c in "^$+.?{}[]()|" for c in p)
+    return is_r, ("*" in p and not is_r), p
 
 
 @bot.on_message(filters.command(["addblacklist", "blacklistadd"]) & filters.group)
 @safe_handler
 @admin_only
 async def add_blacklist_handler(client: Client, message: Message) -> None:
-    """
-    Add a new word or pattern to the chat's blacklist.
-
-    Automatically detects if the pattern is a regex or wildcard.
-    Requires the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Inserts the pattern into the database blacklist table.
-        - Sends a confirmation message.
-    """
     if len(message.command) < 2:
         return
-
-    ctx = get_context()
-    pattern = message.text.split(None, 1)[1].strip().lower()
-    is_regex, is_wildcard, pattern = detect_pattern_type(pattern)
-
+    ctx, p = get_context(), message.text.split(None, 1)[1].strip().lower()
+    is_r, is_w, p = detect_pattern_type(p)
     try:
-        success = await add_blacklist(
-            ctx, message.chat.id, pattern, is_regex=is_regex, is_wildcard=is_wildcard
-        )
-        if success:
-            await message.reply(await at(message.chat.id, "blacklist.added", pattern=pattern))
+        if await add_blacklist(ctx, message.chat.id, p, is_regex=is_r, is_wildcard=is_w):
+            await message.reply(await at(message.chat.id, "blacklist.added", pattern=p))
     except ValueError as e:
-        if str(e) == "blacklist_limit_reached":
-            await message.reply(await at(message.chat.id, "blacklist.limit_reached"))
-        elif str(e) == "blacklist_already_exists":
-            await message.reply(await at(message.chat.id, "blacklist.err_already_exists"))
-        else:
-            raise e
+        k = (
+            "blacklist.limit_reached"
+            if str(e) == "blacklist_limit_reached"
+            else "blacklist.err_already_exists"
+            if str(e) == "blacklist_already_exists"
+            else "error.generic"
+        )
+        await message.reply(await at(message.chat.id, k))
 
 
 @bot.on_message(filters.command(["rmblacklist", "unblacklist"]) & filters.group)
 @safe_handler
 @admin_only
 async def rm_blacklist_handler(client: Client, message: Message) -> None:
-    """
-    Remove an existing word or pattern from the chat's blacklist.
-
-    Requires the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Deletes the pattern from the database blacklist table.
-        - Sends a confirmation message.
-    """
     if len(message.command) < 2:
         return
-
-    ctx = get_context()
-    pattern = message.text.split(None, 1)[1].strip().lower()
-    success = await remove_blacklist(ctx, message.chat.id, pattern)
-    if success:
-        await message.reply(await at(message.chat.id, "blacklist.removed", pattern=pattern))
+    ctx, p = get_context(), message.text.split(None, 1)[1].strip().lower()
+    if await remove_blacklist(ctx, message.chat.id, p):
+        await message.reply(await at(message.chat.id, "blacklist.removed", pattern=p))
     else:
         await message.reply(await at(message.chat.id, "blacklist.not_found"))
 
@@ -121,122 +72,59 @@ async def rm_blacklist_handler(client: Client, message: Message) -> None:
 @bot.on_message(filters.command("blacklist") & filters.group)
 @safe_handler
 async def list_blacklist_handler(client: Client, message: Message) -> None:
-    """
-    List all blacklisted words and patterns for the current chat.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Fetches all blacklist entries from the database.
-        - Sends a message containing the list of patterns.
-    """
     ctx = get_context()
-    blacklist = await get_all_blacklist(ctx, message.chat.id)
-    if not blacklist:
-        await message.reply(await at(message.chat.id, "blacklist.list_empty"))
-        return
-
-    text = await at(message.chat.id, "blacklist.list_header")
-    for b in blacklist:
-        text += f"\n• `{b.pattern}` ({b.action})"
-    await message.reply(text)
+    bl = await get_all_blacklist(ctx, message.chat.id)
+    if not bl:
+        return await message.reply(await at(message.chat.id, "blacklist.list_empty"))
+    await message.reply(
+        f"{await at(message.chat.id, 'blacklist.list_header')}\n"
+        + "\n".join(f"• `{b.pattern}` ({b.action})" for b in bl)
+    )
 
 
 @bot.on_message(filters.group & (filters.text | filters.caption), group=-60)
 @safe_handler
 async def blacklist_interceptor(client: Client, message: Message) -> None:
-    """
-    Intercept group messages to check for blacklisted content.
-
-    If a match is found, the message is deleted, propagation is stopped, and
-    the configured blacklist action (mute, kick, ban, or warn) is performed
-    on the sender.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Deletes the triggering message.
-        - Stops message propagation.
-        - May restrict, kick, or ban the user based on chat settings.
-        - May increment user's warn count.
-    """
-    if not message.text and not message.caption:
+    t = (message.text or message.caption or "").lower()
+    if not t:
         return
-
-    logger.debug(f"Blacklist: Intercepted message from {message.from_user.id} in {message.chat.id}")
-
-    user_id, mention, is_white = await resolve_sender(client, message)
-    if not user_id or is_white:
+    uid, _, white = await resolve_sender(client, message)
+    if not uid or white:
         return
-
     ctx = get_context()
-    blacklist = await get_all_blacklist(ctx, message.chat.id)
-    if not blacklist:
+    bl = await get_all_blacklist(ctx, message.chat.id)
+    if not bl:
         return
-
-    text = (message.text or message.caption or "").lower()
-
-    # Extract button content if enabled
-    settings = await get_settings(ctx, message.chat.id)
-    scan_buttons = getattr(settings, "blacklistScanButtons", False)
-
+    s = await get_settings(ctx, message.chat.id)
     if (
-        scan_buttons
+        getattr(s, "blacklistScanButtons", False)
         and message.reply_markup
         and isinstance(message.reply_markup, InlineKeyboardMarkup)
     ):
         for row in message.reply_markup.inline_keyboard:
-            for button in row:
-                if button.text:
-                    text += f" {button.text.lower()}"
-                if button.url:
-                    text += f" {button.url.lower()}"
-
-    triggered_blacklist = None
-
-    for b in blacklist:
-        if b.isRegex:
-            try:
-                if re.search(b.pattern, text, re.IGNORECASE):
-                    triggered_blacklist = b
-                    break
-            except re.error:
-                if b.pattern.lower() in text:
-                    triggered_blacklist = b
-                    break
-        elif b.isWildcard:
-            try:
-                regex_str = fnmatch.translate(b.pattern)
-                if re.search(regex_str, text, re.IGNORECASE | re.DOTALL):
-                    triggered_blacklist = b
-                    break
-            except re.error:
-                if b.pattern.lower() in text:
-                    triggered_blacklist = b
-                    break
-        elif b.pattern.lower() in text:
-            triggered_blacklist = b
-            break
-
-    if triggered_blacklist:
-        action = settings.blacklistAction.lower()
-        reason = await at(message.chat.id, "blacklist.reason", pattern=triggered_blacklist.pattern)
-
-        acted = await execute_moderation_action(
-            client=client,
-            message=message,
-            action=action,
-            reason=reason,
-            log_tag="Blacklist",
-            violation_key="blacklist.violation_notice",
-            pattern=triggered_blacklist.pattern,
-        )
-        if acted:
-            await message.stop_propagation()
+            for b in row:
+                t += f" {b.text.lower() if b.text else ''} {b.url.lower() if b.url else ''}"
+    match = None
+    for b in bl:
+        try:
+            p = fnmatch.translate(b.pattern) if b.isWildcard else b.pattern
+            if re.search(p, t, re.I | (re.S if b.isWildcard else 0)):
+                match = b
+                break
+        except re.error:
+            if b.pattern.lower() in t:
+                match = b
+                break
+    if match and await execute_moderation_action(
+        client,
+        message,
+        s.blacklistAction.lower(),
+        await at(message.chat.id, "blacklist.reason", pattern=match.pattern),
+        "Blacklist",
+        "blacklist.violation_notice",
+        pattern=match.pattern,
+    ):
+        await message.stop_propagation()
 
 
 # --- Admin Panel Input Handlers ---
@@ -245,47 +133,42 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
 @bot.on_message(filters.private & is_waiting_for_input("blacklistInput"), group=-50)
 @safe_handler
 async def blacklist_input_handler(client: Client, message: Message) -> None:
-    state = message.input_state
-    chat_id = state["chat_id"]
-    user_id = message.from_user.id
-    ctx = get_context()
-    value = message.text or message.caption
-    if not value:
+    s = message.input_state
+    uid, cid, p = (
+        message.from_user.id,
+        s["chat_id"],
+        str(message.text or message.caption or "").strip().lower(),
+    )
+    if not p:
         return
-
-    pattern_raw = str(value).strip().lower()
-    is_regex, is_wildcard, pattern = detect_pattern_type(pattern_raw)
-
-    if is_regex:
+    is_r, is_w, p = detect_pattern_type(p)
+    if is_r:
         try:
-            re.compile(pattern)
+            re.compile(p)
         except re.error:
-            await message.reply(await at(user_id, "panel.blacklist_invalid_regex"))
-            return
-
+            return await message.reply(await at(uid, "panel.blacklist_invalid_regex"))
+    ctx = get_context()
     try:
-        await add_blacklist(ctx, chat_id, pattern, is_regex=is_regex, is_wildcard=is_wildcard)
+        await add_blacklist(ctx, cid, p, is_regex=is_r, is_wildcard=is_w)
     except ValueError as e:
-        if str(e) == "blacklist_already_exists":
-            await message.reply(await at(user_id, "blacklist.err_already_exists"))
-            return
-        elif str(e) == "blacklist_limit_reached":
-            await message.reply(await at(user_id, "panel.blacklist_limit_reached"))
-            return
-        else:
-            raise e
-
+        k = (
+            "blacklist.err_already_exists"
+            if str(e) == "blacklist_already_exists"
+            else "panel.blacklist_limit_reached"
+            if str(e) == "blacklist_limit_reached"
+            else "error.generic"
+        )
+        return await message.reply(await at(uid, k))
     from src.plugins.admin_panel.handlers.moderation_kbs import blacklist_kb
 
-    kb = await blacklist_kb(ctx, chat_id, state["page"], user_id=user_id)
     await finalize_input_capture(
         client,
         message,
-        user_id,
-        state["prompt_msg_id"],
-        await at(user_id, "panel.blacklist_text"),
-        kb,
-        success_text=await at(user_id, "panel.input_success"),
+        uid,
+        s["prompt_msg_id"],
+        await at(uid, "panel.blacklist_text"),
+        await blacklist_kb(ctx, cid, s["page"], user_id=uid),
+        success_text=await at(uid, "panel.input_success"),
     )
 
 

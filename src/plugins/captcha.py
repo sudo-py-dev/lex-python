@@ -5,10 +5,11 @@ import uuid
 from datetime import datetime, timedelta
 
 from loguru import logger
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.enums import PollType
 from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
 from pyrogram.raw import types as raw_types
+from pyrogram.raw.types import User
 from pyrogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -50,356 +51,191 @@ class CaptchaPlugin(Plugin):
 @bot.on_message(filters.new_chat_members & filters.group, group=-80)
 @safe_handler
 async def captcha_join_handler(client: Client, message: Message) -> None:
-    """
-    Detect new chat members and initiate the CAPTCHA verification process if enabled.
-
-    Restricts the new member's permissions and sends a CAPTCHA challenge
-    based on the chat's configuration (poll, math, image, or button).
-    Stores the challenge data in the cache and starts a timeout task.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object containing the new chat members.
-
-    Side Effects:
-        - Restricts new members' chat permissions.
-        - Sends a CAPTCHA challenge message (poll, photo, or text).
-        - Sets CAPTCHA data in the cache.
-        - Spawns a background task to enforce the timeout.
-        - Stops message propagation if any member is restricted.
-    """
     ctx = get_context()
-
     try:
-        settings = await get_settings(ctx, message.chat.id)
+        s = await get_settings(ctx, message.chat.id)
     except Exception as e:
-        logger.error(f"Captcha DB Error: {e}")
+        return logger.error(f"Captcha DB Error: {e}")
+    if not s.captchaEnabled or not await can_restrict_members(client, message.chat.id):
         return
 
-    if not settings.captchaEnabled:
-        return
-
-    can_restrict = await can_restrict_members(client, message.chat.id)
-    if not can_restrict:
-        return
-
-    restricted_any = False
-    for new_member in message.new_chat_members:
-        if new_member.id == client.me.id:
+    res_any = False
+    for m in message.new_chat_members:
+        if m.id == client.me.id:
             continue
         try:
-            await client.restrict_chat_member(
-                message.chat.id,
-                new_member.id,
-                RESTRICTED_PERMISSIONS,
-            )
-
-            mode = settings.captchaMode.lower()
-            captcha_msg = None
-            answer = None
-
+            await client.restrict_chat_member(message.chat.id, m.id, RESTRICTED_PERMISSIONS)
+            mode, m_id, ans, id_map = s.captchaMode.lower(), None, None, None
             if mode == "poll":
-                question, options, correct_index = await generate_poll_captcha(message.chat.id)
-                captcha_msg = await client.send_poll(
+                q, opts, cidx = await generate_poll_captcha(message.chat.id)
+                msg = await client.send_poll(
                     message.chat.id,
-                    question,
-                    options,
+                    q,
+                    opts,
                     is_anonymous=False,
                     type=PollType.QUIZ,
-                    correct_option_id=correct_index,
+                    correct_option_id=cidx,
                     explanation=await at(message.chat.id, "captcha.poll_explanation"),
                 )
-                answer = str(correct_index)
-
-                poll_key = CacheKeys.captcha_poll(str(captcha_msg.poll.id))
+                ans, m_id = str(cidx), msg.id
                 await ctx.cache.set(
-                    poll_key,
-                    json.dumps({"chat_id": message.chat.id, "user_id": new_member.id}),
-                    ttl=settings.captchaTimeout,
+                    CacheKeys.poll(str(msg.poll.id)),
+                    json.dumps({"chat_id": message.chat.id, "user_id": m.id}),
+                    ttl=s.captchaTimeout,
                 )
             elif mode == "math":
-                problem, answer = generate_math_captcha()
-                captcha_msg = await message.reply(
+                prob, ans = generate_math_captcha()
+                msg = await message.reply(
                     await at(
-                        message.chat.id,
-                        "captcha.math_prompt",
-                        problem=problem,
-                        mention=new_member.mention,
+                        message.chat.id, "captcha.math_prompt", problem=prob, mention=m.mention
                     )
                 )
+                m_id = msg.id
             elif mode == "image":
-                lang = await resolve_lang(message.chat.id)
-                img_io, answer, options = generate_image_captcha(lang=lang)
-                id_map = {uuid.uuid4().hex[:8]: opt for opt in options}
+                img, ans, opts = generate_image_captcha(lang=await resolve_lang(message.chat.id))
+                id_map = {uuid.uuid4().hex[:8]: o for o in opts}
                 kb = InlineKeyboardMarkup(
                     [
                         [
                             InlineKeyboardButton(
-                                CAPTCHA_OBJECTS[opt],
-                                callback_data=f"captcha_img_choice:{new_member.id}:{opt_id}",
+                                CAPTCHA_OBJECTS[o], callback_data=f"captcha_img_choice:{m.id}:{i}"
                             )
-                            for opt_id, opt in list(id_map.items())[:2]
-                        ],
-                        [
-                            InlineKeyboardButton(
-                                CAPTCHA_OBJECTS[opt],
-                                callback_data=f"captcha_img_choice:{new_member.id}:{opt_id}",
-                            )
-                            for opt_id, opt in list(id_map.items())[2:]
-                        ],
+                            for i, o in list(id_map.items())[x : x + 2]
+                        ]
+                        for x in (0, 2)
                     ]
                 )
-                captcha_msg = await client.send_photo(
+                msg = await client.send_photo(
                     message.chat.id,
-                    img_io,
-                    caption=await at(
-                        message.chat.id, "captcha.image_prompt", mention=new_member.mention
-                    ),
+                    img,
+                    caption=await at(message.chat.id, "captcha.image_prompt", mention=m.mention),
                     reply_markup=kb,
                 )
+                m_id = msg.id
             else:
                 kb = InlineKeyboardMarkup(
                     [
                         [
                             InlineKeyboardButton(
                                 await at(message.chat.id, "captcha.button"),
-                                callback_data=f"captcha_verify:{new_member.id}",
+                                callback_data=f"captcha_verify:{m.id}",
                             )
                         ]
                     ]
                 )
-                captcha_msg = await message.reply(
-                    await at(message.chat.id, "captcha.message", mention=new_member.mention),
-                    reply_markup=kb,
+                msg = await message.reply(
+                    await at(message.chat.id, "captcha.message", mention=m.mention), reply_markup=kb
                 )
+                m_id = msg.id
 
-            if captcha_msg:
-                key = CacheKeys.captcha(message.chat.id, new_member.id)
-                data = {
-                    "msg_id": captcha_msg.id,
+            if m_id:
+                d = {
+                    "msg_id": m_id,
                     "mode": mode,
-                    "first_name": new_member.first_name,
-                    "username": new_member.username,
+                    "first_name": m.first_name,
+                    "username": m.username,
                     "chat_title": message.chat.title,
                 }
-                if answer is not None:
-                    data["answer"] = answer
-                if mode == "image":
-                    data["id_map"] = id_map
-
-                await ctx.cache.set(key, json.dumps(data), ttl=settings.captchaTimeout)
-
-                asyncio.create_task(
-                    _enforce_captcha_timeout(
-                        client,
-                        message.chat.id,
-                        new_member.id,
-                        captcha_msg.id,
-                        settings.captchaTimeout,
-                    )
+                if ans is not None:
+                    d["answer"] = ans
+                if id_map:
+                    d["id_map"] = id_map
+                await ctx.cache.set(
+                    CacheKeys.captcha(message.chat.id, m.id), json.dumps(d), ttl=s.captchaTimeout
                 )
-                restricted_any = True
-        except Forbidden:
-            # Bot is not an admin or lacks ban/restrict permission
-            logger.warning(f"Captcha failed in {message.chat.id}: Bot lacks restrict permissions.")
-            # Don't try to process other members if bot lacks permissions
-            break
-        except FloodWait as e:
-            await asyncio.sleep(e.value + 1)
-            # Re-process this user
-            # Note: In a real bot, we might want a limit on retries here
+                asyncio.create_task(
+                    _enforce_captcha_timeout(client, message.chat.id, m.id, m_id, s.captchaTimeout)
+                )
+                res_any = True
+        except (BadRequest, RPCError, FloodWait, Forbidden):
             continue
-        except (BadRequest, RPCError) as e:
-            logger.error(f"Captcha error for {new_member.id} in {message.chat.id}: {e}")
         except Exception:
-            logger.exception("Unexpected Captcha execution error")
+            logger.exception("Captcha logic err")
+    if res_any:
+        raise StopPropagation
 
-    if restricted_any:
-        raise __import__("pyrogram").StopPropagation
 
-
-async def _enforce_captcha_timeout(
-    client: Client, chat_id: int, user_id: int, msg_id: int, timeout: int
-) -> None:
-    """
-    Background task to enforce the CAPTCHA timeout.
-
-    If the user does not complete the challenge within the specified time,
-    they are banned and the challenge message is deleted.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        chat_id (int): The ID of the chat.
-        user_id (int): The ID of the user being verified.
-        msg_id (int): The ID of the CAPTCHA message to delete.
-        timeout (int): The duration to wait before timeout (in seconds).
-
-    Side Effects:
-        - Deletes CAPTCHA data from the cache.
-        - Bans the user if the challenge is still active.
-        - Deletes the CAPTCHA message.
-    """
-    await asyncio.sleep(timeout)
-    ctx = get_context()
-    key = CacheKeys.captcha(chat_id, user_id)
-    if await ctx.cache.exists(key):
-        await ctx.cache.delete(key)
+async def _enforce_captcha_timeout(client: Client, cid: int, uid: int, mid: int, tout: int) -> None:
+    await asyncio.sleep(tout)
+    ctx, k = get_context(), CacheKeys.captcha(cid, uid)
+    if await ctx.cache.exists(k):
+        await ctx.cache.delete(k)
         try:
-            await client.ban_chat_member(
-                chat_id, user_id, until_date=datetime.now() + timedelta(hours=7)
-            )
-            await client.delete_messages(chat_id, msg_id)
-        except BadRequest:
-            # User might have already left or message already deleted
+            await client.ban_chat_member(cid, uid, until_date=datetime.now() + timedelta(hours=7))
+            await client.delete_messages(cid, mid)
+        except (BadRequest, Forbidden):
             pass
-        except Forbidden:
-            logger.warning(f"Captcha timeout ban failed in {chat_id}: Bot lacks permissions.")
         except FloodWait as e:
             await asyncio.sleep(e.value + 1)
             with contextlib.suppress(Exception):
                 await client.ban_chat_member(
-                    chat_id, user_id, until_date=datetime.now() + timedelta(hours=7)
+                    cid, uid, until_date=datetime.now() + timedelta(hours=7)
                 )
-                await client.delete_messages(chat_id, msg_id)
+                await client.delete_messages(cid, mid)
         except Exception as e:
-            logger.exception(f"Unexpected error in captcha timeout: {e}")
+            logger.exception(f"Captcha timeout err: {e}")
 
 
 @bot.on_callback_query(filters.regex(r"^captcha_verify:(\d+)"))
 @safe_handler
 async def captcha_verify_handler(client: Client, callback: CallbackQuery) -> None:
-    """
-    Handle verification for button-based CAPTCHA.
-
-    Verifies that the user clicking the button is the one being challenged
-     and that the session has not expired.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        callback (CallbackQuery): The callback query from the 'Verify' button.
-
-    Side Effects:
-        - Clears restriction and deletes CAPTCHA message on success.
-        - Triggers the welcome message on success.
-        - Answers the callback query.
-    """
     if not callback.message:
         return
-    chat_id = callback.message.chat.id
-    ctx = get_context()
-    target_user_id = int(callback.data.split(":")[1])
-
-    if callback.from_user.id != target_user_id:
-        await callback.answer(await at(chat_id, "captcha.not_for_you"), show_alert=True)
-        return
-
-    key = CacheKeys.captcha(chat_id, target_user_id)
-    raw_data = await ctx.cache.get(key)
-    if not raw_data:
-        await callback.answer(await at(chat_id, "captcha.expired"), show_alert=True)
-        return
-
-    data = json.loads(raw_data)
-    if data.get("mode") != "button":
-        await callback.answer(await at(chat_id, "captcha.wrong_mode"), show_alert=True)
-        return
-
+    cid, ctx, tuid = callback.message.chat.id, get_context(), int(callback.data.split(":")[1])
+    if callback.from_user.id != tuid:
+        return await callback.answer(await at(cid, "captcha.not_for_you"), show_alert=True)
+    if not (raw := await ctx.cache.get(CacheKeys.captcha(cid, tuid))):
+        return await callback.answer(await at(cid, "captcha.expired"), show_alert=True)
+    d = json.loads(raw)
+    if d.get("mode") != "button":
+        return await callback.answer(await at(cid, "captcha.wrong_mode"), show_alert=True)
     await _handle_captcha_success(
-        client, chat_id, callback.from_user, data["msg_id"], data.get("chat_title", "")
+        client, cid, callback.from_user, d["msg_id"], d.get("chat_title", "")
     )
-    await callback.answer(await at(chat_id, "captcha.success"))
+    await callback.answer(await at(cid, "captcha.success"))
 
 
 @bot.on_message(filters.group, group=-110)
 @safe_handler
 async def captcha_message_handler(client: Client, message: Message) -> None:
-    """
-    Handle text input for math-based CAPTCHA.
-
-    Deletes all messages from users currently undergoing math CAPTCHA and
-    verifies if the input matches the stored numeric answer.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message sent by the user.
-
-    Side Effects:
-        - Deletes the user's message regardless of answer correctness.
-        - Clears restriction and triggers success handler if the answer is correct.
-    """
     if not message.from_user:
         return
     ctx = get_context()
-    key = CacheKeys.captcha(message.chat.id, message.from_user.id)
-    raw_data = await ctx.cache.get(key)
-    if not raw_data:
+    if not (raw := await ctx.cache.get(CacheKeys.captcha(message.chat.id, message.from_user.id))):
         return
-
-    data = json.loads(raw_data)
-    mode = data.get("mode")
-    if mode != "math":
+    d = json.loads(raw)
+    if d.get("mode") != "math":
         return
-
     await message.delete()
-
-    correct_answer = data.get("answer")
-    if message.text and message.text.strip().upper() == correct_answer.upper():
+    if message.text and message.text.strip().upper() == d.get("answer", "").upper():
         await _handle_captcha_success(
-            client,
-            message.chat.id,
-            message.from_user,
-            data["msg_id"],
-            data.get("chat_title", ""),
+            client, message.chat.id, message.from_user, d["msg_id"], d.get("chat_title", "")
         )
 
 
 @bot.on_callback_query(filters.regex(r"^captcha_img_choice:(\d+):(.*)"))
 @safe_handler
 async def captcha_img_choice_handler(client: Client, callback: CallbackQuery) -> None:
-    """
-    Handle selection for image-based CAPTCHA.
-
-    Verifies if the object chosen by the user matches the hidden answer
-    associated with the generated CAPTCHA image.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        callback (CallbackQuery): The callback query from the object icons.
-
-    Side Effects:
-        - Clears restriction and deletes CAPTCHA photo on success.
-        - Answers the callback query.
-    """
     if not callback.message:
         return
-
-    chat_id = callback.message.chat.id
-    ctx = get_context()
-    data_parts = callback.data.split(":")
-    target_user_id = int(data_parts[1])
-    choice = data_parts[2]
-
-    if callback.from_user.id != target_user_id:
-        await callback.answer(await at(chat_id, "captcha.not_for_you"), show_alert=True)
-        return
-
-    key = CacheKeys.captcha(chat_id, target_user_id)
-    raw_data = await ctx.cache.get(key)
-    if not raw_data:
-        await callback.answer(await at(chat_id, "captcha.expired"), show_alert=True)
-        return
-
-    data = json.loads(raw_data)
-    id_map = data.get("id_map", {})
-    chosen_name = id_map.get(choice, "")
-
-    if chosen_name.upper() == data.get("answer", "").upper():
+    cid, ctx, tuid, choice = (
+        callback.message.chat.id,
+        get_context(),
+        int(callback.data.split(":")[1]),
+        callback.data.split(":")[2],
+    )
+    if callback.from_user.id != tuid:
+        return await callback.answer(await at(cid, "captcha.not_for_you"), show_alert=True)
+    if not (raw := await ctx.cache.get(CacheKeys.captcha(cid, tuid))):
+        return await callback.answer(await at(cid, "captcha.expired"), show_alert=True)
+    d = json.loads(raw)
+    if d.get("id_map", {}).get(choice, "").upper() == d.get("answer", "").upper():
         await _handle_captcha_success(
-            client, chat_id, callback.from_user, data["msg_id"], data.get("chat_title", "")
+            client, cid, callback.from_user, d["msg_id"], d.get("chat_title", "")
         )
-        await callback.answer(await at(chat_id, "captcha.success"))
+        await callback.answer(await at(cid, "captcha.success"))
     else:
-        await callback.answer(await at(chat_id, "captcha.wrong_choice"), show_alert=True)
+        await callback.answer(await at(cid, "captcha.wrong_choice"), show_alert=True)
 
 
 @bot.on_raw_update(group=-100)
@@ -407,112 +243,46 @@ async def captcha_img_choice_handler(client: Client, callback: CallbackQuery) ->
 async def captcha_poll_handler(
     client: Client, update: raw_types.Update, users: dict, chats: dict
 ) -> None:
-    """
-    Handle poll/quiz answers for poll-based CAPTCHA.
-
-    Uses raw updates to detect user participation in a quiz and checks if the
-    user selected the correct option ID.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        update (raw_types.Update): The raw update containing poll vote data.
-        users (dict): A dictionary of user objects involved in the update.
-        chats (dict): A dictionary of chat objects involved in the update.
-
-    Side Effects:
-        - Clears restriction and deletes poll message on success.
-    """
     if not isinstance(update, raw_types.UpdateMessagePollVote):
         return
-
-    ctx = get_context()
-    poll_id = str(update.poll_id)
-    poll_key = CacheKeys.captcha_poll(poll_id)
-    raw_poll_info = await ctx.cache.get(poll_key)
-    if not raw_poll_info:
+    ctx, pid = get_context(), str(update.poll_id)
+    if not (raw_p := await ctx.cache.get(CacheKeys.poll(pid))):
         return
-
-    poll_info = json.loads(raw_poll_info)
-    chat_id = poll_info["chat_id"]
-    user_id = poll_info["user_id"]
-
-    if not isinstance(update.peer, raw_types.PeerUser) or update.peer.user_id != user_id:
+    pi = json.loads(raw_p)
+    cid, uid = pi["chat_id"], pi["user_id"]
+    if not isinstance(update.peer, raw_types.PeerUser) or update.peer.user_id != uid:
         return
-
-    user_key = CacheKeys.captcha(chat_id, user_id)
-    raw_user_data = await ctx.cache.get(user_key)
-    if not raw_user_data:
+    if not (raw_u := await ctx.cache.get(CacheKeys.captcha(cid, uid))):
         return
-
-    user_data = json.loads(raw_user_data)
-    correct_option_index = int(user_data["answer"])
-    chosen_option = update.options[0][0] if update.options else -1
-
-    if chosen_option == correct_option_index:
-        user = users.get(user_id)
-        if not user:
-            from pyrogram.types import User
-
-            user = User(
-                id=user_id,
-                first_name=user_data.get("first_name", "User"),
-                username=user_data.get("username"),
-                client=client,
-            )
-
-        await _handle_captcha_success(
-            client, chat_id, user, user_data["msg_id"], user_data.get("chat_title", "")
+    ud = json.loads(raw_u)
+    if (update.options[0][0] if update.options else -1) == int(ud["answer"]):
+        u = users.get(uid) or User(
+            id=uid,
+            first_name=ud.get("first_name", "User"),
+            username=ud.get("username"),
+            client=client,
         )
-        await ctx.cache.delete(poll_key)
+        await _handle_captcha_success(client, cid, u, ud["msg_id"], ud.get("chat_title", ""))
+        await ctx.cache.delete(CacheKeys.poll(pid))
 
 
-async def _handle_captcha_success(
-    client: Client, chat_id: int, user, msg_id: int, chat_title: str
-) -> None:
-    """
-    Common logic executed when a user successfully completes any CAPTCHA challenge.
-
-    Removes user restrictions, deletes the challenge message, and triggers
-     the custom welcome message for the group.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        chat_id (int): The ID of the chat.
-        user (User): The user who successfully verified.
-        msg_id (int): The ID of the CAPTCHA message to delete.
-        chat_title (str): The title of the chat (for the welcome message).
-
-    Side Effects:
-        - Restores full permissions to the user.
-        - Deletes the CAPTCHA message.
-        - Clears CAPTCHA data from the cache.
-        - Sends a welcome message.
-    """
-    ctx = get_context()
-    key = CacheKeys.captcha(chat_id, user.id)
-    await ctx.cache.delete(key)
+async def _handle_captcha_success(client: Client, cid: int, user, mid: int, title: str) -> None:
+    await get_context().cache.delete(CacheKeys.captcha(cid, user.id))
     try:
-        await client.restrict_chat_member(chat_id, user.id, UNRESTRICTED_PERMISSIONS)
-        await client.delete_messages(chat_id, msg_id)
-
+        await client.restrict_chat_member(cid, user.id, UNRESTRICTED_PERMISSIONS)
+        await client.delete_messages(cid, mid)
         from src.plugins.welcome import send_welcome
 
-        await send_welcome(client, chat_id, chat_title, user)
-    except BadRequest:
-        # Message might have been deleted manually or user already left
+        await send_welcome(client, cid, title, user)
+    except (BadRequest, Forbidden):
         pass
-    except Forbidden:
-        logger.warning(
-            f"Captcha success restriction clear failed in {chat_id}: Bot lacks permissions."
-        )
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
-        # Attempt to clear restriction again
         with contextlib.suppress(Exception):
-            await client.restrict_chat_member(chat_id, user.id, UNRESTRICTED_PERMISSIONS)
-            await client.delete_messages(chat_id, msg_id)
+            await client.restrict_chat_member(cid, user.id, UNRESTRICTED_PERMISSIONS)
+            await client.delete_messages(cid, mid)
     except Exception as e:
-        logger.exception(f"Unexpected error in captcha success handler: {e}")
+        logger.exception(f"Captcha success err: {e}")
 
 
 # --- Admin Panel Input Handlers ---

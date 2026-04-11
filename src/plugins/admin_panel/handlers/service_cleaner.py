@@ -1,3 +1,4 @@
+import itertools
 import json
 import math
 
@@ -15,8 +16,7 @@ def get_available_service_types(chat_type: str) -> list[str]:
     if chat_type != "channel":
         return all_types
 
-    # Channel service stream excludes group-member and migration/forum specific events.
-    excluded_for_channels = {
+    excluded = {
         "NEW_CHAT_MEMBERS",
         "LEFT_CHAT_MEMBER",
         "CHAT_OWNER_LEFT",
@@ -32,7 +32,7 @@ def get_available_service_types(chat_type: str) -> list[str]:
         "GENERAL_FORUM_TOPIC_HIDDEN",
         "GENERAL_FORUM_TOPIC_UNHIDDEN",
     }
-    return [t for t in all_types if t not in excluded_for_channels]
+    return [t for t in all_types if t not in excluded]
 
 
 async def service_cleaner_kb(
@@ -43,26 +43,25 @@ async def service_cleaner_kb(
     types_callback: str = "panel:svc:types:0",
     toggle_callback: str = "panel:tgs:cleanAllServices",
 ) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     settings = await get_chat_settings(ctx, chat_id)
-    status_key = "panel.status_enabled" if settings.cleanAllServices else "panel.status_disabled"
-    status = await at(at_id, status_key)
+    status = await at(
+        at_id, f"panel.status_{'enabled' if settings.cleanAllServices else 'disabled'}"
+    )
 
     buttons = [
         [
             InlineKeyboardButton(
-                await at(at_id, "panel.btn_clean_all", status=status),
-                callback_data=toggle_callback,
+                await at(at_id, "panel.btn_clean_all", status=status), callback_data=toggle_callback
             )
-        ],
+        ]
     ]
 
     if not settings.cleanAllServices:
         buttons.append(
             [
                 InlineKeyboardButton(
-                    await at(at_id, "panel.btn_manage_types"),
-                    callback_data=types_callback,
+                    await at(at_id, "panel.btn_manage_types"), callback_data=types_callback
                 )
             ]
         )
@@ -83,61 +82,44 @@ async def service_cleaner_types_kb(
     back_callback: str = "panel:svc",
     toggle_mode: str = "name",
 ) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     settings = await get_chat_settings(ctx, chat_id)
     try:
-        enabled_types = set(json.loads(settings.cleanServiceTypes))
+        enabled_types = set(json.loads(settings.cleanServiceTypes or "[]"))
     except (json.JSONDecodeError, TypeError):
         enabled_types = set()
 
     all_types = get_available_service_types(settings.chatType or "supergroup")
-
     items_per_page = 10
     total_pages = math.ceil(len(all_types) / items_per_page)
-
     page = max(0, min(page, total_pages - 1)) if total_pages > 0 else 0
 
     start_idx = page * items_per_page
-    end_idx = start_idx + items_per_page
-    current_page_types = all_types[start_idx:end_idx]
+    current_page_types = all_types[start_idx : start_idx + items_per_page]
 
     buttons = []
-
-    for i in range(0, len(current_page_types), 2):
+    for i, row_types in enumerate(itertools.batched(current_page_types, 2)):
         row = []
-        for offset, t in enumerate(current_page_types[i : i + 2]):
-            is_enabled = t in enabled_types
-            icon = "🟢" if is_enabled else "🔴"
-
-            label_key = f"panel.service_type_{t}"
-            label = await at(at_id, label_key)
-            if label == label_key:
+        for offset, t in enumerate(row_types):
+            icon = "🟢" if t in enabled_types else "🔴"
+            label = await at(at_id, f"panel.service_type_{t}")
+            if label == f"panel.service_type_{t}":
                 label = t.replace("_", " ").title()
 
-            display_str = f"{icon} {label}"
-            if toggle_mode == "index":
-                callback_data = f"{toggle_callback_prefix}:{start_idx + i + offset}:{page}"
-            else:
-                callback_data = f"{toggle_callback_prefix}:{t}:{page}"
-            row.append(InlineKeyboardButton(display_str, callback_data=callback_data))
+            idx = start_idx + (i * 2) + offset
+            cb = f"{toggle_callback_prefix}:{idx if toggle_mode == 'index' else t}:{page}"
+            row.append(InlineKeyboardButton(f"{icon} {label}", callback_data=cb))
         buttons.append(row)
 
-    nav_row = []
+    nav = []
     if page > 0:
-        nav_row.append(
-            InlineKeyboardButton("◀️", callback_data=f"{page_callback_prefix}:{page - 1}")
-        )
-
-    nav_row.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="panel:noop"))
-
+        nav.append(InlineKeyboardButton("◀️", callback_data=f"{page_callback_prefix}:{page - 1}"))
+    nav.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="panel:noop"))
     if page < total_pages - 1:
-        nav_row.append(
-            InlineKeyboardButton("▶️", callback_data=f"{page_callback_prefix}:{page + 1}")
-        )
+        nav.append(InlineKeyboardButton("▶️", callback_data=f"{page_callback_prefix}:{page + 1}"))
 
-    if nav_row:
-        buttons.append(nav_row)
-
+    if nav:
+        buttons.append(nav)
     buttons.append(
         [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data=back_callback)]
     )

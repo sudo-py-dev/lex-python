@@ -56,19 +56,29 @@ GROUP_ONLY_FIELDS: set[str] = {
     "logging",
     "stickers",
     "stickerAction",
+    # Categories
+    "security",
+    "moderation",
+    "greetings",
+    "automation",
+    "ai",
 }
 
 # Fields that only apply to Channels
 CHANNEL_ONLY_FIELDS: set[str] = {
     # DB Fields
     "reactionsEnabled",
-    "reactions",
     "reactionMode",
     "watermarkText",
     "signatureEnabled",
     "signatureText",
     # UI Slugs
     "channel_settings",
+    # Categories
+    "reactions",
+    "signature",
+    "watermark",
+    "buttons",
 }
 
 

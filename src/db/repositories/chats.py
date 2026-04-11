@@ -14,49 +14,39 @@ from src.utils.i18n import at
 from src.utils.permissions import is_admin
 
 
+async def _get_or_create_settings(ctx: AppContext, chat_id: int, session) -> ChatSettings:
+    settings = await session.get(ChatSettings, chat_id)
+    if not settings:
+        settings = ChatSettings(id=chat_id)
+        session.add(settings)
+        await session.commit()
+        await session.refresh(settings)
+    return settings
+
+
 async def get_chat_settings(ctx: AppContext, chat_id: int) -> ChatSettings:
     """Get chat settings, creating them if they don't exist."""
     async with ctx.db() as session:
-        settings = await session.get(ChatSettings, chat_id)
-        if not settings:
-            settings = ChatSettings(id=chat_id)
-            session.add(settings)
-            await session.commit()
-            await session.refresh(settings)
-        return settings
+        return await _get_or_create_settings(ctx, chat_id, session)
 
 
 async def toggle_setting(ctx: AppContext, chat_id: int, field: str) -> bool:
     """Toggle a boolean setting field."""
     async with ctx.db() as session:
-        settings = await session.get(ChatSettings, chat_id)
-        if not settings:
-            settings = ChatSettings(id=chat_id)
-            session.add(settings)
-            await session.commit()
-            await session.refresh(settings)
-
-        current_value = getattr(settings, field)
-        new_value = not current_value
-        setattr(settings, field, new_value)
-
-        session.add(settings)
+        s = await _get_or_create_settings(ctx, chat_id, session)
+        val = not getattr(s, field)
+        setattr(s, field, val)
+        session.add(s)
         await session.commit()
-        return new_value
+        return val
 
 
 async def update_chat_setting(ctx: AppContext, chat_id: int, field: str, value: Any) -> None:
     """Update a specific setting field with a value."""
     async with ctx.db() as session:
-        settings = await session.get(ChatSettings, chat_id)
-        if not settings:
-            settings = ChatSettings(id=chat_id)
-            session.add(settings)
-            await session.commit()
-            await session.refresh(settings)
-
-        setattr(settings, field, value)
-        session.add(settings)
+        s = await _get_or_create_settings(ctx, chat_id, session)
+        setattr(s, field, value)
+        session.add(s)
         await session.commit()
 
 
@@ -93,25 +83,19 @@ async def update_chat_title(ctx: AppContext, chat_id: int, title: str) -> None:
 async def toggle_service_type(ctx: AppContext, chat_id: int, service_type: str) -> None:
     """Toggle a service message type in the cleanServiceTypes JSON array."""
     async with ctx.db() as session:
-        settings = await session.get(ChatSettings, chat_id)
-        if not settings:
-            settings = ChatSettings(id=chat_id)
-            session.add(settings)
-            await session.commit()
-            await session.refresh(settings)
-
+        s = await _get_or_create_settings(ctx, chat_id, session)
         try:
-            types = json.loads(settings.cleanServiceTypes) if settings.cleanServiceTypes else []
+            ts = json.loads(s.cleanServiceTypes or "[]")
         except (json.JSONDecodeError, TypeError):
-            types = []
+            ts = []
 
-        if service_type in types:
-            types.remove(service_type)
+        if service_type in ts:
+            ts.remove(service_type)
         else:
-            types.append(service_type)
+            ts.append(service_type)
 
-        settings.cleanServiceTypes = json.dumps(types)
-        session.add(settings)
+        s.cleanServiceTypes = json.dumps(ts)
+        session.add(s)
         await session.commit()
 
 
@@ -125,55 +109,35 @@ async def get_user_admin_chats(
     async with ctx.db() as session:
         stmt = select(ChatSettings).where(and_(ChatSettings.isActive, ChatSettings.id < 0))
         if chat_type:
-            if isinstance(chat_type, list):
-                type_names = [ct.name.lower() for ct in chat_type]
-                stmt = stmt.where(ChatSettings.chatType.in_(type_names))
-            else:
-                stmt = stmt.where(ChatSettings.chatType == chat_type.name.lower())
-        result = await session.execute(stmt)
-        all_settings = result.scalars().all()
+            types = (
+                [ct.name.lower() for ct in chat_type]
+                if isinstance(chat_type, list)
+                else [chat_type.name.lower()]
+            )
+            stmt = stmt.where(ChatSettings.chatType.in_(types))
+        res = await session.execute(stmt)
+        all_s = res.scalars().all()
 
-    results = []
-    semaphore = asyncio.Semaphore(10)
+    results, sem = [], asyncio.Semaphore(10)
 
     async def check(s: ChatSettings):
-        async with semaphore:
-            chat_id = int(s.id)
-            if await is_admin(client, chat_id, user_id):
-                if s.title:
-                    results.append((chat_id, s.title))
-                    return
-                try:
-                    chat = await client.get_chat(chat_id)
-                    title = chat.title or await at(user_id, "panel.unknown_chat", id=chat_id)
-                    results.append((chat_id, title))
-                    await update_chat_title(ctx, chat_id, title)
-                    if chat.type.name.lower() != s.chatType:
-                        await update_chat_setting(ctx, chat_id, "chatType", chat.type.name.lower())
-                except (BadRequest, Forbidden, RPCError):
-                    results.append((chat_id, await at(user_id, "panel.unknown_chat", id=chat_id)))
-                except FloodWait as e:
-                    await asyncio.sleep(e.value + 1)
-                    try:
-                        chat = await client.get_chat(chat_id)
-                        results.append(
-                            (
-                                chat_id,
-                                chat.title or await at(user_id, "panel.unknown_chat", id=chat_id),
-                            )
-                        )
-                    except Exception:
-                        results.append(
-                            (chat_id, await at(user_id, "panel.unknown_chat", id=chat_id))
-                        )
-                except Exception as e:
-                    from loguru import logger
+        async with sem:
+            cid = int(s.id)
+            if not await is_admin(client, cid, user_id):
+                return
+            if s.title:
+                return results.append((cid, s.title))
+            try:
+                chat = await client.get_chat(cid)
+                title = chat.title or await at(user_id, "panel.unknown_chat", id=cid)
+                results.append((cid, title))
+                await update_chat_title(ctx, cid, title)
+                if chat.type.name.lower() != s.chatType:
+                    await update_chat_setting(ctx, cid, "chatType", chat.type.name.lower())
+            except (BadRequest, Forbidden, RPCError, FloodWait):
+                results.append((cid, await at(user_id, "panel.unknown_chat", id=cid)))
 
-                    logger.error(f"Unexpected error getting chat {chat_id}: {e}")
-                    results.append((chat_id, await at(user_id, "panel.unknown_chat", id=chat_id)))
-
-    tasks = [check(s) for s in all_settings]
-    await asyncio.gather(*tasks)
+    await asyncio.gather(*(check(s) for s in all_s))
     return results
 
 
@@ -199,16 +163,9 @@ async def get_chat_info(ctx: AppContext, chat_id: int) -> tuple[ChatType, str]:
         pass
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
-        # Try once more
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(RPCError):
             chat = await bot.get_chat(chat_id)
             chat_type = chat.type
-            title = chat.title or chat.first_name or title
-    except Exception as e:
-        from loguru import logger
-
-        logger.debug(f"Unexpected error resolving chat info for {chat_id}: {e}")
-
     return chat_type, title
 
 

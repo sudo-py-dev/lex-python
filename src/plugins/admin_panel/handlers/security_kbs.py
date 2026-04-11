@@ -9,7 +9,7 @@ from ..repository import get_chat_settings
 
 
 async def raid_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     settings = await get_chat_settings(ctx, chat_id)
     status = await at(
         at_id, "panel.status_enabled" if settings.raidEnabled else "panel.status_disabled"
@@ -58,7 +58,7 @@ async def raid_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboa
 
 
 async def captcha_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     settings = await get_chat_settings(ctx, chat_id)
     status = await at(
         at_id, "panel.status_enabled" if settings.captchaEnabled else "panel.status_disabled"
@@ -95,7 +95,7 @@ async def captcha_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKey
 
 
 async def url_scanner_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     settings = await get_chat_settings(ctx, chat_id)
     status = await at(
         at_id, "panel.status_enabled" if settings.urlScannerEnabled else "panel.status_disabled"

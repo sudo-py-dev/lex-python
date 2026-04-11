@@ -26,15 +26,17 @@ __all__ = [
 ]
 
 
-async def get_active_chat(ctx: AppContext, user_id: int) -> int | None:
-    """Get the currently connected group for a user in PM."""
+async def get_active_chat(ctx: AppContext, user_id: int) -> tuple[int | None, str | None]:
+    """Get the currently connected group and its type for a user in PM."""
     from src.plugins.connections import get_active_chat as get_connected_chat
 
     return await get_connected_chat(ctx, user_id)
 
 
-async def set_active_chat(ctx: AppContext, user_id: int, chat_id: int) -> None:
-    """Set the active group connection for a user in PM."""
+async def set_active_chat(
+    ctx: AppContext, user_id: int, chat_id: int, chat_type: str | None = None
+) -> None:
+    """Set the active group connection and its type for a user in PM."""
     from src.plugins.connections import set_active_chat as set_connected_chat
 
-    await set_connected_chat(ctx, user_id, chat_id)
+    await set_connected_chat(ctx, user_id, chat_id, chat_type=chat_type)

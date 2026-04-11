@@ -1,10 +1,8 @@
 import contextlib
 
-import emoji
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
@@ -12,30 +10,10 @@ from src.db.models import ChatSettings, UserSettings
 from src.utils.decorators import admin_only, safe_handler
 from src.utils.i18n import at, list_locales
 from src.utils.input import finalize_input_capture, is_waiting_for_input
+from src.utils.local_cache import get_cache
 
 _CACHE_TTL = 1200  # 20 minutes
-LANG_PAGE_SIZE = 8
-
-LANG_METADATA = {
-    "en": ("English", ":United_States:"),
-    "he": ("עברית", ":Israel:"),
-    "ru": ("Русский", ":Russia:"),
-    "es": ("Español", ":Spain:"),
-    "fr": ("Français", ":France:"),
-    "de": ("Deutsch", ":Germany:"),
-    "ar": ("العربية", ":Saudi_Arabia:"),
-    "it": ("Italiano", ":Italy:"),
-    "pt": ("Português", ":Portugal:"),
-    "tr": ("Türkçe", ":Turkey:"),
-    "id": ("Indonesia", ":Indonesia:"),
-    "hi": ("हिन्दी", ":India:"),
-    "uk": ("Українська", ":Ukraine:"),
-    "pl": ("Polski", ":Poland:"),
-    "nl": ("Nederlands", ":Netherlands:"),
-    "zh": ("中文", ":China:"),
-    "ja": ("日本語", ":Japan:"),
-    "ko": ("한국어", ":South_Korea:"),
-}
+LANG_PAGE_SIZE = 6
 
 
 class LanguagePlugin(Plugin):
@@ -118,8 +96,14 @@ async def set_lang_handler(client: Client, message: Message) -> None:
     if lang not in list_locales():
         await message.reply(await at(message.chat.id, "language.not_found", lang=lang))
         return
+
+    from src.utils.lang_utils import get_lang_info
+
+    name, flag = await get_lang_info(ctx, lang, target_chat_id=message.chat.id)
+    display_lang = f"{name} {flag}"
+
     await set_chat_lang(ctx, message.chat.id, lang)
-    await message.reply(await at(message.chat.id, "language.set", lang=lang))
+    await message.reply(await at(message.chat.id, "language.set", lang=display_lang))
 
 
 @bot.on_message(filters.command("langs") & filters.group)
@@ -134,24 +118,55 @@ async def langs_list_handler(client: Client, message: Message) -> None:
 
 
 async def language_picker_kb(
-    ctx, target_id: int, scope: str = "chat", page: int = 0, query: str | None = None
+    ctx,
+    target_id: int,
+    scope: str = "chat",
+    page: int = 0,
+    query: str | None = None,
+    mode: str = "set",
+    display_id: int | None = None,
 ) -> InlineKeyboardMarkup:
     """Generate an inline keyboard layout for the language selection interface."""
-    langs = sorted(list_locales())
+    from src.utils.i18n import list_locales
+
+    # Use display_id for localization (preferred for Admin Panel UI)
+    at_id = display_id or target_id
+
+    if mode == "block":
+        from src.plugins.lang_block import SUPPORTED_LANGS
+
+        langs = list(SUPPORTED_LANGS)
+    else:
+        langs = list_locales()
+
+    langs.sort()
+
+    from src.utils.lang_utils import get_lang_info
 
     if query:
         q = query.strip().lower()
         filtered_langs = []
         for lang in langs:
-            name, _emoji_code = LANG_METADATA.get(lang, (lang.upper(), ":globe_with_meridians:"))
+            name, _ = await get_lang_info(
+                ctx,
+                lang,
+                target_chat_id=at_id if scope == "chat" else None,
+                target_user_id=at_id if scope == "user" else None,
+            )
             if q in lang.lower() or q in name.lower():
                 filtered_langs.append(lang)
         langs = filtered_langs
 
-    if scope == "user":
-        current_lang = await get_user_lang(ctx, target_id)
+    if mode == "block":
+        from src.plugins.lang_block import get_lang_blocks
+
+        blocks = await get_lang_blocks(ctx, target_id)
+        current_blocked = set(blocks["blocked"])
     else:
-        current_lang = await get_chat_lang(ctx, target_id)
+        if scope == "user":
+            current_lang = await get_user_lang(ctx, target_id)
+        else:
+            current_lang = await get_chat_lang(ctx, target_id)
 
     total = len(langs)
     total_pages = max(1, (total + LANG_PAGE_SIZE - 1) // LANG_PAGE_SIZE)
@@ -160,13 +175,53 @@ async def language_picker_kb(
     chunk = langs[start : start + LANG_PAGE_SIZE]
 
     buttons = []
+
+    if mode == "block":
+        from src.plugins.admin_panel.repository import get_chat_settings
+
+        settings = await get_chat_settings(ctx, target_id)
+        action_type = (settings.langBlockAction or "delete").lower()
+        action_icon = {
+            "delete": "🗑️",
+            "mute": "🔇",
+            "kick": "👢",
+            "ban": "🔨",
+            "warn": "⚠️",
+        }.get(action_type, "🗑️")
+        action_label = await at(at_id, f"action.{action_type}")
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    await at(
+                        at_id,
+                        "panel.btn_lang_block_global_action",
+                        action=action_label,
+                        icon=action_icon,
+                    ),
+                    callback_data=f"panel:cycle_lang_block_action:{page}",
+                )
+            ]
+        )
     row = []
     for lang in chunk:
-        name, emoji_code = LANG_METADATA.get(lang, (lang.upper(), ":globe_with_meridians:"))
-        flag = emoji.emojize(emoji_code, language="alias")
-        # New scoped callback format: panel:set_lang:{scope}:{target_id}:{lang}
-        callback_data = f"panel:set_lang:{scope}:{target_id}:{lang}"
-        prefix = "✅ " if lang == current_lang else ""
+        name, flag = await get_lang_info(
+            ctx,
+            lang,
+            target_chat_id=at_id if scope == "chat" else None,
+            target_user_id=at_id if scope == "user" else None,
+            native=False,
+        )
+
+        if mode == "block":
+            is_active = lang in current_blocked
+            prefix = "✅ " if is_active else "❌ "
+            callback_data = f"panel:lang_toggle:{lang}:{page}"
+        else:
+            is_active = lang == current_lang
+            prefix = "✅ " if is_active else ""
+            callback_data = f"panel:set_lang:{scope}:{target_id}:{lang}"
+
         btn_text = f"{prefix}{flag} {name}"
         row.append(InlineKeyboardButton(btn_text, callback_data=callback_data))
         if len(row) == 2:
@@ -176,14 +231,15 @@ async def language_picker_kb(
         buttons.append(row)
 
     if total == 0 and query is not None:
-        no_results = await at(target_id, "language.search_no_results", query=query)
+        no_results = await at(at_id, "language.search_no_results", query=query)
         buttons.append([InlineKeyboardButton(no_results, callback_data="panel:noop")])
-    else:
+    elif total_pages > 1:
         nav_row = []
         if page > 0:
             nav_row.append(
                 InlineKeyboardButton(
-                    "⬅️", callback_data=f"panel:language_page:{scope}:{target_id}:{page - 1}"
+                    "⬅️",
+                    callback_data=f"panel:language_page:{scope}:{target_id}:{page - 1}:{mode}",
                 )
             )
         nav_row.append(
@@ -192,36 +248,39 @@ async def language_picker_kb(
         if page < total_pages - 1:
             nav_row.append(
                 InlineKeyboardButton(
-                    "➡️", callback_data=f"panel:language_page:{scope}:{target_id}:{page + 1}"
+                    "➡️",
+                    callback_data=f"panel:language_page:{scope}:{target_id}:{page + 1}:{mode}",
                 )
             )
-        if nav_row:
-            buttons.append(nav_row)
+        buttons.append(nav_row)
 
     buttons.append(
         [
             InlineKeyboardButton(
-                await at(target_id, "common.btn_search"),
-                callback_data=f"panel:language_search:{scope}:{target_id}",
+                await at(at_id, "common.btn_search"),
+                callback_data=f"panel:language_search:{scope}:{target_id}:{mode}",
             )
         ]
     )
 
-    # Scoped navigation path
-    back_data = "panel:my_chats" if scope == "user" else "panel:category:general"
+    if mode == "block":
+        back_data = "panel:category:moderation"
+    else:
+        back_data = "panel:my_chats" if scope == "user" else "panel:category:settings"
+
     buttons.append(
-        [InlineKeyboardButton(await at(target_id, "panel.btn_back"), callback_data=back_data)]
+        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data=back_data)]
     )
     return InlineKeyboardMarkup(buttons)
 
 
 async def begin_language_search(
-    user_id: int, scope: str, target_id: int, prompt_msg_id: int | None = None
+    user_id: int, scope: str, target_id: int, prompt_msg_id: int | None = None, mode: str = "set"
 ) -> None:
     """Store pending language search state in cache for next private text input."""
     r = get_cache()
     msg_id = prompt_msg_id or 0
-    await r.set(f"lang_search:{user_id}", f"{scope}:{target_id}:{msg_id}", ttl=300)
+    await r.set(f"lang_search:{user_id}", f"{scope}:{target_id}:{msg_id}:{mode}", ttl=300)
 
 
 @bot.on_message(filters.private & ~filters.regex(r"^/.*"))
@@ -241,16 +300,23 @@ async def language_search_input_handler(client: Client, message: Message) -> Non
     scope = parts[0]
     target_id = int(parts[1])
     prompt_msg_id = int(parts[2]) if len(parts) > 2 else 0
+    mode = parts[3] if len(parts) > 3 else "set"
     query = (message.text or "").strip()
 
     ctx = get_context()
-    kb = await language_picker_kb(ctx, target_id, scope=scope, page=0, query=query)
-    header_key = (
-        "language.user_picker_header" if scope == "user" else "language.group_picker_header"
+    kb = await language_picker_kb(
+        ctx, target_id, scope=scope, page=0, query=query, mode=mode, display_id=user_id
     )
-    header_text = await at(user_id, header_key)
+    if mode == "block":
+        header_text = await at(user_id, "panel.langblock_picker_text")
+    else:
+        header_key = (
+            "language.user_picker_header" if scope == "user" else "language.group_picker_header"
+        )
+        header_text = await at(user_id, header_key)
+
     search_label = await at(user_id, "common.btn_search")
-    result_text = f"{header_text}\n\n{search_label}: `{query or '-'}'"
+    result_text = f"{header_text}\n\n{search_label}: `{query or '-'}`"
 
     with contextlib.suppress(Exception):
         await message.delete()

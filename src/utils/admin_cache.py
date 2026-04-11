@@ -7,8 +7,8 @@ import json
 from loguru import logger
 from pyrogram import Client, enums
 
-from src.cache.local_cache import get_cache
 from src.core.constants import CacheKeys
+from src.utils.local_cache import get_cache
 
 _TTL = 18000  # 5 hours
 

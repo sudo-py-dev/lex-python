@@ -75,9 +75,6 @@ class BlockedLanguage(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     langCode: Mapped[str] = mapped_column(String(10))
-    action: Mapped[str] = mapped_column(
-        String(50), default="delete", server_default=sa_text("'delete'")
-    )
     createdAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )

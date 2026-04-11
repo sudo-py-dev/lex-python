@@ -1,6 +1,5 @@
 import contextlib
 
-from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.types import Message
 
@@ -27,141 +26,67 @@ class FloodPlugin(Plugin):
         pass
 
 
-async def increment_flood(ctx, chat_id: int, user_id: int, window: int) -> int:
-    """
-    Increment the message count for a user within a rolling time window.
-
-    Uses Cache `incr` and `expire` to track how many messages a user has sent
-    in the current window.
-
-    Args:
-        ctx (Context): The application context.
-        chat_id (int): The ID of the chat.
-        user_id (int): The ID of the user.
-        window (int): The duration of the window in seconds.
-
-    Returns:
-        int: The updated message count for the user.
-    """
-    key = CacheKeys.flood(chat_id, user_id)
-    count = await ctx.cache.incr(key)
-    if count == 1:
-        await ctx.cache.expire(key, window)
-    return count
+async def increment_flood(ctx, cid: int, uid: int, win: int) -> int:
+    k = CacheKeys.flood(cid, uid)
+    c = await ctx.cache.incr(k)
+    if c == 1:
+        await ctx.cache.expire(k, win)
+    return c
 
 
-async def reset_flood(ctx, chat_id: int, user_id: int) -> None:
-    """
-    Manually reset a user's flood count in a specific chat by deleting the cache key.
-
-    Args:
-        ctx (Context): The application context.
-        chat_id (int): The ID of the chat.
-        user_id (int): The ID of the user.
-    """
-    await ctx.cache.delete(CacheKeys.flood(chat_id, user_id))
+async def reset_flood(ctx, cid: int, uid: int) -> None:
+    await ctx.cache.delete(CacheKeys.flood(cid, uid))
 
 
 @bot.on_message(filters.command("setflood") & filters.group)
 @safe_handler
 @admin_only
 async def set_flood_handler(client: Client, message: Message) -> None:
-    """
-    Configure flood protection parameters for the current group.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-        Expected command format: /setflood <threshold> <window> <action>
-
-    Side Effects:
-        - Updates chat settings in the database (floodThreshold, floodWindow, floodAction).
-        - Sends a confirmation message.
-    """
     if len(message.command) < 4:
         return
-
     try:
-        threshold = int(message.command[1])
-        window = int(message.command[2])
+        th, win = int(message.command[1]), int(message.command[2])
     except ValueError:
         return
-
-    action = message.command[3].lower()
-    if action not in ("mute", "kick", "ban"):
+    act = message.command[3].lower()
+    if act not in ("mute", "kick", "ban"):
         return
-
-    ctx = get_context()
     await update_settings(
-        ctx, message.chat.id, floodThreshold=threshold, floodWindow=window, floodAction=action
+        get_context(), message.chat.id, floodThreshold=th, floodWindow=win, floodAction=act
     )
-
     await message.reply(
-        await at(message.chat.id, "flood.set", threshold=threshold, window=window, action=action)
+        await at(message.chat.id, "flood.set", threshold=th, window=win, action=act)
     )
 
 
 @bot.on_message(filters.group, group=-100)
 @safe_handler
 async def flood_interceptor(client: Client, message: Message) -> None:
-    """
-    Monitor incoming messages for flooding and enforce restrictions.
-
-    Increments the user's flood count and, if the threshold is exceeded,
-    executes the configured moderation action (mute, kick, or ban).
-    Deletes subsequent messages from the user until the flood window expires.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object to inspect.
-
-    Side Effects:
-        - Increments flood count in the cache.
-        - Deletes messages once the threshold is reached.
-        - May mute, kick, or ban the user.
-        - Logs the action in the database and audit log channel.
-        - Stops message propagation if the user is flooding.
-    """
     if getattr(message, "command", None):
         return
-
-    user_id, mention, is_white = await resolve_sender(client, message)
-    if not user_id or is_white:
+    uid, _, white = await resolve_sender(client, message)
+    if not uid or white:
         return
-
     ctx = get_context()
-    try:
-        settings = await get_settings(ctx, message.chat.id)
-    except Exception as e:
-        logger.error(f"Flood settings fetch error in {message.chat.id}: {e}")
+    s = await get_settings(ctx, message.chat.id)
+    if s.floodThreshold <= 0:
         return
 
-    if settings.floodThreshold <= 0:
-        return
-
-    count = await increment_flood(ctx, message.chat.id, user_id, settings.floodWindow)
-    if count == settings.floodThreshold + 1:
+    c = await increment_flood(ctx, message.chat.id, uid, s.floodWindow)
+    if c == s.floodThreshold + 1:
         if not await can_restrict_members(client, message.chat.id):
             return
-
-        action = settings.floodAction.lower()
-        reason = await at(
+        r = await at(
             message.chat.id,
             "logging.flood_reason",
-            threshold=settings.floodThreshold,
-            window=settings.floodWindow,
+            threshold=s.floodThreshold,
+            window=s.floodWindow,
         )
-
         await execute_moderation_action(
-            client=client,
-            message=message,
-            action=action,
-            reason=reason,
-            log_tag="Flood",
-            violation_key="flood.triggered",
+            client, message, s.floodAction.lower(), r, "Flood", "flood.triggered"
         )
 
-    if count > settings.floodThreshold:
+    if c > s.floodThreshold:
         with contextlib.suppress(Exception):
             await message.delete()
         await message.stop_propagation()

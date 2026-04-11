@@ -159,7 +159,6 @@ class BlockedLanguageFactory(factory.Factory):
 
     chatId = factory.Sequence(lambda n: -100 - n)
     langCode = "fa"
-    action = "delete"
 
 
 class UserWarnFactory(factory.Factory):

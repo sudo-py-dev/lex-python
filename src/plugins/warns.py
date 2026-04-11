@@ -36,48 +36,37 @@ class WarnsPlugin(Plugin):
 @admin_only
 @resolve_target
 async def warn_handler(client: Client, message: Message, target_user: User) -> None:
-    """Issue a warning to a user."""
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
-        await message.reply(await at(message.chat.id, "error.no_permission"))
-        return
+        return await message.reply(await at(message.chat.id, "error.no_permission"))
+    ctx, off = get_context(), 1 if message.reply_to_message else 2
+    res = " ".join(message.command[off:]) if len(message.command) > off else None
+    count = await add_warn(ctx, message.chat.id, target_user.id, message.from_user.id, res)
+    s = await get_settings(ctx, message.chat.id)
 
-    ctx = get_context()
-    settings = await get_settings(ctx, message.chat.id)
-    reason = " ".join(message.command[1:]) if len(message.command) > 1 else None
-    if message.reply_to_message and len(message.command) > 1:
-        reason = " ".join(message.command[1:])
-    elif not message.reply_to_message and len(message.command) > 2:
-        reason = " ".join(message.command[2:])
-
-    count = await add_warn(ctx, message.chat.id, target_user.id, message.from_user.id, reason)
-
-    if count >= settings.warnLimit:
-        action = settings.warnAction.lower()
+    if count >= s.warnLimit:
+        a = s.warnAction.lower()
         try:
-            if action == "ban":
+            if a == "ban":
                 await client.ban_chat_member(message.chat.id, target_user.id)
-            elif action == "kick":
+            elif a == "kick":
                 await client.ban_chat_member(
                     message.chat.id,
                     target_user.id,
                     until_date=datetime.now() + timedelta(minutes=1),
                 )
-            elif action == "mute":
+            elif a == "mute":
                 await client.restrict_chat_member(
                     message.chat.id, target_user.id, RESTRICTED_PERMISSIONS
                 )
-
             await reset_warns(ctx, message.chat.id, target_user.id)
             await log_event(
                 ctx,
                 client,
                 message.chat.id,
-                f"warn_limit_{action}",
+                f"warn_limit_{a}",
                 target_user,
                 client.me,
-                reason=await at(
-                    message.chat.id, "logging.warn_limit_reason", limit=settings.warnLimit
-                ),
+                reason=await at(message.chat.id, "logging.warn_limit_reason", limit=s.warnLimit),
                 chat_title=message.chat.title,
             )
             await message.reply(
@@ -85,19 +74,21 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
                     message.chat.id,
                     "warn.limit_reached",
                     mention=target_user.mention,
-                    action=await at(message.chat.id, f"action.{action}"),
+                    action=await at(message.chat.id, f"action.{a}"),
                 )
             )
-        except ChatAdminRequired:
-            await message.reply(await at(message.chat.id, "error.bot_not_admin"))
-        except FloodWait as e:
-            await asyncio.sleep(e.value + 1)
-            # Re-run punishment logic or just let the user try again
-            await message.reply(await at(message.chat.id, "error.flood_wait", seconds=e.value))
         except (BadRequest, Forbidden, RPCError) as e:
-            logger.warning(f"Warn punishment error in {message.chat.id}: {e}")
-        except Exception as e:
-            logger.exception(f"Unexpected warn punishment error: {e}")
+            if isinstance(e, FloodWait):
+                await asyncio.sleep(e.value + 1)
+            logger.warning(f"Warn limit err: {e}")
+            await message.reply(
+                await at(
+                    message.chat.id,
+                    "error.bot_not_admin"
+                    if isinstance(e, ChatAdminRequired)
+                    else "error.unauthorized_admin",
+                )
+            )
     else:
         await message.reply(
             await at(
@@ -105,7 +96,7 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
                 "warn.added",
                 mention=target_user.mention,
                 count=count,
-                limit=settings.warnLimit,
+                limit=s.warnLimit,
             )
         )
         await log_event(
@@ -115,7 +106,7 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
             "warn",
             target_user,
             message.from_user,
-            reason=reason,
+            reason=res,
             chat_title=message.chat.title,
         )
 
@@ -125,11 +116,8 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
 @admin_only
 @resolve_target
 async def unwarn_handler(client: Client, message: Message, target_user: User) -> None:
-    """Remove all warnings for a user."""
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
-        await message.reply(await at(message.chat.id, "error.no_permission"))
-        return
-
+        return await message.reply(await at(message.chat.id, "error.no_permission"))
     await reset_warns(get_context(), message.chat.id, target_user.id)
     await message.reply(await at(message.chat.id, "warn.reset", mention=target_user.mention))
 
@@ -138,79 +126,76 @@ async def unwarn_handler(client: Client, message: Message, target_user: User) ->
 @safe_handler
 @resolve_target
 async def warns_handler(client: Client, message: Message, target_user: User) -> None:
-    """List all active warnings for a user."""
     ctx = get_context()
-    warns = await get_warns(ctx, message.chat.id, target_user.id)
-    settings = await get_settings(ctx, message.chat.id)
-
-    if not warns:
-        await message.reply(await at(message.chat.id, "warn.none", mention=target_user.mention))
-        return
-
-    text = await at(
-        message.chat.id,
-        "warn.list_header",
-        mention=target_user.mention,
-        count=len(warns),
-        limit=settings.warnLimit,
+    if not (ws := await get_warns(ctx, message.chat.id, target_user.id)):
+        return await message.reply(
+            await at(message.chat.id, "warn.none", mention=target_user.mention)
+        )
+    s = await get_settings(ctx, message.chat.id)
+    txt, nr = (
+        await at(
+            message.chat.id,
+            "warn.list_header",
+            mention=target_user.mention,
+            count=len(ws),
+            limit=s.warnLimit,
+        ),
+        await at(message.chat.id, "common.no_reason"),
     )
-    no_reason = await at(message.chat.id, "common.no_reason")
-    for i, warn in enumerate(warns, 1):
-        text += f"\n{await at(message.chat.id, 'warn.list_entry', num=i, reason=warn.reason or no_reason, actor=warn.actorId)}"
-
-    await message.reply(text)
+    await message.reply(
+        txt
+        + "\n"
+        + "\n".join(
+            await at(
+                message.chat.id, "warn.list_entry", num=i, reason=w.reason or nr, actor=w.actorId
+            )
+            for i, w in enumerate(ws, 1)
+        )
+    )
 
 
 @bot.on_message(filters.command("resetallwarns") & filters.group)
 @safe_handler
 @admin_only
 async def reset_all_warns_handler(client: Client, message: Message) -> None:
-    """Remove all warnings for all users in the chat."""
-    count = await reset_all_chat_warns(get_context(), message.chat.id)
-    await message.reply(await at(message.chat.id, "warn.cleared_all", count=count))
-
-
-# --- Admin Panel Input Handlers ---
+    await message.reply(
+        await at(
+            message.chat.id,
+            "warn.cleared_all",
+            count=await reset_all_chat_warns(get_context(), message.chat.id),
+        )
+    )
 
 
 @bot.on_message(filters.private & is_waiting_for_input("warnLimit"), group=-50)
 @safe_handler
 async def warn_limit_input_handler(client: Client, message: Message) -> None:
-    state = message.input_state
-    chat_id = state["chat_id"]
-    user_id = message.from_user.id
+    s = message.input_state
+    uid, cid, v = message.from_user.id, s["chat_id"], message.text
+    if not str(v).isdigit() or int(v) < 1:
+        return await message.reply(await at(uid, "panel.input_invalid_number"))
     ctx = get_context()
-    value = message.text
-
-    if not str(value).isdigit() or int(value) < 1:
-        await message.reply(await at(user_id, "panel.input_invalid_number"))
-        return
-
     from src.plugins.admin_panel.repository import update_chat_setting
 
-    await update_chat_setting(ctx, chat_id, "warnLimit", int(value))
-
+    await update_chat_setting(ctx, cid, "warnLimit", int(v))
     from src.plugins.admin_panel.handlers.moderation_kbs import warns_kb
 
-    kb = await warns_kb(ctx, chat_id, user_id=user_id)
-
-    settings = await get_settings(ctx, chat_id)
-    text = await at(
-        user_id,
+    st = await get_settings(ctx, cid)
+    txt = await at(
+        uid,
         "panel.warns_text",
-        limit=settings.warnLimit,
-        action=settings.warnAction.capitalize(),
-        expiry=settings.warnExpiry.capitalize(),
+        limit=st.warnLimit,
+        action=st.warnAction.capitalize(),
+        expiry=st.warnExpiry.capitalize(),
     )
-
     await finalize_input_capture(
         client,
         message,
-        user_id,
-        state["prompt_msg_id"],
-        text,
-        kb,
-        success_text=await at(user_id, "panel.input_success"),
+        uid,
+        s["prompt_msg_id"],
+        txt,
+        await warns_kb(ctx, cid, user_id=uid),
+        success_text=await at(uid, "panel.input_success"),
     )
 
 

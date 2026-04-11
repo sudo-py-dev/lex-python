@@ -3,12 +3,12 @@ from pyrogram import Client, filters
 from pyrogram.enums import ChatAction, MessageEntityType, ParseMode
 from pyrogram.types import Message
 
-from src.cache.local_cache import get_cache
 from src.core.bot import bot
 from src.core.context import get_context
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
+from src.utils.local_cache import get_cache
 
 from .repository import AIRepository
 from .service import AIService
@@ -16,123 +16,86 @@ from .telegram_markdown import render_pyrogram_html
 
 
 def _compact_history(
-    messages: list[dict[str, str]],
-    *,
-    max_messages: int,
-    max_chars: int,
+    messages: list[dict[str, str]], *, max_messages: int, max_chars: int
 ) -> list[dict[str, str]]:
     if not messages:
         return []
-
-    clipped = messages[-max_messages:]
-    out: list[dict[str, str]] = []
-    total = 0
-    for m in reversed(clipped):
-        content = str(m.get("content", ""))
-        role = str(m.get("role", "user"))
+    out, total = [], 0
+    for m in reversed(messages[-max_messages:]):
+        content, role = str(m.get("content", "")), str(m.get("role", "user"))
         if not content:
             continue
         if total + len(content) > max_chars:
-            remaining = max_chars - total
-            if remaining <= 80:
+            if (rem := max_chars - total) <= 80:
                 break
-            content = content[-remaining:]
+            content = content[-rem:]
         out.append({"role": role, "content": content})
-        total += len(content)
-        if total >= max_chars:
+        if (total := total + len(content)) >= max_chars:
             break
     return list(reversed(out))
 
 
 def _is_request_too_large_error(err: Exception) -> bool:
     e = str(err).lower()
-    return "request_too_large" in e or "413" in e or "request entity too large" in e
+    return any(x in e for x in ("request_too_large", "413", "request entity too large"))
 
 
-def _trim_text(value: str | None, max_chars: int) -> str | None:
-    if not value:
-        return value
-    text = str(value).strip()
-    if len(text) <= max_chars:
-        return text
-    return text[-max_chars:]
+def _trim_text(v: str | None, max_c: int) -> str | None:
+    return v.strip()[-max_c:] if v and len(v.strip()) > max_c else (v.strip() if v else v)
 
 
 @bot.on_message(filters.group & ~filters.service & ~filters.bot, group=100)
 @safe_handler
 async def ai_message_handler(client: Client, message: Message):
-    """
-    Main handler for AI messages.
-    - Logs all messages to chat context.
-    - Responds if mentioned or within the 3-minute session window.
-    """
-    chat_id = message.chat.id
-    user_id = message.from_user.id if message.from_user else 0
-    user_name = message.from_user.first_name if message.from_user else "Unknown"
-    text = message.text or message.caption
-
-    if not client.me:
-        logger.warning("AI Handler: client.me is not populated yet!")
+    """Main AI handler: log msg & respond if mentioned or in session."""
+    chat_id, user_id = message.chat.id, message.from_user.id if message.from_user else 0
+    t = message.text or message.caption
+    if not client.me or not t or t.startswith("/"):
         return
 
-    if not text or text.startswith("/"):
+    ctx, cache = get_context(), get_cache()
+    await AIRepository.add_message(
+        ctx,
+        chat_id,
+        message.id,
+        user_id,
+        message.from_user.first_name if message.from_user else "Unknown",
+        t,
+    )
+
+    s = await AIRepository.get_settings(ctx, chat_id)
+    if not s or not s.isAssistantEnabled or not s.apiKey:
         return
 
-    ctx = get_context()
-    cache = get_cache()
-
-    logger.debug(f"AI [{chat_id}] Handler triggered. User: {user_name} ({user_id})")
-
-    await AIRepository.add_message(ctx, chat_id, message.id, user_id, user_name, text)
-
-    settings = await AIRepository.get_settings(ctx, chat_id)
-    if not settings:
-        return
-    if not settings.isAssistantEnabled:
-        return
-    if not settings.apiKey:
-        return
-
-    is_mentioned = False
+    is_m = False
+    me_tag = f"@{client.me.username}".lower()
     if message.entities:
-        for entity in message.entities:
-            if entity.type in (MessageEntityType.MENTION, MessageEntityType.BOT_COMMAND):
-                mention_text = text[entity.offset : entity.offset + entity.length]
-                if f"@{client.me.username}".lower() in mention_text.lower():
-                    is_mentioned = True
+        is_m = any(
+            me_tag in t[e.offset : e.offset + e.length].lower()
+            for e in message.entities
+            if e.type in (MessageEntityType.MENTION, MessageEntityType.BOT_COMMAND)
+        )
+    if not is_m:
+        is_m = me_tag in t.lower() or (
+            message.reply_to_message
+            and message.reply_to_message.from_user
+            and message.reply_to_message.from_user.id == client.me.id
+        )
 
-                    break
-
-    if not is_mentioned and f"@{client.me.username}".lower() in text.lower():
-        is_mentioned = True
-
-    if (
-        not is_mentioned
-        and message.reply_to_message
-        and message.reply_to_message.from_user
-        and message.reply_to_message.from_user.id == client.me.id
-    ):
-        is_mentioned = True
-
-    session_key = f"ai_session:{chat_id}"
-    is_session_active = await cache.exists(session_key)
-
-    logger.debug(f"AI [{chat_id}] Mentioned: {is_mentioned}, Active: {is_session_active}")
-
-    if not is_mentioned and not is_session_active:
+    s_key = f"ai_session:{chat_id}"
+    is_active = await cache.exists(s_key)
+    if not is_m and not is_active:
         return
 
-    await cache.set(session_key, True, ttl=180)
+    await cache.set(s_key, True, ttl=180)
+    p = (s.provider or "openai").lower()
+    max_m, max_c = (16, 7000) if p == "groq" else (24, 12000)
+    retry_max_m, retry_max_c = (6, 2200) if p == "groq" else (8, 3000)
 
-    provider = (settings.provider or "").lower()
-    initial_max_messages = 16 if provider == "groq" else 24
-    initial_max_chars = 7000 if provider == "groq" else 12000
-    retry_max_messages = 6 if provider == "groq" else 8
-    retry_max_chars = 2200 if provider == "groq" else 3000
-
-    history = await AIRepository.get_context(ctx, chat_id, client.me.id)
     history = _compact_history(
-        history, max_messages=initial_max_messages, max_chars=initial_max_chars
+        await AIRepository.get_context(ctx, chat_id, client.me.id),
+        max_messages=max_m,
+        max_chars=max_c,
     )
     logger.debug(f"AI [{chat_id}] History: {len(history)} messages. Calling LLM...")
 
@@ -141,7 +104,7 @@ async def ai_message_handler(client: Client, message: Message):
     try:
         await client.send_chat_action(chat_id, ChatAction.TYPING)
 
-        sys_prompt = settings.systemPrompt if settings.systemPrompt else BASE_PROMPT
+        sys_prompt = s.systemPrompt if s.systemPrompt else BASE_PROMPT
         sys_prompt = sys_prompt.format(
             bot_name=client.me.first_name, bot_username=client.me.username
         )
@@ -150,17 +113,17 @@ async def ai_message_handler(client: Client, message: Message):
             f"IDENTITY: You are @{client.me.username} ({client.me.first_name})\n\n{sys_prompt}"
         )
 
-        if settings.systemPrompt:
+        if s.systemPrompt:
             sys_prompt += OPERATIONAL_RULES
 
         sys_prompt = _trim_text(sys_prompt, 3200) or ""
-        custom_instruction = _trim_text(settings.customInstruction, 900)
+        custom_instruction = _trim_text(s.customInstruction, 900)
 
         try:
             response_text = await AIService.call_ai(
-                provider=settings.provider,
-                api_key=settings.apiKey,
-                model_id=settings.modelId or "gpt-3.5-turbo",
+                provider=s.provider,
+                api_key=s.apiKey,
+                model_id=s.modelId or "gpt-3.5-turbo",
                 system_prompt=sys_prompt,
                 custom_instruction=custom_instruction,
                 messages=history,
@@ -170,12 +133,12 @@ async def ai_message_handler(client: Client, message: Message):
                 raise
             logger.warning(f"AI [{chat_id}] context too large, retrying with compact history")
             retry_history = _compact_history(
-                history, max_messages=retry_max_messages, max_chars=retry_max_chars
+                history, max_messages=retry_max_m, max_chars=retry_max_c
             )
             response_text = await AIService.call_ai(
-                provider=settings.provider,
-                api_key=settings.apiKey,
-                model_id=settings.modelId or "gpt-3.5-turbo",
+                provider=s.provider,
+                api_key=s.apiKey,
+                model_id=s.modelId or "gpt-3.5-turbo",
                 system_prompt=_trim_text(sys_prompt, 1800),
                 custom_instruction=_trim_text(custom_instruction, 500),
                 messages=retry_history,
@@ -202,14 +165,14 @@ async def ai_message_handler(client: Client, message: Message):
 
             if token_match == "CLOSE" or clean_response.upper().startswith("[CLOSE]"):
                 await AIRepository.clear_context(ctx, chat_id)
-                await cache.delete(session_key)
+                await cache.delete(s_key)
                 await message.reply_text(await at(chat_id, "ai.session_closed"))
                 return
 
             render_text = render_pyrogram_html(clean_response)
             try:
                 sent_msg = await message.reply_text(render_text, parse_mode=ParseMode.HTML)
-            except Exception as format_error:
+            except ValueError as format_error:
                 logger.warning(
                     f"AI [{chat_id}] html render failed, fallback to plain text: {format_error}"
                 )
@@ -225,7 +188,7 @@ async def ai_message_handler(client: Client, message: Message):
             error_msg = await at(chat_id, "ai.rate_limit")
         elif _is_request_too_large_error(e):
             await AIRepository.clear_context(ctx, chat_id)
-            await cache.delete(session_key)
+            await cache.delete(s_key)
             error_msg = await at(chat_id, "ai.context_too_large")
         else:
             error_msg = await at(chat_id, "ai.error_prefix", error=str(e))

@@ -1,7 +1,7 @@
 [project]
 name = "lex-tg"
 version = "1.0.0"
-description = "lex-tg: Advanced Telegram Group Management Bot."
+description = "lex-tg: Advanced Telegram Chat Management Bot."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

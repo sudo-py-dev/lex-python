@@ -1,10 +1,10 @@
 import base64
 import io
 import json
-import os
 import shutil
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 from loguru import logger
 from PIL import Image, ImageDraw, ImageFont
@@ -63,32 +63,32 @@ def _detect_script(text: str) -> str:
 def _font_candidates(script: str) -> list[str]:
     project_fonts = {
         "arabic": [
-            os.path.join("assets", "fonts", "NotoSansArabic-Bold.ttf"),
-            os.path.join("assets", "fonts", "NotoSansArabic-Regular.ttf"),
+            Path("assets/fonts/NotoSansArabic-Bold.ttf"),
+            Path("assets/fonts/NotoSansArabic-Regular.ttf"),
         ],
         "hebrew": [
-            os.path.join("assets", "fonts", "NotoSansHebrew-Bold.ttf"),
-            os.path.join("assets", "fonts", "NotoSansHebrew-Regular.ttf"),
+            Path("assets/fonts/NotoSansHebrew-Bold.ttf"),
+            Path("assets/fonts/NotoSansHebrew-Regular.ttf"),
         ],
         "devanagari": [
-            os.path.join("assets", "fonts", "NotoSansDevanagari-Bold.ttf"),
-            os.path.join("assets", "fonts", "NotoSansDevanagari-Regular.ttf"),
+            Path("assets/fonts/NotoSansDevanagari-Bold.ttf"),
+            Path("assets/fonts/NotoSansDevanagari-Regular.ttf"),
         ],
         "cjk": [
-            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
-            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"),
+            Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
         ],
         "latin": [
-            os.path.join("assets", "fonts", "DejaVuSans-Bold.ttf"),
-            os.path.join("assets", "fonts", "LiberationSans-Bold.ttf"),
-            os.path.join("assets", "fonts", "DejaVuSans.ttf"),
+            Path("assets/fonts/DejaVuSans-Bold.ttf"),
+            Path("assets/fonts/LiberationSans-Bold.ttf"),
+            Path("assets/fonts/DejaVuSans.ttf"),
         ],
     }
     common_fallbacks = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "arial.ttf",
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+        Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("arial.ttf"),
     ]
     return project_fonts.get(script, []) + project_fonts["latin"] + common_fallbacks
 
@@ -108,24 +108,21 @@ def parse_watermark_config(raw_value: str | None) -> WatermarkConfig:
 
     color = str(payload.get("color", DEFAULT_WATERMARK_COLOR))
     style = str(payload.get("style", DEFAULT_WATERMARK_STYLE))
+    raw_vq = str(payload.get("video_quality", DEFAULT_VIDEO_WATERMARK_QUALITY))
+    raw_vm = str(payload.get("video_motion", DEFAULT_VIDEO_WATERMARK_MOTION))
+
     return WatermarkConfig(
         text=str(payload.get("text", "")),
         color=color if color in SUPPORTED_WATERMARK_COLORS else DEFAULT_WATERMARK_COLOR,
         style=style if style in SUPPORTED_WATERMARK_STYLES else DEFAULT_WATERMARK_STYLE,
         video_enabled=bool(payload.get("video_enabled", False)),
         image_enabled=bool(payload.get("image_enabled", True)),
-        video_quality=(
-            str(payload.get("video_quality", DEFAULT_VIDEO_WATERMARK_QUALITY))
-            if str(payload.get("video_quality", DEFAULT_VIDEO_WATERMARK_QUALITY))
-            in SUPPORTED_VIDEO_WATERMARK_QUALITIES
-            else DEFAULT_VIDEO_WATERMARK_QUALITY
-        ),
-        video_motion=(
-            str(payload.get("video_motion", DEFAULT_VIDEO_WATERMARK_MOTION))
-            if str(payload.get("video_motion", DEFAULT_VIDEO_WATERMARK_MOTION))
-            in SUPPORTED_VIDEO_WATERMARK_MOTIONS
-            else DEFAULT_VIDEO_WATERMARK_MOTION
-        ),
+        video_quality=raw_vq
+        if raw_vq in SUPPORTED_VIDEO_WATERMARK_QUALITIES
+        else DEFAULT_VIDEO_WATERMARK_QUALITY,
+        video_motion=raw_vm
+        if raw_vm in SUPPORTED_VIDEO_WATERMARK_MOTIONS
+        else DEFAULT_VIDEO_WATERMARK_MOTION,
     )
 
 
@@ -208,7 +205,7 @@ def apply_video_watermark(
     crf, preset = quality_map[q]
 
     script = _detect_script(text)
-    fontfile = next((p for p in _font_candidates(script) if os.path.exists(p)), "")
+    fontfile = next((str(p) for p in _font_candidates(script) if p.exists()), "")
     text_escaped = _escape_ffmpeg_drawtext(text)
     if m == "float":
         x_expr = "(w-tw)/2+(w/3)*sin(t*0.7)"
@@ -307,8 +304,8 @@ def apply_watermark(
                 font_paths = _font_candidates(script)
                 font = None
                 for path in font_paths:
-                    if os.path.exists(path):
-                        font = ImageFont.truetype(path, font_size)
+                    if path.exists():
+                        font = ImageFont.truetype(str(path), font_size)
                         break
                 if not font:
                     font = ImageFont.load_default()

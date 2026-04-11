@@ -17,11 +17,11 @@ from pyrogram.errors import (
     Unauthorized,
 )
 
-from src.cache.local_cache import get_cache
 from src.config import config
 from src.core.context import AppContext, set_context
 from src.core.plugin import autodiscover, get_plugins
 from src.db.client import AsyncSessionLocal, disconnect_db
+from src.utils.local_cache import get_cache
 from src.utils.logger import setup_logger
 
 
@@ -40,7 +40,12 @@ async def main() -> None:
     cache = get_cache()
     await cache.load_snapshot()
 
-    scheduler = AsyncIOScheduler()
+    scheduler = AsyncIOScheduler(
+        job_defaults={
+            "misfire_grace_time": 60,
+            "coalesce": True,
+        }
+    )
     scheduler.start()
 
     scheduler.add_job(cache.save_snapshot, "interval", minutes=4, id="cache_snapshot")

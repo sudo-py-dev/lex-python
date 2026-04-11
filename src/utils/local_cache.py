@@ -163,7 +163,7 @@ class AsyncSnapshotCache:
             return len(expired_keys)
 
     async def save_snapshot(self) -> bool:
-        """Saves current cache state to disk atokically."""
+        """Saves current cache state to disk atomically."""
         async with self._lock:
             try:
                 self.snapshot_path.parent.mkdir(parents=True, exist_ok=True)
@@ -171,14 +171,16 @@ class AsyncSnapshotCache:
 
                 state = {
                     "data": dict(self._data),
-                    "expiries": self._expiries,
+                    "expiries": self._expiries.copy(),
                     "timestamp": time.time(),
                 }
 
-                with open(temp_path, "wb") as f:
-                    pickle.dump(state, f)
+                def _save_io():
+                    with open(temp_path, "wb") as f:
+                        pickle.dump(state, f)
+                    temp_path.replace(self.snapshot_path)
 
-                temp_path.replace(self.snapshot_path)
+                await asyncio.to_thread(_save_io)
                 logger.debug(f"Cache snapshot saved: {len(self._data)} items.")
                 return True
             except Exception as e:
@@ -192,8 +194,12 @@ class AsyncSnapshotCache:
 
         async with self._lock:
             try:
-                with open(self.snapshot_path, "rb") as f:
-                    state = pickle.load(f)
+
+                def _load_io():
+                    with open(self.snapshot_path, "rb") as f:
+                        return pickle.load(f)
+
+                state = await asyncio.to_thread(_load_io)
 
                 self._data = OrderedDict(state.get("data", {}))
                 self._expiries = state.get("expiries", {})

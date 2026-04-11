@@ -15,8 +15,15 @@ from typing import TYPE_CHECKING
 from loguru import logger
 from PIL import Image, UnidentifiedImageError
 from pyrogram import Client, filters
+from pyrogram.enums import ButtonStyle
 from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
-from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
+from pyrogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    InputMediaVideo,
+    Message,
+)
 
 from src.config import config
 from src.core.bot import bot
@@ -24,6 +31,7 @@ from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.chats import (
     get_chat_settings,
+    update_chat_setting,
 )
 from src.utils.decorators import safe_handler
 from src.utils.input import (
@@ -114,8 +122,6 @@ class ChannelsPlugin(Plugin):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                from loguru import logger
-
                 logger.error(f"Error in channel worker: {e}")
                 await asyncio.sleep(1)
             finally:
@@ -127,12 +133,11 @@ class ChannelsPlugin(Plugin):
         Core automation entry point for a single channel message.
         Dispatches tasks for reactions and content enhancements.
         """
+        logger.debug(f"[channels] Processing message={message.id} in chat={message.chat.id}")
         ctx = get_context()
         settings: ChatSettings | None = await get_chat_settings(ctx, message.chat.id)
         if not settings:
-            logger.debug(
-                f"[channels] No settings found for chat={message.chat.id}, skipping message={message.id}"
-            )
+            logger.debug(f"[channels] No settings for chat={message.chat.id}")
             return
 
         await self._handle_reactions(settings, message)
@@ -155,49 +160,45 @@ class ChannelsPlugin(Plugin):
             settings.signatureEnabled,
         )
 
+        kb = self._build_buttons_keyboard(settings.buttons)
+        if kb:
+            logger.debug(
+                f"[channels] Keyboard built message={message.id}: {len(kb.inline_keyboard)} rows"
+            )
+
+        processed = False
         if plan.is_media and message.photo and wm.image_enabled and wm.text:
-            logger.debug(f"[channels] Applying image watermark for message={message.id}")
+            logger.debug(f"[channels] Attempting image watermark message={message.id}")
             if message.media_group_id:
-                logger.debug(
-                    f"[channels] Deferring image watermark to album worker for media_group={message.media_group_id}"
-                )
+                logger.debug(f"[channels] Deferring album watermark message={message.id}")
                 self._schedule_album_job(message)
                 return
 
-            await self._handle_watermarking(
-                message,
-                plan.target_content or message.caption,
-                wm,
+            processed = await self._handle_watermarking(
+                message, plan.target_content or message.caption or "", wm, reply_markup=kb
             )
-            return
 
-        if (
+        if not processed and (
             plan.is_media
             and message.video
             and wm.video_enabled
             and wm.text
             and config.ENABLE_VIDEO_WATERMARK
         ):
-            logger.debug(
-                f"[channels] Applying video watermark for message={message.id} quality={wm.video_quality}"
-            )
-            await self._handle_video_watermarking(
-                message,
-                plan.target_content or message.caption,
-                wm,
-            )
-            return
-        if plan.is_media and message.video and wm.video_enabled and wm.text:
-            logger.debug(
-                "[channels] Video watermark skipped for message={} (channel_video={}, developer_video={})",
-                message.id,
-                wm.video_enabled,
-                config.ENABLE_VIDEO_WATERMARK,
+            logger.debug(f"[channels] Attempting video watermark message={message.id}")
+            processed = await self._handle_video_watermarking(
+                message, plan.target_content or message.caption or "", wm, reply_markup=kb
             )
 
-        if plan.target_content is not None:
-            logger.debug(f"[channels] Applying signature update for message={message.id}")
-            await self._handle_signature(message, plan.target_content, plan.is_media)
+        if not processed and (plan.target_content is not None or kb is not None):
+            logger.debug(f"[channels] Attempting signature/button update message={message.id}")
+            await self._handle_signature_and_buttons(
+                message, settings, plan.target_content, plan.is_media, reply_markup=kb
+            )
+        else:
+            logger.debug(
+                f"[channels] No content changes needed message={message.id} (processed={processed})"
+            )
 
     def _schedule_album_job(self, message: Message) -> None:
         media_group_id = message.media_group_id
@@ -246,12 +247,15 @@ class ChannelsPlugin(Plugin):
                         f"[channels] Album watermark media_group={media_group_id} photos_to_edit={len(photo_items)}"
                     )
 
+                    kb = self._build_buttons_keyboard(settings.buttons)
                     for item in photo_items:
                         item_caption = final_caption if item.id == caption_host.id else None
+                        item_kb = kb if item.id == caption_host.id else None
                         await self._handle_watermarking(
                             item,
                             item_caption,
                             wm,
+                            reply_markup=item_kb,
                         )
                         await asyncio.sleep(self._get_album_edit_interval(len(photo_items)))
         finally:
@@ -299,6 +303,9 @@ class ChannelsPlugin(Plugin):
         is_caption_host = await self._is_caption_host(message)
         target_content = self._calculate_target_content(
             settings, message, is_media, is_caption_host
+        )
+        logger.debug(
+            f"[channels] PLAN message={message.id}: host={is_caption_host} media={is_media} sig_len={len(target_content) if target_content else 0}"
         )
         return ChannelContentPlan(
             is_media=is_media, is_caption_host=is_caption_host, target_content=target_content
@@ -368,38 +375,90 @@ class ChannelsPlugin(Plugin):
             logger.error(f"Error getting media group for caption host check: {e}")
             return True
 
-    async def _handle_signature(self, message: Message, new_content: str, is_media: bool) -> None:
+    async def _handle_signature_and_buttons(
+        self,
+        message: Message,
+        settings: ChatSettings,
+        new_content: str | None,
+        is_media: bool,
+        reply_markup: InlineKeyboardMarkup | None = None,
+    ) -> None:
         """
-        Applies the pre-calculated signature to the message text or caption.
+        Applies signature and/or buttons to the message.
         """
         entities = message.caption_entities if is_media else message.entities
+        text = new_content or ((message.caption or "") if is_media else (message.text or ""))
+        kb = reply_markup
 
         async def do_edit() -> None:
+            kb_size = len(kb.inline_keyboard) if kb else 0
+            logger.debug(
+                f"[channels] EDITTING message={message.id}: text_len={len(text)} kb_rows={kb_size}"
+            )
             if is_media:
                 await message.edit_caption(
-                    caption=new_content, caption_entities=entities, parse_mode=None
+                    caption=text,
+                    caption_entities=entities,
+                    parse_mode=None,
+                    reply_markup=kb,
                 )
             else:
-                await message.edit_text(text=new_content, entities=entities, parse_mode=None)
+                await message.edit_text(
+                    text=text,
+                    entities=entities,
+                    parse_mode=None,
+                    reply_markup=kb,
+                )
 
         try:
             await self._run_with_retry(message.chat.id, self.METHOD_EDIT, do_edit)
         except Forbidden:
-            logger.warning(f"Bot lacks edit permission for signature in {message.chat.id}")
-        except FloodWait as e:
-            # Note: _run_with_retry already handles FloodWait
-            logger.warning(f"FloodWait in signature handler: {e}")
+            logger.warning(f"Bot lacks edit permission in {message.chat.id}")
         except (BadRequest, RPCError) as e:
-            logger.error(f"RPC error adding signature to message {message.id}: {e}")
+            logger.error(f"RPC error updating message {message.id}: {e}")
         except Exception as e:
-            logger.exception(f"Unexpected error adding signature to message {message.id}: {e}")
+            logger.exception(f"Unexpected error updating message {message.id}: {e}")
+
+    def _build_buttons_keyboard(self, buttons_json: str | None) -> InlineKeyboardMarkup | None:
+        if not buttons_json:
+            return None
+        try:
+            rows = json.loads(buttons_json)
+            if not rows or not isinstance(rows, list):
+                return None
+
+            from src.utils.actions import ButtonStyle
+
+            keyboard = []
+            for row in rows:
+                kb_row = []
+                for btn in row:
+                    text = btn.get("text", "Button")
+                    url = btn.get("url")
+                    style_str = btn.get("style", "default")
+
+                    try:
+                        style = ButtonStyle(style_str)
+                    except (ValueError, TypeError):
+                        style = ButtonStyle.DEFAULT
+
+                    if url:
+                        kb_row.append(InlineKeyboardButton(text, url=url, style=style))
+                if kb_row:
+                    keyboard.append(kb_row)
+
+            return InlineKeyboardMarkup(keyboard) if keyboard else None
+        except Exception as e:
+            logger.error(f"Error building buttons keyboard: {e}")
+            return None
 
     async def _handle_watermarking(
         self,
         message: Message,
         final_caption: str | None,
         wm: WatermarkOptions,
-    ) -> None:
+        reply_markup: InlineKeyboardMarkup | None = None,
+    ) -> bool:
         """
         Downloads the image, applies the watermark and the final caption, then updates the post.
         """
@@ -422,10 +481,10 @@ class ChannelsPlugin(Plugin):
                 return
 
             if not photo_path:
-                return
+                return False
             if not self._is_real_image(photo_path):
                 logger.error(f"Downloaded file is not a valid image for message {message.id}")
-                return
+                return False
 
             if not apply_watermark(
                 photo_path,
@@ -437,41 +496,49 @@ class ChannelsPlugin(Plugin):
                 logger.debug(
                     f"[channels] Image watermark renderer returned false message={message.id}"
                 )
-                return
+                return False
 
             if not self._is_real_image(output_path):
                 logger.error(f"Watermark output is not a valid image for message {message.id}")
-                return
+                return False
 
             async def do_edit_media() -> None:
+                kb_size = len(reply_markup.inline_keyboard) if reply_markup else 0
+                logger.debug(
+                    f"[channels] EDITTING media message={message.id}: caption_len={len(final_caption or '')} kb_rows={kb_size}"
+                )
                 await message.edit_media(
                     media=InputMediaPhoto(
                         media=output_path,
                         caption=final_caption,
                         caption_entities=message.caption_entities,
                         parse_mode=None,
-                    )
+                    ),
+                    reply_markup=reply_markup,
                 )
 
             try:
                 await self._run_with_retry(message.chat.id, self.METHOD_EDIT, do_edit_media)
                 logger.debug(f"[channels] Image watermark edit success message={message.id}")
+                return True
             except OSError as e:
                 if e.errno == errno.ENOSPC:
                     logger.error(
                         f"Storage full while editing media for message {message.id}; skipping update."
                     )
-                    return
+                    return False
                 logger.error(f"OS error watermarking message {message.id}: {e}")
             except Exception as e:
                 logger.error(f"Error watermarking message {message.id}: {e}")
+            return False
 
     async def _handle_video_watermarking(
         self,
         message: Message,
         final_caption: str | None,
         wm: WatermarkOptions,
-    ) -> None:
+        reply_markup: InlineKeyboardMarkup | None = None,
+    ) -> bool:
         logger.debug(
             f"[channels] Start video watermark pipeline message={message.id} "
             f"quality={wm.video_quality} motion={wm.video_motion}"
@@ -489,7 +556,7 @@ class ChannelsPlugin(Plugin):
                     self._human_size(source_size),
                     self._human_size(max_size_bytes),
                 )
-                return
+                return False
             try:
                 video_path = await message.download(file_name=input_path)
             except OSError as e:
@@ -497,8 +564,9 @@ class ChannelsPlugin(Plugin):
                     logger.error(
                         f"Storage full while downloading video for message {message.id}; skipping watermark."
                     )
-                    return
+                    return False
                 logger.error(f"OS error downloading video for message {message.id}: {e}")
+                return False
                 return
             except Exception as e:
                 logger.error(f"Error downloading video for message {message.id}: {e}")
@@ -547,21 +615,24 @@ class ChannelsPlugin(Plugin):
                         caption=final_caption,
                         caption_entities=message.caption_entities,
                         parse_mode=None,
-                    )
+                    ),
+                    reply_markup=reply_markup,
                 )
 
             try:
                 await self._run_with_retry(message.chat.id, self.METHOD_EDIT, do_edit_media)
                 logger.debug(f"[channels] Video watermark edit success message={message.id}")
+                return True
             except OSError as e:
                 if e.errno == errno.ENOSPC:
                     logger.error(
                         f"Storage full while editing video for message {message.id}; skipping update."
                     )
-                    return
+                    return False
                 logger.error(f"OS error video watermarking message {message.id}: {e}")
             except Exception as e:
                 logger.error(f"Error video watermarking message {message.id}: {e}")
+            return False
 
     async def _throttle_operation(self, chat_id: int, method: str) -> None:
         chat_key = str(chat_id)
@@ -631,13 +702,13 @@ class ChannelsPlugin(Plugin):
 
 
 channels_plugin = ChannelsPlugin()
+register(channels_plugin)
 
 
-@bot.on_message(
-    filters.channel & ~filters.forwarded & ~filters.service & ~filters.via_bot, group=-100
-)
+@bot.on_message(filters.channel, group=-500)
 async def channel_post_handler(client: Client, message: Message) -> None:
     """EntryPoint for channel posts: push to queue for sequential processing."""
+    logger.debug(f"[channels] Received new channel post message={message.id} in {message.chat.id}")
     await channels_plugin.queue.put(message)
     await message.continue_propagation()
 
@@ -674,7 +745,8 @@ async def channel_service_handler(client: Client, message: Message) -> None:
 
 
 @bot.on_message(
-    filters.private & is_waiting_for_input(["reactions", "watermarkText", "signatureText"]),
+    filters.private
+    & is_waiting_for_input(["reactions", "watermarkText", "signatureText", "buttonsText"]),
     group=-50,
 )
 @safe_handler
@@ -686,7 +758,6 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
     ctx = get_context()
     value = message.text or ""
 
-    from src.db.repositories.chats import update_chat_setting
     from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb, channel_watermark_kb
 
     if field == "reactions":
@@ -723,6 +794,26 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
         )
     elif field == "signatureText":
         await update_chat_setting(ctx, channel_id, "signatureText", str(value))
+    elif field == "buttonsText":
+        if "|" in str(value):
+            label, url = map(str.strip, str(value).split("|", 1))
+            if not (url.startswith("http://") or url.startswith("https://")):
+                url = f"https://{url}"
+            s = await get_chat_settings(ctx, channel_id)
+            try:
+                rows = json.loads(s.buttons or "[]")
+            except Exception:
+                rows = []
+
+            # Simple logic: add to existing row or new row
+            # For simplicity, we add each new button as a new row or append to last row if < 3 buttons
+            new_btn = {"text": label, "url": url, "style": ButtonStyle.DEFAULT.value}
+            if rows and len(rows[-1]) < 3:
+                rows[-1].append(new_btn)
+            else:
+                rows.append([new_btn])
+
+            await update_chat_setting(ctx, channel_id, "buttons", json.dumps(rows))
 
     from src.utils.i18n import at
 
@@ -730,7 +821,8 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
     title = s.title or f"Channel {channel_id}"
 
     if field == "watermarkText":
-        from src.utils.watermark import (
+        from src.plugins.admin_panel.handlers.keyboards import channel_watermark_kb
+        from src.utils.media import (
             build_watermark_config,
             parse_watermark_config,
         )
@@ -765,6 +857,19 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
             ),
         )
         kb = await channel_watermark_kb(ctx, channel_id, user_id)
+    elif field == "buttonsText":
+        from src.plugins.admin_panel.handlers.keyboards import channel_buttons_kb
+
+        buttons_raw = s.buttons or "[]"
+        try:
+            rows = json.loads(buttons_raw)
+            btn_count = sum(len(row) for row in rows)
+        except Exception:
+            btn_count = 0
+
+        text = await at(user_id, "panel.channel_buttons_text", count=btn_count)
+        kb = await channel_buttons_kb(ctx, channel_id, user_id)
+        main_text = text
     else:
         status = await at(user_id, "panel.status_enabled" if s.enabled else "panel.status_disabled")
         main_text = await at(
@@ -777,11 +882,10 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
             signature=s.signatureText or await at(user_id, "panel.not_set"),
             sign_pos=s.signaturePosition.upper(),
         )
+        from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb
+
         kb = await channel_settings_kb(ctx, channel_id, user_id)
 
     await finalize_input_capture(
         client, message, user_id, state["prompt_msg_id"], main_text, kb, success_text=None
     )
-
-
-register(ChannelsPlugin())

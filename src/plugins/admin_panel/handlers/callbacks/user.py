@@ -62,10 +62,10 @@ async def on_select_chat(_: Client, callback: CallbackQuery):
     user_id = callback.from_user.id
     new_chat_id = int(callback.matches[0].group(1))
 
-    await set_active_chat(ctx, user_id, new_chat_id)
     is_pm = callback.message.chat.type == ChatType.PRIVATE
     at_id = _panel_lang_id(is_pm, user_id, new_chat_id)
     chat_type, chat_title = await get_chat_info(ctx, new_chat_id)
+    await set_active_chat(ctx, user_id, new_chat_id, chat_type=chat_type.name.lower())
 
     await callback.message.edit_text(
         await at(at_id, "panel.main_text", user_id=user_id, title=chat_title),
@@ -86,6 +86,7 @@ async def on_select_channel(client: Client, callback: CallbackQuery):
 
     from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb
 
+    await set_active_chat(ctx, user_id, channel_id, chat_type="channel")
     s = await get_chat_settings(ctx, channel_id)
     title = s.title or f"Channel {channel_id}"
     kb = await channel_settings_kb(ctx, channel_id, user_id)

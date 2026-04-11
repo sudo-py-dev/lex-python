@@ -1,3 +1,4 @@
+import contextlib
 import re
 import time
 from datetime import UTC, datetime
@@ -33,119 +34,51 @@ class AdminPlugin(Plugin):
 @bot.on_message(filters.command("start") & filters.private)
 @safe_handler
 async def start_handler(client: Client, message: Message) -> None:
-    """
-    Entry point for the bot, provides general information and deep-linked settings.
+    if len(message.command) > 1 and (payload := message.command[1]).startswith("settings_"):
+        cid = payload.replace("settings_", "")
+        if cid.startswith("-") and cid.lstrip("-").isdigit():
+            from src.plugins.admin_panel.handlers import open_settings_panel
 
-    If a deep-linked payload starting with 'settings_' is provided, it attempts to
-    open the settings panel for the specified chat ID. Otherwise, it sends a
-    general welcome message.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Sends a welcome message in private chat.
-        - May open the settings panel if deep-linked.
-    """
-    if len(message.command) > 1:
-        payload = message.command[1]
-        if payload.startswith("settings_"):
-            try:
-                chat_id_str = payload.replace("settings_", "")
-                if not chat_id_str.startswith("-") or not chat_id_str.lstrip("-").isdigit():
-                    return
-                chat_id = int(chat_id_str)
-                from src.plugins.admin_panel.handlers import open_settings_panel
-
-                await open_settings_panel(client, message, chat_id)
-                return
-            except Exception:
-                pass
-    if not message.chat or not message.from_user:
-        return
-
+            with contextlib.suppress(Exception):
+                return await open_settings_panel(client, message, int(cid))
     await send_start_message(client, message)
 
 
 async def send_start_message(client: Client, message: Message, edit: bool = False) -> None:
-    """
-    Send the clean, professional welcome message with navigation buttons.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object (can be from command or callback).
-        edit (bool): Whether to edit the existing message instead of replying.
-    """
-    me = await client.get_me()
-    chat_id = message.chat.id
-
-    text = await at(
-        chat_id,
-        "admin.start_text",
-        bot_name=me.first_name,
-    )
-
+    me, cid = client.me, message.chat.id
+    txt = await at(cid, "admin.start_text", bot_name=me.first_name)
     kb = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton(await at(chat_id, "help.start_btn"), callback_data="help:main")],
+            [InlineKeyboardButton(await at(cid, "help.start_btn"), callback_data="help:main")],
             [
                 InlineKeyboardButton(
-                    await at(chat_id, "panel.btn_my_groups"), callback_data="panel:my_chats"
+                    await at(cid, "panel.btn_my_groups"), callback_data="panel:my_chats"
                 ),
                 InlineKeyboardButton(
-                    await at(chat_id, "help.about_btn"), callback_data="help:cat:about"
+                    await at(cid, "help.about_btn"), callback_data="help:cat:about"
                 ),
             ],
-            [InlineKeyboardButton(await at(chat_id, "donate.btn"), callback_data="donate:main")],
+            [InlineKeyboardButton(await at(cid, "donate.btn"), callback_data="donate:main")],
         ]
     )
-
-    if edit:
-        await message.edit_text(text, reply_markup=kb)
-    else:
-        await message.reply(text, reply_markup=kb)
+    await (message.edit_text if edit else message.reply)(txt, reply_markup=kb)
 
 
 @bot.on_message(filters.command("ping") & filters.group)
 @safe_handler
 async def ping_handler(client: Client, message: Message) -> None:
-    """
-    Test bot latency by calculating the time difference between message creation and current time.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Sends a reply message with the calculated latency in milliseconds.
-    """
-    if not message.chat:
-        return
-    latency = (time.time() - time.time()) * 1000
+    latency = (time.time() - message.date.timestamp()) * 1000
     await message.reply(await at(message.chat.id, "ping.response", ms=f"{latency:.2f}"))
 
 
 @bot.on_message(filters.command("id"))
 @safe_handler
 async def id_handler(client: Client, message: Message) -> None:
-    """
-    Return the user ID, current chat ID, and the ID of the replied user (if any).
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Sends a reply message containing the requested IDs.
-    """
-    if not message.chat or not message.from_user:
-        return
-    replied = ""
-    if message.reply_to_message and message.reply_to_message.from_user:
-        replied = await at(
-            message.chat.id, "admin.replied_id", id=message.reply_to_message.from_user.id
-        )
+    replied = (
+        await at(message.chat.id, "admin.replied_id", id=message.reply_to_message.from_user.id)
+        if message.reply_to_message and message.reply_to_message.from_user
+        else ""
+    )
     await message.reply(
         await at(
             message.chat.id,
@@ -161,270 +94,130 @@ async def id_handler(client: Client, message: Message) -> None:
 @safe_handler
 @admin_only
 async def pin_handler(client: Client, message: Message) -> None:
-    """
-    Pin a message in the current group.
-
-    Requires the bot to have 'can_pin_messages' permission and the user to be an admin.
-    Must be used as a reply to the message to be pinned.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Pins the replied-to message in the chat.
-    """
-    if not message.chat:
-        return
     if not await has_permission(client, message.chat.id, Permission.CAN_PIN):
-        await message.reply(await at(message.chat.id, "error.no_permission"))
-        return
-    if not message.reply_to_message:
-        return
-    await client.pin_chat_message(
-        message.chat.id,
-        message.reply_to_message.id,
-        disable_notification=True,
-    )
+        return await message.reply(await at(message.chat.id, "error.no_permission"))
+    if message.reply_to_message:
+        await client.pin_chat_message(
+            message.chat.id, message.reply_to_message.id, disable_notification=True
+        )
 
 
 @bot.on_message(filters.command("unpin") & filters.group)
 @safe_handler
 @admin_only
 async def unpin_handler(client: Client, message: Message) -> None:
-    """
-    Unpin a message in the current group.
-
-    If used as a reply, unpins that specific message. Otherwise, unpins the latest pinned message.
-    Requires the bot to have 'can_pin_messages' permission and the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Unpins a message in the chat.
-    """
-    if not message.chat:
-        return
     if not await has_permission(client, message.chat.id, Permission.CAN_PIN):
-        await message.reply(await at(message.chat.id, "error.no_permission"))
-        return
-    if message.reply_to_message:
-        await client.unpin_chat_message(message.chat.id, message.reply_to_message.id)
-    else:
-        await client.unpin_chat_message(message.chat.id)
+        return await message.reply(await at(message.chat.id, "error.no_permission"))
+    await client.unpin_chat_message(
+        message.chat.id, message.reply_to_message.id if message.reply_to_message else None
+    )
 
 
 @bot.on_message(filters.command("unpinall") & filters.group)
 @safe_handler
 @admin_only
 async def unpinall_handler(client: Client, message: Message) -> None:
-    """
-    Unpin all messages in the current group.
-
-    Requires the bot to have 'can_pin_messages' permission and the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Unpins all pinned messages in the chat.
-        - Sends a confirmation message.
-    """
-    if not message.chat:
-        return
     if not await has_permission(client, message.chat.id, Permission.CAN_PIN):
-        await message.reply(await at(message.chat.id, "error.no_permission"))
-        return
-    await client.unpin_all_chat_messages(message.chat.id)
-    await message.reply(await at(message.chat.id, "admin.unpinned_all"))
+        return await message.reply(await at(message.chat.id, "error.no_permission"))
+    if await client.unpin_all_chat_messages(message.chat.id):
+        await message.reply(await at(message.chat.id, "admin.unpinned_all"))
 
 
-@bot.on_message(filters.command("promote") & filters.group)
+@bot.on_message(filters.command(["promote", "demote"]) & filters.group)
 @safe_handler
 @admin_only
 @resolve_target
-async def promote_handler(client: Client, message: Message, target_user: User) -> None:
-    """
-    Promote a member to administrator with a predefined set of privileges.
-
-    Optionally sets a custom title if provided after the command or mention.
-    Requires the bot to have 'can_promote_members' permission and the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-        target_user (User): The user to be promoted (resolved by @resolve_target).
-
-    Side Effects:
-        - Promotes the user to administrator.
-        - Optionally sets a custom title.
-        - Sends a confirmation message.
-    """
-    if not message.chat:
-        return
+async def promotion_handler(client: Client, message: Message, target_user: User) -> None:
+    is_p = "promote" in message.command[0]
     if not await has_permission(client, message.chat.id, Permission.CAN_PROMOTE):
-        await message.reply(await at(message.chat.id, "error.no_permission"))
-        return
+        return await message.reply(await at(message.chat.id, "error.no_permission"))
+
     title = ""
-    if len(message.command) > 1 and not message.command[1].startswith("@"):
-        title = " ".join(message.command[1:])
-    elif len(message.command) > 2:
-        title = " ".join(message.command[2:])
+    if is_p:
+        cmd = message.command
+        title = " ".join(
+            cmd[2:] if len(cmd) > 2 and cmd[1].startswith("@") else cmd[1:] if len(cmd) > 1 else []
+        )
+
     await client.promote_chat_member(
         message.chat.id,
         target_user.id,
         privileges=ChatPrivileges(
-            can_manage_chat=True,
-            can_delete_messages=True,
-            can_manage_video_chats=True,
-            can_restrict_members=True,
+            can_manage_chat=is_p,
+            can_delete_messages=is_p,
+            can_manage_video_chats=is_p,
+            can_restrict_members=is_p,
             can_promote_members=False,
             can_change_info=False,
-            can_invite_users=True,
-            can_pin_messages=True,
+            can_invite_users=is_p,
+            can_pin_messages=is_p,
         ),
     )
-    if title:
+    if is_p and title:
         await client.set_administrator_custom_title(message.chat.id, target_user.id, title)
-    await message.reply(await at(message.chat.id, "admin.promoted", mention=target_user.mention))
-
-
-@bot.on_message(filters.command("demote") & filters.group)
-@safe_handler
-@admin_only
-@resolve_target
-async def demote_handler(client: Client, message: Message, target_user: User) -> None:
-    """
-    Demote an administrator to a regular member by stripping all privileges.
-
-    Requires the bot to have 'can_promote_members' permission and the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-        target_user (User): The user to be demoted (resolved by @resolve_target).
-
-    Side Effects:
-        - Strips all administrator privileges from the user.
-        - Sends a confirmation message.
-    """
-    if not message.chat:
-        return
-    if not await has_permission(client, message.chat.id, Permission.CAN_PROMOTE):
-        await message.reply(await at(message.chat.id, "error.no_permission"))
-        return
-    await client.promote_chat_member(
-        message.chat.id,
-        target_user.id,
-        privileges=ChatPrivileges(
-            can_manage_chat=False,
-            can_delete_messages=False,
-            can_manage_video_chats=False,
-            can_restrict_members=False,
-            can_promote_members=False,
-            can_change_info=False,
-            can_invite_users=False,
-            can_pin_messages=False,
-        ),
+    await message.reply(
+        await at(
+            message.chat.id,
+            f"admin.{'promoted' if is_p else 'demoted'}",
+            mention=target_user.mention,
+        )
     )
-    await message.reply(await at(message.chat.id, "admin.demoted", mention=target_user.mention))
 
 
 @bot.on_message(filters.command("invitelink") & filters.group)
 @safe_handler
 @admin_only
 async def invitelink_handler(client: Client, message: Message) -> None:
-    """
-    Export and return the primary invite link for the current group.
-
-    Requires the bot to have 'can_invite_users' permission and the user to be an admin.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-
-    Side Effects:
-        - Exports the chat invite link.
-        - Sends a reply with the invite link.
-    """
-    if not message.chat:
-        return
     if not await has_permission(client, message.chat.id, Permission.CAN_INVITE):
-        await message.reply(await at(message.chat.id, "error.no_permission"))
-        return
-    link = await client.export_chat_invite_link(message.chat.id)
-    await message.reply(await at(message.chat.id, "admin.invite_link_header", link=link))
-
-
-@bot.on_message(filters.command(["info", "userinfo"]) & filters.group)
-@safe_handler
-@resolve_target
-async def info_handler(client: Client, message: Message, target_user: User) -> None:
-    """
-    Display detailed and professional information about a specific user.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
-        target_user (User): The user whose info is being requested (resolved by @resolve_target).
-
-    Side Effects:
-        - Sends a reply message with user details using a professional localized template.
-    """
-    if not message.chat:
-        return
-
-    not_set = await at(message.chat.id, "common.not_set")
-    yes = await at(message.chat.id, "common.yes")
-    no = await at(message.chat.id, "common.no")
-    username = f"@{target_user.username}" if target_user.username else not_set
-    last_name = target_user.last_name or not_set
-    is_bot = yes if target_user.is_bot else no
-    dc_id = target_user.dc_id or not_set
-
-    text = await at(
-        message.chat.id,
-        "admin.user_info",
-        id=target_user.id,
-        first_name=target_user.first_name,
-        last_name=last_name,
-        username=username,
-        dc_id=dc_id,
-        is_bot=is_bot,
+        return await message.reply(await at(message.chat.id, "error.no_permission"))
+    await message.reply(
+        await at(
+            message.chat.id,
+            "admin.invite_link_header",
+            link=await client.export_chat_invite_link(message.chat.id),
+        )
     )
-    await message.reply(text)
 
 
-@bot.on_message(filters.command("chatinfo") & filters.group)
+@bot.on_message(filters.command(["info", "userinfo", "chatinfo"]) & filters.group)
 @safe_handler
-async def chatinfo_handler(client: Client, message: Message) -> None:
-    """
-    Display detailed information about the current group.
+async def info_handler(client: Client, message: Message) -> None:
+    cid = message.chat.id
+    if "chat" in message.command[0]:
+        return await message.reply(
+            await at(
+                cid,
+                "admin.chat_info",
+                title=message.chat.title,
+                id=cid,
+                type=message.chat.type.name,
+                username=message.chat.username or "None",
+                count=await client.get_chat_members_count(cid),
+            )
+        )
 
-    Args:
-        client (Client): The Pyrogram client instance.
-        message (Message): The message object that triggered the handler.
+    # User info
+    @resolve_target
+    async def _info(_, __, u: User):
+        not_set = await at(cid, "common.not_set")
 
-    Side Effects:
-        - Fetches the chat member count.
-        - Sends a reply message with group details (title, ID, type, username, member count).
-    """
-    if not message.chat:
-        return
-    chat = message.chat
-    text = await at(
-        message.chat.id,
-        "admin.chat_info",
-        title=chat.title,
-        id=chat.id,
-        type=chat.type.name,
-        username=chat.username or "None",
-        count=await client.get_chat_members_count(chat.id),
-    )
-    await message.reply(text)
+        def val(v):
+            return v if v else not_set
+
+        await message.reply(
+            await at(
+                cid,
+                "admin.user_info",
+                id=u.id,
+                first_name=u.first_name,
+                last_name=val(u.last_name),
+                username=f"@{u.username}" if u.username else not_set,
+                dc_id=val(u.dc_id),
+                is_bot=await at(cid, f"common.{'yes' if u.is_bot else 'no'}"),
+            )
+        )
+
+    await _info(client, message)
 
 
 # --- Admin Panel Input Handlers ---

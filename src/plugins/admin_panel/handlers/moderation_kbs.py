@@ -1,3 +1,5 @@
+import itertools
+
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import (
     ChatPrivileges,
@@ -15,7 +17,7 @@ from .keyboards import get_pager
 
 
 async def warns_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     settings = await get_chat_settings(ctx, chat_id)
     return InlineKeyboardMarkup(
         [
@@ -65,7 +67,7 @@ async def warns_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeybo
 
 
 async def slowmode_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     from src.db.repositories.slowmode import get_slowmode
 
     interval = await get_slowmode(ctx, chat_id)
@@ -87,7 +89,7 @@ async def slowmode_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKe
 
 
 async def logging_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     settings = await get_chat_settings(ctx, chat_id)
     channel_display = (
         settings.logChannelId if settings.logChannelId else await at(at_id, "panel.not_set")
@@ -112,77 +114,31 @@ async def logging_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKey
 async def langblock_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
-    from sqlalchemy import select
+    """Consolidated language block menu with integrated picker."""
+    from src.plugins.language import language_picker_kb
 
-    from src.db.models import BlockedLanguage
-
-    async with ctx.db() as session:
-        stmt = select(BlockedLanguage).where(BlockedLanguage.chatId == chat_id)
-        res = await session.execute(stmt)
-        blocks = list(res.scalars().all())
-
-    kb = []
-    PAGE_SIZE = 10
-    start = page * PAGE_SIZE
-    end = start + PAGE_SIZE
-    current_page_blocks = blocks[start:end]
-
-    for b in current_page_blocks:
-        kb.append(
-            [
-                InlineKeyboardButton(
-                    f"🗣️ {b.langCode.upper()}",
-                    callback_data="panel:noop",
-                ),
-                InlineKeyboardButton(
-                    f"⚖️ {await at(at_id, f'action.{b.action.lower()}')}",
-                    callback_data=f"panel:cycle_langblock_action:{b.id}:{page}",
-                ),
-                InlineKeyboardButton("❌", callback_data=f"panel:lang_remove:{b.langCode}:{page}"),
-            ]
-        )
-
-    nav_row = await get_pager(page, len(blocks), PAGE_SIZE, "panel:langblock")
-    if nav_row:
-        kb.append(nav_row)
-
-    kb.append(
-        [
-            InlineKeyboardButton(
-                await at(at_id, "panel.btn_add_langblock"),
-                callback_data=f"panel:input:langblockInput:{page}",
-            )
-        ]
+    return await language_picker_kb(
+        ctx, chat_id, scope="chat", page=page, query=None, mode="block", display_id=user_id
     )
-
-    kb.append(
-        [
-            InlineKeyboardButton(
-                await at(at_id, "panel.btn_back"), callback_data="panel:category:moderation"
-            )
-        ]
-    )
-
-    return InlineKeyboardMarkup(kb)
 
 
 async def entityblock_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     from src.plugins.entity_block import get_blocked_entities
 
     blocks = await get_blocked_entities(ctx, chat_id)
 
-    ALL_ENTITIES = sorted(
-        [
-            e.name.lower()
-            for e in MessageEntityType
-            if e.name.lower() not in ("unsupported", "unknown")
-        ]
-        + ["poll", "contact", "location", "sticker", "gif", "media", "forward", "message"]
+    ALL_ENTITIES = [
+        e.name.lower()
+        for e in MessageEntityType
+        if e.name.lower() not in ("unsupported", "unknown")
+    ]
+    ALL_ENTITIES.extend(
+        ["poll", "contact", "location", "sticker", "gif", "media", "forward", "message"]
     )
+    ALL_ENTITIES.sort()
 
     kb = []
 
@@ -191,26 +147,20 @@ async def entityblock_kb(
     end = start + PAGE_SIZE
     entities_slice = ALL_ENTITIES[start:end]
 
-    row = []
-    for entity in entities_slice:
-        block = next((b for b in blocks if b.entityType == entity), None)
-        if block:
-            icon = "✅"
-            action_label = await at(at_id, f"action.{block.action.lower()}")
+    for row_entities in itertools.batched(entities_slice, 2):
+        row = []
+        for entity in row_entities:
+            block = next((b for b in blocks if b.entityType == entity), None)
+            icon = "✅" if block else "❌"
+            action_label = (
+                f" ({await at(at_id, f'action.{block.action.lower()}')})" if block else ""
+            )
             type_label = await at(at_id, f"lock.{entity}", default=entity.replace("_", " ").title())
-            btn_text = f"{icon} {type_label} ({action_label})"
-        else:
-            icon = "❌"
-            type_label = await at(at_id, f"lock.{entity}", default=entity.replace("_", " ").title())
-            btn_text = f"{icon} {type_label}"
+            btn_text = f"{icon} {type_label}{action_label}"
 
-        row.append(
-            InlineKeyboardButton(btn_text, callback_data=f"panel:toggle_entity:{entity}:{page}")
-        )
-        if len(row) == 2:
-            kb.append(row)
-            row = []
-    if row:
+            row.append(
+                InlineKeyboardButton(btn_text, callback_data=f"panel:toggle_entity:{entity}:{page}")
+            )
         kb.append(row)
 
     nav_row = await get_pager(page, len(ALL_ENTITIES), PAGE_SIZE, "panel:entityblock")
@@ -231,7 +181,7 @@ async def entityblock_kb(
 async def blacklist_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     from src.db.repositories.blacklist import get_all_blacklist
 
     settings = await get_chat_settings(ctx, chat_id)
@@ -286,26 +236,16 @@ async def blacklist_kb(
     end = start + PAGE_SIZE
     current_page_blocks = blocks[start:end]
 
-    for b in current_page_blocks:
-        badge_key = (
-            "panel.blacklist_badge_regex"
-            if b.isRegex
-            else (
-                "panel.blacklist_badge_wildcard"
-                if b.isWildcard
-                else "panel.blacklist_badge_literal"
-            )
-        )
-        badge = await at(at_id, badge_key)
-        kb.append(
-            [
-                InlineKeyboardButton(
-                    f"{badge} {(b.pattern[:30] + '...') if len(b.pattern) > 30 else b.pattern}",
-                    callback_data="panel:noop",
-                ),
-                InlineKeyboardButton("❌", callback_data=f"panel:blacklist_remove:{b.id}:{page}"),
-            ]
-        )
+    kb.extend(
+        [
+            InlineKeyboardButton(
+                f"{await at(at_id, 'panel.blacklist_badge_regex' if b.isRegex else ('panel.blacklist_badge_wildcard' if b.isWildcard else 'panel.blacklist_badge_literal'))} {(b.pattern[:30] + '...') if len(b.pattern) > 30 else b.pattern}",
+                callback_data="panel:noop",
+            ),
+            InlineKeyboardButton("❌", callback_data=f"panel:blacklist_remove:{b.id}:{page}"),
+        ]
+        for b in current_page_blocks
+    )
 
     nav_row = await get_pager(page, len(blocks), PAGE_SIZE, "panel:blacklist")
     if nav_row:
@@ -338,7 +278,7 @@ async def blacklist_kb(
 async def blacklist_defaults_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     return InlineKeyboardMarkup(
         [
             [
@@ -371,7 +311,7 @@ async def blacklist_defaults_kb(
 async def user_warns_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     from src.db.repositories.warns import get_users_with_warns, get_warn_count
 
     user_ids = await get_users_with_warns(ctx, chat_id)
@@ -382,17 +322,18 @@ async def user_warns_kb(
     end = start + PAGE_SIZE
     slice_ids = user_ids[start:end]
 
-    for uid in slice_ids:
-        count = await get_warn_count(ctx, chat_id, uid)
-        kb.append(
-            [
-                InlineKeyboardButton(
-                    await at(at_id, "panel.warn_item", id=uid, count=count),
-                    callback_data=f"panel:user_warn_info:{uid}:{page}",
+    kb.extend(
+        [
+            InlineKeyboardButton(
+                await at(
+                    at_id, "panel.warn_item", id=uid, count=await get_warn_count(ctx, chat_id, uid)
                 ),
-                InlineKeyboardButton("❌", callback_data=f"panel:user_warn_reset:{uid}:{page}"),
-            ]
-        )
+                callback_data=f"panel:user_warn_info:{uid}:{page}",
+            ),
+            InlineKeyboardButton("❌", callback_data=f"panel:user_warn_reset:{uid}:{page}"),
+        ]
+        for uid in slice_ids
+    )
 
     nav_row = await get_pager(page, len(user_ids), PAGE_SIZE, "panel:user_warns")
     if nav_row:
@@ -409,7 +350,7 @@ async def log_channel_picker_kb(
     ctx, chat_id: int, user_id: int | None = None
 ) -> ReplyKeyboardMarkup:
     """Returns a ReplyKeyboardMarkup to request a logging channel from the user."""
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
 
     return ReplyKeyboardMarkup(
         [
@@ -443,7 +384,7 @@ async def log_channel_picker_kb(
 async def stickers_kb(
     ctx, chat_id: int, page: int = 0, user_id: int | None = None
 ) -> InlineKeyboardMarkup:
-    at_id = user_id if user_id else chat_id
+    at_id = user_id or chat_id
     from src.db.repositories.stickers import get_blocked_sticker_sets
 
     settings = await get_chat_settings(ctx, chat_id)
@@ -479,18 +420,16 @@ async def stickers_kb(
     end = start + PAGE_SIZE
     current_sets = blocked_sets[start:end]
 
-    for s in current_sets:
-        kb.append(
-            [
-                InlineKeyboardButton(
-                    f"🚫 {s.setName}",
-                    callback_data=f"panel:sticker_noop:{page}",
-                ),
-                InlineKeyboardButton(
-                    "❌", callback_data=f"panel:sticker_remove:{s.setName}:{page}"
-                ),
-            ]
-        )
+    kb.extend(
+        [
+            InlineKeyboardButton(
+                f"🚫 {s.setName}",
+                callback_data=f"panel:sticker_noop:{page}",
+            ),
+            InlineKeyboardButton("❌", callback_data=f"panel:sticker_remove:{s.setName}:{page}"),
+        ]
+        for s in current_sets
+    )
 
     nav_row = await get_pager(page, len(blocked_sets), PAGE_SIZE, "panel:stickers")
     if nav_row:

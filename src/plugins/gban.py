@@ -3,7 +3,7 @@ import contextlib
 
 from loguru import logger
 from pyrogram import Client, filters
-from pyrogram.errors import BadRequest, FloodWait, Forbidden
+from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
 from pyrogram.types import Message, User
 
 from src.core.bot import bot
@@ -32,19 +32,14 @@ class GbanPlugin(Plugin):
 @safe_handler
 @resolve_target
 async def gban_handler(client: Client, message: Message, target_user: User) -> None:
-    """Global ban a user from all groups."""
-    if not message.from_user:
+    if not message.from_user or not await is_sudo(get_context(), message.from_user.id):
         return
-
-    ctx = get_context()
-    if not await is_sudo(ctx, message.from_user.id):
-        return
-
-    reason = await at(message.chat.id, "common.no_reason")
-    if len(message.command) > 2:
-        reason = " ".join(message.command[2:])
-
-    await add_gban(ctx, target_user.id, reason, message.from_user.id)
+    reason = (
+        " ".join(message.command[2:])
+        if len(message.command) > 2
+        else await at(message.chat.id, "common.no_reason")
+    )
+    await add_gban(get_context(), target_user.id, reason, message.from_user.id)
     await message.reply(
         await at(message.chat.id, "gban.success", mention=target_user.mention, reason=reason)
     )
@@ -54,15 +49,9 @@ async def gban_handler(client: Client, message: Message, target_user: User) -> N
 @safe_handler
 @resolve_target
 async def ungban_handler(client: Client, message: Message, target_user: User) -> None:
-    """Remove a global ban from a user."""
-    if not message.from_user:
+    if not message.from_user or not await is_sudo(get_context(), message.from_user.id):
         return
-
-    ctx = get_context()
-    if not await is_sudo(ctx, message.from_user.id):
-        return
-    success = await remove_gban(ctx, target_user.id)
-    if success:
+    if await remove_gban(get_context(), target_user.id):
         await message.reply(
             await at(message.chat.id, "gban.ungban_success", mention=target_user.mention)
         )
@@ -72,40 +61,30 @@ async def ungban_handler(client: Client, message: Message, target_user: User) ->
 @safe_handler
 @resolve_target
 async def addsudo_handler(client: Client, message: Message, target_user: User) -> None:
-    """Add a user to the sudoers list."""
-    if not message.from_user:
-        return
-
-    ctx = get_context()
-    await add_sudo(ctx, target_user.id, message.from_user.id)
-    await message.reply(await at(message.chat.id, "gban.addsudo", mention=target_user.mention))
+    if message.from_user:
+        await add_sudo(get_context(), target_user.id, message.from_user.id)
+        await message.reply(await at(message.chat.id, "gban.addsudo", mention=target_user.mention))
 
 
 @bot.on_message(filters.group & filters.new_chat_members, group=-50)
 @safe_handler
 async def gban_interceptor(client: Client, message: Message) -> None:
-    """Intercept new chat members and ban if gbanned."""
     if not message.from_user or message.from_user.is_bot:
         return
-
     ctx = get_context()
-    for member in message.new_chat_members:
-        if await is_gbanned(ctx, member.id):
+    for m in message.new_chat_members:
+        if await is_gbanned(ctx, m.id):
             try:
-                await client.ban_chat_member(message.chat.id, member.id)
-                await message.reply(
-                    await at(message.chat.id, "gban.joined", mention=member.mention)
-                )
-            except BadRequest:
+                await client.ban_chat_member(message.chat.id, m.id)
+                await message.reply(await at(message.chat.id, "gban.joined", mention=m.mention))
+            except (BadRequest, Forbidden):
                 pass
-            except Forbidden:
-                logger.warning(f"Gban failed in {message.chat.id}: Bot lacks ban permissions.")
             except FloodWait as e:
                 await asyncio.sleep(e.value + 1)
                 with contextlib.suppress(Exception):
-                    await client.ban_chat_member(message.chat.id, member.id)
-            except Exception as e:
-                logger.exception(f"Unexpected error in gban_interceptor: {e}")
+                    await client.ban_chat_member(message.chat.id, m.id)
+            except RPCError as e:
+                logger.exception(f"Gban error: {e}")
 
 
 register(GbanPlugin())

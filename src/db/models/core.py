@@ -46,6 +46,7 @@ class UserConnection(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     userId: Mapped[int] = mapped_column(BigInteger, unique=True)
     activeChatId: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    chatType: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
 
 class UserSettings(TimestampMixin, Base):

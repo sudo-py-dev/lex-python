@@ -16,6 +16,7 @@ from src.plugins.admin_panel.handlers.moderation_kbs import (
     warns_kb,
 )
 from src.plugins.admin_panel.repository import get_chat_settings, update_chat_setting
+from src.plugins.language import language_picker_kb
 from src.utils.actions import (
     EXTENDED_MODERATION_ACTIONS,
     LANG_BLOCK_ACTIONS,
@@ -36,7 +37,9 @@ async def on_langblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCon
     page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
 
     kb = await langblock_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
-    await callback.message.edit_text(await at(at_id, "panel.langblock_text"), reply_markup=kb)
+    await callback.message.edit_text(
+        await at(at_id, "panel.langblock_picker_text"), reply_markup=kb
+    )
     await callback.answer()
 
 
@@ -149,33 +152,59 @@ async def on_toggle_blacklist_buttons(
     await callback.message.edit_reply_markup(reply_markup=kb)
 
 
-@bot.on_callback_query(filters.regex(r"^panel:cycle_langblock_action:(\d+):(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^panel:lang_toggle:(.*):(\d+)$"))
 @admin_panel_context
-async def on_cycle_langblock_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    bid = int(callback.matches[0].group(1))
+async def on_lang_toggle(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    code = callback.matches[0].group(1)
     page = int(callback.matches[0].group(2))
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    from src.plugins.lang_block import add_lang_block, get_lang_blocks, remove_lang_block
+    from src.utils.lang_utils import get_lang_info
 
-    async with ap_ctx.ctx.db() as session:
-        from src.db.models import BlockedLanguage
+    config = await get_lang_blocks(ap_ctx.ctx, chat_id)
+    blocks = set(config["blocked"])
 
-        obj = await session.get(BlockedLanguage, bid)
-        if obj:
-            nxt = cycle_action(obj.action, MODERATION_ACTIONS, default_action="delete")
-            obj.action = nxt
-            session.add(obj)
-            await session.commit()
-            await callback.answer(
-                await at(
-                    at_id, "panel.langblock_action_set", action=await at(at_id, f"action.{nxt}")
-                )
-            )
-        else:
-            await callback.answer(_plain(await at(at_id, "panel.error_generic")), show_alert=True)
+    name, emoji_char = await get_lang_info(ap_ctx.ctx, code, target_chat_id=chat_id)
+    display_name = f"{name} {emoji_char}"
+
+    if code in blocks:
+        await remove_lang_block(ap_ctx.ctx, chat_id, code)
+        msg = await at(at_id, "panel.langblock_removed_item", lang=display_name)
+    else:
+        await add_lang_block(ap_ctx.ctx, chat_id, code)
+        msg = await at(at_id, "panel.langblock_added_item", lang=display_name)
 
     kb = await langblock_kb(
         ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.answer(msg)
+
+
+@bot.on_callback_query(filters.regex(r"^panel:cycle_lang_block_action:(\d+)$"))
+@admin_panel_context
+async def on_cycle_lang_block_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    page = int(callback.matches[0].group(1))
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    settings = await get_chat_settings(ap_ctx.ctx, chat_id)
+
+    nxt = cycle_action(settings.langBlockAction, LANG_BLOCK_ACTIONS, default_action="delete")
+
+    await update_chat_setting(ap_ctx.ctx, chat_id, "langBlockAction", nxt)
+
+    # Invalidate config cache
+    from src.plugins.lang_block import CACHE_KEY_PREFIX
+
+    await ap_ctx.ctx.cache.delete(f"{CACHE_KEY_PREFIX}{chat_id}")
+
+    await callback.answer(
+        await at(at_id, "panel.langblock_action_set", action=await at(at_id, f"action.{nxt}")),
+        show_alert=True,
+    )
+    kb = await language_picker_kb(
+        ap_ctx.ctx, chat_id, page=page, mode="block", scope="chat", display_id=callback.from_user.id
     )
     await callback.message.edit_reply_markup(reply_markup=kb)
 
@@ -183,7 +212,6 @@ async def on_cycle_langblock_action(_: Client, callback: CallbackQuery, ap_ctx: 
 @bot.on_callback_query(filters.regex(r"^panel:language:chat:?(\d+)?$"))
 @admin_panel_context
 async def on_chat_language(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    from src.plugins.language import language_picker_kb
 
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
@@ -191,46 +219,63 @@ async def on_chat_language(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
     await callback.message.edit_text(
         await at(at_id, "language.group_picker_header"),
-        reply_markup=await language_picker_kb(ap_ctx.ctx, chat_id, scope="chat", page=page),
+        reply_markup=await language_picker_kb(
+            ap_ctx.ctx, chat_id, scope="chat", page=page, display_id=callback.from_user.id
+        ),
     )
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:language_page:chat:(\d+):(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^panel:language_page:(chat|user):(-?\d+):(\d+):(\w+)$"))
 @admin_panel_context
 async def on_chat_language_page(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    from src.plugins.language import language_picker_kb
-
     user_id = callback.from_user.id
-    target_id = int(callback.matches[0].group(1))
-    page = int(callback.matches[0].group(2))
+    scope = callback.matches[0].group(1)
+    target_id = int(callback.matches[0].group(2))
+    page = int(callback.matches[0].group(3))
+    mode = callback.matches[0].group(4)
     at_id = _panel_lang_id(ap_ctx.is_pm, user_id, ap_ctx.chat_id)
 
+    header_key = (
+        "panel.langblock_picker_text" if mode == "block" else "language.group_picker_header"
+    )
+
     await callback.message.edit_text(
-        await at(at_id, "language.group_picker_header"),
-        reply_markup=await language_picker_kb(ap_ctx.ctx, target_id, scope="chat", page=page),
+        await at(at_id, header_key),
+        reply_markup=await language_picker_kb(
+            ap_ctx.ctx,
+            target_id,
+            scope=scope,
+            page=page,
+            mode=mode,
+            display_id=callback.from_user.id,
+        ),
     )
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:language_search:chat:(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^panel:language_search:(chat|user):(-?\d+):(\w+)$"))
 @admin_panel_context
 async def on_chat_language_search(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     from src.plugins.language import begin_language_search
 
     user_id = callback.from_user.id
-    target_id = int(callback.matches[0].group(1))
+    scope = callback.matches[0].group(1)
+    target_id = int(callback.matches[0].group(2))
+    mode = callback.matches[0].group(3)
     at_id = _panel_lang_id(ap_ctx.is_pm, user_id, ap_ctx.chat_id)
 
-    await begin_language_search(user_id, "chat", target_id, prompt_msg_id=callback.message.id)
+    await begin_language_search(
+        user_id, scope, target_id, prompt_msg_id=callback.message.id, mode=mode
+    )
     await callback.message.edit_text(await at(at_id, "language.search_prompt"))
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:set_lang:chat:(\d+):(.*)$"))
+@bot.on_callback_query(filters.regex(r"^panel:set_lang:chat:(-?\d+):(.*)$"))
 @admin_panel_context
 async def on_chat_language_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    from src.plugins.admin_panel.handlers.keyboards import general_category_kb
+    from src.plugins.admin_panel.handlers.keyboards import greetings_category_kb
     from src.plugins.language import set_chat_lang
 
     chat_id = ap_ctx.chat_id
@@ -241,7 +286,7 @@ async def on_chat_language_set(_: Client, callback: CallbackQuery, ap_ctx: Admin
     await callback.answer(_plain(await at(at_id, "panel.group_lang_set", lang=new_lang.upper())))
 
     chat_type_str = ap_ctx.chat_type.name.lower() if ap_ctx.chat_type else "supergroup"
-    kb = await general_category_kb(
+    kb = await greetings_category_kb(
         chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None, chat_type=chat_type_str
     )
     title_key = "panel.general_text_channel" if chat_type_str == "channel" else "panel.general_text"
@@ -308,8 +353,8 @@ async def on_logging_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 @bot.on_callback_query(filters.regex(r"^panel:logging_picker$"))
 @admin_panel_context
 async def on_logging_picker(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    from src.cache.local_cache import get_cache
     from src.plugins.admin_panel.handlers.moderation_kbs import log_channel_picker_kb
+    from src.utils.local_cache import get_cache
 
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
@@ -328,7 +373,7 @@ async def on_logging_picker(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:logging_set:(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^panel:logging_set:(-?\d+)$"))
 @admin_panel_context
 async def on_logging_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     new_log_id = int(callback.matches[0].group(1))
@@ -348,48 +393,6 @@ async def on_logging_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
         ),
         reply_markup=kb,
     )
-
-
-@bot.on_callback_query(filters.regex(r"^panel:lang_remove:(.*)$"))
-@admin_panel_context
-async def on_lang_remove(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    code = callback.matches[0].group(1)
-    chat_id = ap_ctx.chat_id
-    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
-
-    from src.plugins.lang_block import remove_lang_block
-
-    await remove_lang_block(ap_ctx.ctx, chat_id, code)
-
-    kb = await langblock_kb(
-        ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
-    )
-    await callback.message.edit_reply_markup(reply_markup=kb)
-    await callback.answer(await at(at_id, "panel.langblock_removed_item", lang=code.upper()))
-
-
-@bot.on_callback_query(filters.regex(r"^panel:lang_cycle_action:(.*):(\d+)$"))
-@admin_panel_context
-async def on_lang_cycle_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    code = callback.matches[0].group(1)
-    page = int(callback.matches[0].group(2))
-    chat_id = ap_ctx.chat_id
-    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
-
-    from src.plugins.lang_block import add_lang_block, get_lang_blocks
-
-    blocks = {b.langCode: b for b in await get_lang_blocks(ap_ctx.ctx, chat_id)}
-    if code in blocks:
-        next_action = cycle_action(blocks[code].action, LANG_BLOCK_ACTIONS, default_action="delete")
-        await add_lang_block(ap_ctx.ctx, chat_id, code, next_action)
-
-        kb = await langblock_kb(
-            ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
-        )
-        await callback.message.edit_reply_markup(reply_markup=kb)
-        await callback.answer(
-            await at(at_id, "panel.langblock_action_set", action=next_action.capitalize())
-        )
 
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle:(\w+)$"))

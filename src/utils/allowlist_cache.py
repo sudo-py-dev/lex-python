@@ -6,9 +6,9 @@ import json
 
 from loguru import logger
 
-from src.cache.local_cache import get_cache
 from src.core.constants import CacheKeys
 from src.db.repositories.allowed_channels import get_allowed_channels
+from src.utils.local_cache import get_cache
 
 _TTL = 300  # 5 minutes
 

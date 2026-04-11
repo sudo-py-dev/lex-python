@@ -51,8 +51,9 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
 
         if not is_pm:
             chat_id = message.chat.id
+            chat_type, chat_title = await get_chat_info(ctx, chat_id)
         else:
-            chat_id = await get_active_chat(ctx, user_id)
+            chat_id, chat_type_str = await get_active_chat(ctx, user_id)
             if not chat_id:
                 logger.debug(f"No active connection for user {user_id} in PM.")
                 from .handlers.keyboards import my_chats_menu_kb
@@ -66,6 +67,17 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
                 else:
                     await event.reply(text, reply_markup=kb)
                 return
+
+            # Resolve type and title
+            chat_type_obj, chat_title = await get_chat_info(ctx, chat_id)
+            chat_type = chat_type_obj
+
+            # If the stored type was missing (legacy) or changed, update it in the DB session/connection
+            chat_type_name = chat_type.name.lower()
+            if not chat_type_str or chat_type_str != chat_type_name:
+                from .repository import set_active_chat as update_conn
+
+                await update_conn(ctx, user_id, chat_id, chat_type=chat_type_name)
 
         at_id = user_id if is_pm else chat_id
         if not await is_admin(client, chat_id, user_id):
@@ -88,7 +100,6 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
                     await event.reply(text)
             return
 
-        chat_type, chat_title = await get_chat_info(ctx, chat_id)
         ap_ctx = AdminPanelContext(
             chat_id=chat_id,
             at_id=at_id,
