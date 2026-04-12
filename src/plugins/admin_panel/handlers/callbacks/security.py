@@ -295,7 +295,7 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
         old_action = s.raidAction
         next_action = cycle_action(old_action, RAID_ACTIONS, default_action="lock")
 
-        logger.info(f"Raid action cycle: {chat_id} | {old_action} -> {next_action}")
+        logger.debug(f"Raid action cycle: {chat_id} | {old_action} -> {next_action}")
         await update_chat_setting(ctx, chat_id, "raidAction", next_action)
 
         s = await get_chat_settings(ctx, chat_id)

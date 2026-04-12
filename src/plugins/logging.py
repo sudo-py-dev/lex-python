@@ -45,7 +45,7 @@ class LoggingPlugin(Plugin):
         """
         if self._worker_task is None:
             self._worker_task = asyncio.create_task(self._log_worker(client, ctx))
-            logger.info("Logging: Batched worker started.")
+            logger.debug("Logging: Batched worker started.")
 
     async def teardown(self) -> None:
         """
@@ -56,7 +56,7 @@ class LoggingPlugin(Plugin):
             with contextlib.suppress(asyncio.CancelledError):
                 await self._worker_task
             self._worker_task = None
-            logger.info("Logging: Batched worker stopped.")
+            logger.debug("Logging: Batched worker stopped.")
 
     async def _log_worker(self, client: Client, ctx) -> None:
         """

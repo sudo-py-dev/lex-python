@@ -191,7 +191,7 @@ async def invalidate_all_admins_task() -> None:
         result = await session.execute(stmt)
         chat_ids = result.scalars().all()
 
-    logger.info(f"Invalidating admin caches for {len(chat_ids)} chats...")
+    logger.debug(f"Invalidating admin caches for {len(chat_ids)} chats...")
     for chat_id in chat_ids:
         try:
             # 1. Clear local cache (Redis/Memory)
@@ -210,4 +210,4 @@ async def invalidate_all_admins_task() -> None:
 
         except Exception as e:
             logger.error(f"Failed to invalidate admin cache for chat {chat_id}: {e}")
-    logger.info("Admin cache invalidation complete.")
+    logger.debug("Admin cache invalidation complete.")
