@@ -59,6 +59,12 @@ async def at(chat_id: int | None, key: str, /, user_id: int | None = None, **kwa
         user_id = chat_id
 
     lang = await resolve_lang(chat_id, user_id)
+
+    if chat_id is not None and "chat_id" not in kwargs:
+        kwargs["chat_id"] = chat_id
+    if user_id is not None and "user_id" not in kwargs:
+        kwargs["user_id"] = user_id
+
     return t(lang, key, **kwargs)
 
 

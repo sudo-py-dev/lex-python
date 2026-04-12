@@ -18,6 +18,7 @@ help:
 	@echo ""
 	@echo "🧹 Maintenance:"
 	@echo "  fix-perms - Automatically fix folder permissions for non-root"
+	@echo "  backup    - Manually trigger a database snapshot"
 	@echo "  clean     - Remove temporary files and containers"
 
 # Deploy/Update
@@ -40,6 +41,12 @@ restart:
 logs:
 	sudo docker compose logs -f bot
 
+# Database Backup
+backup:
+	@echo "💾 Creating manual database snapshot..."
+	sudo docker exec lex-tg-backups /backup.sh
+	@echo "✅ Backup created in ./backups"
+
 # Shell
 shell:
 	sudo docker compose exec bot bash
@@ -47,8 +54,8 @@ shell:
 # Fix permissions for internal bot user (UID 1000)
 fix-perms:
 	@echo "📂 Fixing directory permissions..."
-	mkdir -p pgdata sessions logs
-	sudo chown -R 1000:1000 sessions logs
+	mkdir -p pgdata sessions logs data backups
+	sudo chown -R 1000:1000 sessions logs data backups
 	sudo chown -R 70:70 pgdata
 
 # Initial Setup

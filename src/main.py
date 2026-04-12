@@ -5,6 +5,7 @@ import socket
 import sqlite3
 import sys
 import time
+from pathlib import Path
 
 from alembic.config import Config
 
@@ -57,6 +58,15 @@ async def wait_for_db(host: str = "db", port: int = 5432, timeout: int = 30) -> 
     return False
 
 
+async def update_heartbeat() -> None:
+    """Updates a heartbeat file to signal health to Docker."""
+    try:
+        hb_path = Path("data/heartbeat")
+        hb_path.write_text(str(int(time.time())))
+    except Exception as e:
+        logger.error(f"Failed to update heartbeat: {e}")
+
+
 def run() -> None:
     """Entry point for the application."""
     setup_logger()
@@ -87,6 +97,7 @@ async def main() -> None:
 
     scheduler.add_job(cache.save_snapshot, "interval", minutes=4, id="cache_snapshot")
     scheduler.add_job(cache.cleanup_expired, "interval", minutes=5, id="cache_cleanup")
+    scheduler.add_job(update_heartbeat, "interval", minutes=1, id="heartbeat")
 
     ctx = AppContext(db=AsyncSessionLocal, cache=cache, scheduler=scheduler)
     set_context(ctx)
