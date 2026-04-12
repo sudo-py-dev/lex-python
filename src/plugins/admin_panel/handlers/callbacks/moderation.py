@@ -1,3 +1,4 @@
+from loguru import logger
 from pyrogram import Client, ContinuePropagation, filters
 from pyrogram.types import CallbackQuery
 
@@ -29,7 +30,7 @@ from src.utils.i18n import at
 from src.utils.permissions import Permission, check_user_permission
 
 
-@bot.on_callback_query(filters.regex(r"^panel:langblock:?(\d+)?$"))
+@bot.on_callback_query(filters.regex(r"^panel:langblock(?::(\d+))?$"))
 @admin_panel_context
 async def on_langblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
@@ -44,7 +45,7 @@ async def on_langblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCon
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:entityblock:?(\d+)?$"))
+@bot.on_callback_query(filters.regex(r"^panel:entityblock(?::(\d+))?$"))
 @admin_panel_context
 async def on_entityblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
@@ -60,6 +61,9 @@ async def on_entityblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 @bot.on_callback_query(filters.regex(r"^panel:blacklist(?::(\d+))?$"))
 @admin_panel_context
 async def on_blacklist(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    logger.info(
+        f"Admin Panel: on_blacklist triggered by {callback.from_user.id} for chat {ap_ctx.chat_id}"
+    )
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
@@ -290,7 +294,9 @@ async def on_chat_language_set(_: Client, callback: CallbackQuery, ap_ctx: Admin
     kb = await settings_category_kb(
         chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None, chat_type=chat_type_str
     )
-    title_key = "panel.general_text_channel" if chat_type_str == "channel" else "panel.settings_text"
+    title_key = (
+        "panel.general_text_channel" if chat_type_str == "channel" else "panel.settings_text"
+    )
     await callback.message.edit_text(await at(at_id, title_key), reply_markup=kb)
 
 
@@ -677,7 +683,7 @@ async def on_blacklist_inject(_: Client, callback: CallbackQuery, ap_ctx: AdminP
     await callback.message.edit_text(await at(at_id, "panel.blacklist_text"), reply_markup=kb)
 
 
-@bot.on_callback_query(filters.regex(r"^panel:stickers:?(\d+)?$"))
+@bot.on_callback_query(filters.regex(r"^panel:stickers(?::(\d+))?$"))
 @admin_panel_context
 async def on_stickers(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id

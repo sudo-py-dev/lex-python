@@ -185,7 +185,7 @@ async def entityblock_kb(
     kb.append(
         [
             InlineKeyboardButton(
-                await at(at_id, "panel.btn_back"), callback_data="panel:category:security"
+                await at(at_id, "panel.btn_back"), callback_data="panel:category:moderation"
             )
         ]
     )
