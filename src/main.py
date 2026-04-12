@@ -1,8 +1,14 @@
 import asyncio
 import contextlib
 import os
+import socket
 import sqlite3
 import sys
+import time
+
+from alembic.config import Config
+
+from alembic import command
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -25,14 +31,45 @@ from src.utils.local_cache import get_cache
 from src.utils.logger import setup_logger
 
 
+def run_migrations() -> None:
+    """Run database migrations using Alembic."""
+    logger.info("🔄 Running database migrations...")
+    try:
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("✅ Migrations completed successfully.")
+    except Exception as e:
+        logger.error(f"❌ Migration failed: {e}")
+
+
+async def wait_for_db(host: str = "db", port: int = 5432, timeout: int = 30) -> bool:
+    """Wait for the database to be reachable."""
+    logger.info(f"⏳ Waiting for database at {host}:{port}...")
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            with socket.create_connection((host, port), timeout=1):
+                logger.info("✅ Database is reachable.")
+                return True
+        except (TimeoutError, ConnectionRefusedError):
+            await asyncio.sleep(1)
+    logger.error("❌ Database connection timed out.")
+    return False
+
+
 def run() -> None:
+    """Entry point for the application."""
+    setup_logger()
+
+    if os.getenv("DATABASE_URL", "").startswith("postgresql"):
+        asyncio.run(wait_for_db())
+    run_migrations()
+
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(main())
 
 
 async def main() -> None:
-    setup_logger()
-
     from src.core.bot import bot
 
     logger.info(f"Starting {config.BOT_NAME}...")

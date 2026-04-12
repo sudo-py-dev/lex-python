@@ -1,3 +1,6 @@
+import re
+import time
+
 from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.enums import ChatAction, MessageEntityType, ParseMode
@@ -120,6 +123,7 @@ async def ai_message_handler(client: Client, message: Message):
         custom_instruction = _trim_text(s.customInstruction, 900)
 
         try:
+            start_time = time.time()
             response_text = await AIService.call_ai(
                 provider=s.provider,
                 api_key=s.apiKey,
@@ -128,6 +132,7 @@ async def ai_message_handler(client: Client, message: Message):
                 custom_instruction=custom_instruction,
                 messages=history,
             )
+            duration = time.time() - start_time
         except Exception as first_error:
             if not _is_request_too_large_error(first_error):
                 raise
@@ -135,6 +140,7 @@ async def ai_message_handler(client: Client, message: Message):
             retry_history = _compact_history(
                 history, max_messages=retry_max_m, max_chars=retry_max_c
             )
+            start_time = time.time()
             response_text = await AIService.call_ai(
                 provider=s.provider,
                 api_key=s.apiKey,
@@ -143,9 +149,12 @@ async def ai_message_handler(client: Client, message: Message):
                 custom_instruction=_trim_text(custom_instruction, 500),
                 messages=retry_history,
             )
+            duration = time.time() - start_time
 
         if response_text:
             clean_response = response_text.strip()
+            latency_text = await at(chat_id, "ai.latency_fmt", duration=f"{duration:.1f}")
+            clean_response += latency_text
 
             token_match = (
                 clean_response.upper()
@@ -182,14 +191,24 @@ async def ai_message_handler(client: Client, message: Message):
                 ctx, chat_id, sent_msg.id, client.me.id, client.me.first_name, clean_response
             )
     except Exception as e:
-        logger.error(f"AI Response failed for chat {chat_id}: {e}")
+        logger.debug(f"AI Response failed for chat {chat_id}: {e}")
 
         if "rate_limit" in str(e).lower():
+            # Try to extract wait time (e.g., "try again in 5.7s")
+            wait_time = "a few"
+            if match := re.search(r"in ([\d\.]+)s", str(e)):
+                wait_time = match.group(1)
             error_msg = await at(chat_id, "ai.rate_limit")
+            if "{seconds}" in error_msg:
+                error_msg = error_msg.format(seconds=wait_time)
+            elif wait_time != "a few":
+                error_msg += f" ({wait_time}s)"
         elif _is_request_too_large_error(e):
             await AIRepository.clear_context(ctx, chat_id)
             await cache.delete(s_key)
             error_msg = await at(chat_id, "ai.context_too_large")
+        elif "decommissioned" in str(e).lower() or "deprecated" in str(e).lower():
+            error_msg = await at(chat_id, "ai.model_decommissioned")
         else:
             error_msg = await at(chat_id, "ai.error_prefix", error=str(e))
 

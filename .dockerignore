@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.env
+.git/
+.ruff_cache/
+*.log
+sessions/
+data/
+Dockerfile
+docker-compose.yml
+.antigravity/

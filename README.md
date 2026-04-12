@@ -56,6 +56,37 @@ uv run bot
 
 ---
 
+## 🛳️ Deployment (Running 24/7)
+
+### Option 1: Docker (Recommended for DigitalOcean)
+Ensure you have Docker and Docker Compose installed on your VPS.
+
+1. **Setup**:
+   ```bash
+   bash scripts/deploy_vps.sh
+   ```
+2. **Manage**:
+   - View logs: `docker compose logs -f`
+   - Stop bot: `docker compose down`
+   - Start bot: `docker compose up -d`
+
+### Option 2: Systemd (Native Linux Service)
+If you prefer running without Docker:
+
+1. Copy the service file:
+   ```bash
+   sudo cp lex-tg.service /etc/systemd/system/
+   ```
+2. Enable and start:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable lex-tg
+   sudo systemctl start lex-tg
+   ```
+3. View logs: `journalctl -u lex-tg -f`
+
+---
+
 ## 🏗️ Development & Quality Assurance
 
 We maintain rigorous standards for code quality and reliability.

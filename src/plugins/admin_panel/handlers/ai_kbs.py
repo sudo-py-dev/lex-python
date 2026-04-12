@@ -74,7 +74,7 @@ async def model_selection_kb(
             "claude-3-opus-20240229",
             "claude-3-haiku-20240307",
         ],
-        "groq": ["llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"],
+        "groq": ["llama-3.1-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
         "qwen": ["qwen-plus", "qwen-turbo", "qwen-max"],
     }
 

@@ -8,6 +8,7 @@ from loguru import logger
 from pyrogram import Client, StopPropagation, filters
 from pyrogram.enums import PollType
 from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
+from pyrogram.raw import base as raw_base
 from pyrogram.raw import types as raw_types
 from pyrogram.raw.types import User
 from pyrogram.types import (
@@ -244,7 +245,7 @@ async def captcha_img_choice_handler(client: Client, callback: CallbackQuery) ->
 @bot.on_raw_update(group=-100)
 @safe_handler
 async def captcha_poll_handler(
-    client: Client, update: raw_types.Update, users: dict, chats: dict
+    client: Client, update: raw_base.Update, users: dict, chats: dict
 ) -> None:
     if not isinstance(update, raw_types.UpdateMessagePollVote):
         return

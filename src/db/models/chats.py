@@ -219,7 +219,9 @@ class ChatAdmin(Base):
     firstName: Mapped[str | None] = mapped_column(String(255), nullable=True)
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50))  # owner, administrator
-    privileges: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON serialized privileges
+    privileges: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # JSON serialized privileges
     updatedAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

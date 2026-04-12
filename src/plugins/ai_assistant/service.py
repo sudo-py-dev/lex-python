@@ -97,10 +97,10 @@ class AIService:
                 if status == 413 or "request_too_large" in body_l:
                     logger.warning(f"API payload too large from {url}: {error_body}")
                 else:
-                    logger.error(f"API error from {url}: {error_body}")
+                    logger.debug(f"API error from {url}: {error_body}")
                 raise AIServiceError(f"API Error ({e.response.status_code}): {error_body}") from e
             except (httpx.RequestError, ValueError, KeyError) as e:
-                logger.error(f"Request failed for {url}: {e}")
+                logger.debug(f"Request failed for {url}: {e}")
                 raise AIServiceError(f"Request failed: {str(e)}") from e
 
     @staticmethod
@@ -140,8 +140,8 @@ class AIService:
                 return data["content"][0]["text"]
             except httpx.HTTPStatusError as e:
                 error_body = e.response.text
-                logger.error(f"Anthropic API error: {error_body}")
+                logger.debug(f"Anthropic API error: {error_body}")
                 raise AIServiceError(f"Anthropic API Error ({e.response.status_code})") from e
             except (httpx.RequestError, ValueError, KeyError) as e:
-                logger.error(f"Anthropic request failed: {e}")
+                logger.debug(f"Anthropic request failed: {e}")
                 raise AIServiceError(str(e)) from e
