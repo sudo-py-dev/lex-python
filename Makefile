@@ -70,6 +70,10 @@ setup:
 	fi
 	@bash scripts/setup_docker.sh
 
+# Pull latest image
+pull:
+	sudo docker compose pull bot
+
 # Cleanup
 clean:
 	@echo "🧹 Cleaning up..."

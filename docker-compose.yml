@@ -1,8 +1,9 @@
 services:
   bot:
-    build: .
+    # build: .
+    image: ghcr.io/sudo-py-dev/lex-tg:latest
     container_name: lex-tg
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     volumes:
