@@ -200,7 +200,17 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
         return
 
     field = callback.matches[0].group(1)
-    if field not in ("raidEnabled", "captchaEnabled", "urlScannerEnabled"):
+    if (
+        field
+        not in (
+            "raidEnabled",
+            "captchaEnabled",
+            "urlScannerEnabled",
+            "welcomeEnabled",
+            "goodbyeEnabled",
+        )
+        or field == "isActive"
+    ):
         # Fall through to other handlers
         raise ContinuePropagation
 
@@ -209,6 +219,11 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
     ctx = ap_ctx.ctx
 
     await toggle_setting(ctx, chat_id, field)
+
+    if field in ("welcomeEnabled", "goodbyeEnabled"):
+        from .automation import on_welcome_panel
+
+        return await on_welcome_panel(_, callback)
 
     if field == "raidEnabled":
         kb = await raid_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)

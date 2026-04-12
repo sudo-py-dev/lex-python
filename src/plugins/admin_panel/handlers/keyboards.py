@@ -310,15 +310,22 @@ async def settings_category_kb(
     if row1:
         buttons.append(row1)
 
-    # Row 2: Logging
+    # Row 2: Logging & Service Cleaner
+    row2 = []
     if is_setting_allowed("logging", chat_type):
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    await at(at_id, "panel.btn_logging"), callback_data="panel:logging"
-                )
-            ]
+        row2.append(
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_logging"), callback_data="panel:logging"
+            )
         )
+    if is_setting_allowed("svc", chat_type):
+        row2.append(
+            InlineKeyboardButton(
+                await at(at_id, "common.service_cleaner"), callback_data="panel:svc:settings"
+            )
+        )
+    if row2:
+        buttons.append(row2)
 
     # Row 3: Admin Management
     buttons.append(
@@ -394,7 +401,7 @@ async def flood_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKeybo
 
 
 async def welcome_kb(
-    ctx, chat_id: int, user_id: int | None = None, back_callback: str = "panel:category:general"
+    ctx, chat_id: int, user_id: int | None = None, back_callback: str = "panel:category:greetings"
 ) -> InlineKeyboardMarkup:
     at_id = user_id or chat_id
     settings = await get_chat_settings(ctx, chat_id)
@@ -428,7 +435,7 @@ async def welcome_kb(
 
 
 async def rules_kb(
-    chat_id: int, user_id: int | None = None, back_callback: str = "panel:category:general"
+    chat_id: int, user_id: int | None = None, back_callback: str = "panel:category:greetings"
 ) -> InlineKeyboardMarkup:
     at_id = user_id or chat_id
     from src.core.context import get_context
@@ -465,7 +472,7 @@ async def filters_menu_kb(
     chat_id: int,
     page: int = 0,
     user_id: int | None = None,
-    back_callback: str = "panel:category:general",
+    back_callback: str = "panel:category:greetings",
 ) -> InlineKeyboardMarkup:
     at_id = user_id or chat_id
     from src.db.repositories.filters import get_filters_count, get_filters_paginated
@@ -542,16 +549,6 @@ async def automation_category_kb(
             [
                 InlineKeyboardButton(
                     await at(at_id, "panel.btn_group_cleaner"), callback_data="panel:cleaner"
-                )
-            ]
-        )
-
-    # Row 3: Service Cleaner
-    if is_setting_allowed("svc", chat_type):
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    await at(at_id, "panel.btn_service_cleaner"), callback_data="panel:svc"
                 )
             ]
         )

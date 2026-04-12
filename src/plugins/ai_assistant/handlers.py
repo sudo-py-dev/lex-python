@@ -3,240 +3,160 @@ import time
 
 from loguru import logger
 from pyrogram import Client, filters
-from pyrogram.enums import ChatAction, MessageEntityType, ParseMode
+from pyrogram.enums import ChatAction, ParseMode
 from pyrogram.types import Message
 
 from src.core.bot import bot
 from src.core.context import get_context
 from src.utils.decorators import safe_handler
+from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
-from src.utils.local_cache import get_cache
 
 from .repository import AIRepository
 from .service import AIService
 from .telegram_markdown import render_pyrogram_html
 
 
-def _compact_history(
-    messages: list[dict[str, str]], *, max_messages: int, max_chars: int
-) -> list[dict[str, str]]:
-    if not messages:
+def _compact_history(msgs, max_m, max_c):
+    if not msgs:
         return []
     out, total = [], 0
-    for m in reversed(messages[-max_messages:]):
-        content, role = str(m.get("content", "")), str(m.get("role", "user"))
+    for m in reversed(msgs[-max_m:]):
+        content = str(m.get("content", ""))
         if not content:
             continue
-        if total + len(content) > max_chars:
-            if (rem := max_chars - total) <= 80:
+        if total + len(content) > max_c:
+            if (rem := max_c - total) <= 80:
                 break
             content = content[-rem:]
-        out.append({"role": role, "content": content})
-        if (total := total + len(content)) >= max_chars:
+        out.append({"role": m.get("role", "user"), "content": content})
+        if (total := total + len(content)) >= max_c:
             break
-    return list(reversed(out))
+    return out[::-1]
 
 
-def _is_request_too_large_error(err: Exception) -> bool:
+def _is_request_too_large_error(err):
     e = str(err).lower()
     return any(x in e for x in ("request_too_large", "413", "request entity too large"))
 
 
-def _trim_text(v: str | None, max_c: int) -> str | None:
+def _trim_text(v, max_c):
     return v.strip()[-max_c:] if v and len(v.strip()) > max_c else (v.strip() if v else v)
 
 
 @bot.on_message(filters.group & ~filters.service & ~filters.bot, group=100)
 @safe_handler
 async def ai_message_handler(client: Client, message: Message):
-    """Main AI handler: log msg & respond if mentioned or in session."""
-    chat_id, user_id = message.chat.id, message.from_user.id if message.from_user else 0
-    t = message.text or message.caption
-    if not client.me or not t or t.startswith("/"):
+    cid = message.chat.id
+    uid = message.from_user.id if message.from_user else 0
+    text = message.text or message.caption
+    if not client.me or not text or text.startswith("/"):
         return
 
-    ctx, cache = get_context(), get_cache()
+    ctx = get_context()
     await AIRepository.add_message(
         ctx,
-        chat_id,
+        cid,
         message.id,
-        user_id,
+        uid,
         message.from_user.first_name if message.from_user else "Unknown",
-        t,
+        text,
     )
-
-    s = await AIRepository.get_settings(ctx, chat_id)
+    s = await AIRepository.get_settings(ctx, cid)
     if not s or not s.isAssistantEnabled or not s.apiKey:
         return
 
-    is_m = False
     me_tag = f"@{client.me.username}".lower()
-    if message.entities:
-        is_m = any(
-            me_tag in t[e.offset : e.offset + e.length].lower()
-            for e in message.entities
-            if e.type in (MessageEntityType.MENTION, MessageEntityType.BOT_COMMAND)
-        )
-    if not is_m:
-        is_m = me_tag in t.lower() or (
+    if not (
+        me_tag in text.lower()
+        or (
             message.reply_to_message
             and message.reply_to_message.from_user
             and message.reply_to_message.from_user.id == client.me.id
         )
-
-    s_key = f"ai_session:{chat_id}"
-    is_active = await cache.exists(s_key)
-    if not is_m and not is_active:
+    ):
         return
-
-    await cache.set(s_key, True, ttl=180)
-    p = (s.provider or "openai").lower()
-    max_m, max_c = (16, 7000) if p == "groq" else (24, 12000)
-    retry_max_m, retry_max_c = (6, 2200) if p == "groq" else (8, 3000)
-
-    history = _compact_history(
-        await AIRepository.get_context(ctx, chat_id, client.me.id),
-        max_messages=max_m,
-        max_chars=max_c,
-    )
-    logger.debug(f"AI [{chat_id}] History: {len(history)} messages. Calling LLM...")
 
     from .prompts import BASE_PROMPT, OPERATIONAL_RULES
 
-    try:
-        await client.send_chat_action(chat_id, ChatAction.TYPING)
+    pvd = (s.provider or "openai").lower()
+    lim = {"m": 12, "c": 5000} if pvd == "groq" else {"m": 24, "c": 12000}
 
-        sys_prompt = s.systemPrompt if s.systemPrompt else BASE_PROMPT
-        sys_prompt = sys_prompt.format(
+    try:
+        await client.send_chat_action(cid, ChatAction.TYPING)
+        sys_p = (s.systemPrompt or BASE_PROMPT).format(
             bot_name=client.me.first_name, bot_username=client.me.username
         )
-
-        sys_prompt = (
-            f"IDENTITY: You are @{client.me.username} ({client.me.first_name})\n\n{sys_prompt}"
-        )
-
+        sys_p = f"IDENTITY: You are @{client.me.username} ({client.me.first_name})\n\n{sys_p}"
         if s.systemPrompt:
-            sys_prompt += OPERATIONAL_RULES
+            sys_p += OPERATIONAL_RULES
 
-        sys_prompt = _trim_text(sys_prompt, 3200) or ""
-        custom_instruction = _trim_text(s.customInstruction, 900)
+        async def _call(m_l, c_l):
+            hist = _compact_history(
+                await AIRepository.get_context(ctx, cid, client.me.id), m_l, c_l
+            )
+            st = time.time()
+            res = await AIService.call_ai(
+                s.provider,
+                s.apiKey,
+                s.modelId or "gpt-3.5-turbo",
+                _trim_text(sys_p, 3200),
+                _trim_text(s.customInstruction, 900),
+                hist,
+            )
+            return res, time.time() - st
 
         try:
-            start_time = time.time()
-            response_text = await AIService.call_ai(
-                provider=s.provider,
-                api_key=s.apiKey,
-                model_id=s.modelId or "gpt-3.5-turbo",
-                system_prompt=sys_prompt,
-                custom_instruction=custom_instruction,
-                messages=history,
-            )
-            duration = time.time() - start_time
-        except Exception as first_error:
-            if not _is_request_too_large_error(first_error):
+            resp, dur = await _call(lim["m"], lim["c"])
+        except Exception as e:
+            if not _is_request_too_large_error(e):
                 raise
-            logger.warning(f"AI [{chat_id}] context too large, retrying with compact history")
-            retry_history = _compact_history(
-                history, max_messages=retry_max_m, max_chars=retry_max_c
+            resp, dur = await _call(8, 3000)
+
+        if resp:
+            full = resp.strip()
+            sent = await TelegramFormatter.send_safe(
+                client,
+                cid,
+                render_pyrogram_html(full),
+                reply_to_message_id=message.id,
+                parse_mode=ParseMode.HTML,
             )
-            start_time = time.time()
-            response_text = await AIService.call_ai(
-                provider=s.provider,
-                api_key=s.apiKey,
-                model_id=s.modelId or "gpt-3.5-turbo",
-                system_prompt=_trim_text(sys_prompt, 1800),
-                custom_instruction=_trim_text(custom_instruction, 500),
-                messages=retry_history,
-            )
-            duration = time.time() - start_time
-
-        if response_text:
-            clean_response = response_text.strip()
-            latency_text = await at(chat_id, "ai.latency_fmt", duration=f"{duration:.1f}")
-            clean_response += latency_text
-
-            token_match = (
-                clean_response.upper()
-                .replace("[", "")
-                .replace("]", "")
-                .replace("IGNORE", "IGNORE")
-                .strip()
-            )
-
-            logger.debug(
-                f"AI [{chat_id}] response: {clean_response[:20]}... (Token: {token_match})"
-            )
-
-            if "IGNORE" in token_match and len(token_match) < 10:
-                logger.debug(f"AI [{chat_id}] decision: IGNORE")
-                return
-
-            if token_match == "CLOSE" or clean_response.upper().startswith("[CLOSE]"):
-                await AIRepository.clear_context(ctx, chat_id)
-                await cache.delete(s_key)
-                await message.reply_text(await at(chat_id, "ai.session_closed"))
-                return
-
-            render_text = render_pyrogram_html(clean_response)
-            try:
-                sent_msg = await message.reply_text(render_text, parse_mode=ParseMode.HTML)
-            except ValueError as format_error:
-                logger.warning(
-                    f"AI [{chat_id}] html render failed, fallback to plain text: {format_error}"
+            if sent:
+                await AIRepository.add_message(
+                    ctx, cid, sent[0].id, client.me.id, client.me.first_name, full
                 )
-                sent_msg = await message.reply_text(clean_response, parse_mode=None)
-
-            await AIRepository.add_message(
-                ctx, chat_id, sent_msg.id, client.me.id, client.me.first_name, clean_response
-            )
     except Exception as e:
-        logger.debug(f"AI Response failed for chat {chat_id}: {e}")
-
+        logger.debug(f"AI Fail {cid}: {e}")
+        err = await at(cid, "ai.error_prefix", error=str(e))
         if "rate_limit" in str(e).lower():
-            # Try to extract wait time (e.g., "try again in 5.7s")
-            wait_time = "a few"
-            if match := re.search(r"in ([\d\.]+)s", str(e)):
-                wait_time = match.group(1)
-            error_msg = await at(chat_id, "ai.rate_limit")
-            if "{seconds}" in error_msg:
-                error_msg = error_msg.format(seconds=wait_time)
-            elif wait_time != "a few":
-                error_msg += f" ({wait_time}s)"
+            w = (
+                re.search(r"in ([\d\.]+)s", str(e)).group(1)
+                if re.search(r"in ([\d\.]+)s", str(e))
+                else "a few"
+            )
+            err = (await at(cid, "ai.rate_limit")).format(seconds=w)
         elif _is_request_too_large_error(e):
-            await AIRepository.clear_context(ctx, chat_id)
-            await cache.delete(s_key)
-            error_msg = await at(chat_id, "ai.context_too_large")
-        elif "decommissioned" in str(e).lower() or "deprecated" in str(e).lower():
-            error_msg = await at(chat_id, "ai.model_decommissioned")
-        else:
-            error_msg = await at(chat_id, "ai.error_prefix", error=str(e))
-
+            await AIRepository.clear_context(ctx, cid)
+            err = await at(cid, "ai.context_too_large")
         import contextlib
 
         with contextlib.suppress(Exception):
-            await message.reply_text(error_msg)
+            await message.reply_text(err)
 
-
-# --- Admin Panel Input Handlers ---
 
 AI_FIELDS = ["aiApiKey", "aiModelId", "aiSystemPrompt", "aiInstruction"]
 
 
 @bot.on_message(filters.private & is_waiting_for_input(AI_FIELDS), group=-50)
 @safe_handler
-async def ai_settings_handler(client: Client, message: Message) -> None:
-    state = message.input_state
-    chat_id = state["chat_id"]
-    field = state["field"]
-    user_id = message.from_user.id
-    ctx = get_context()
-    value = message.text or ""
-
-    value_text = str(value).strip()
-    if not value_text:
-        await message.reply(await at(user_id, "panel.input_invalid_string"))
-        return
+async def ai_settings_handler(client: Client, message: Message):
+    st = message.input_state
+    cid, fld, uid = st["chat_id"], st["field"], message.from_user.id
+    ctx, val = get_context(), (message.text or "").strip()
+    if not val:
+        return await message.reply(await at(uid, "panel.input_invalid_string"))
 
     mapping = {
         "aiApiKey": "apiKey",
@@ -244,41 +164,30 @@ async def ai_settings_handler(client: Client, message: Message) -> None:
         "aiSystemPrompt": "systemPrompt",
         "aiInstruction": "customInstruction",
     }
-    db_field = mapping.get(field, field)
-
-    update_data = {db_field: value_text}
-    await AIRepository.update_settings(ctx, chat_id, **update_data)
+    await AIRepository.update_settings(ctx, cid, **{mapping.get(fld, fld): val})
 
     from src.plugins.admin_panel.handlers.ai_kbs import ai_menu_kb
 
-    kb = await ai_menu_kb(chat_id, user_id=user_id)
-
-    s = await AIRepository.get_settings(ctx, chat_id)
-    is_enabled = s.isAssistantEnabled if s else False
-    provider = (s.provider if s else "openai").upper()
-    model = (s.modelId if s else "N/A") or "N/A"
-    api_key = "****" if (s and s.apiKey) else await at(user_id, "panel.not_set")
-
-    status_text = await at(user_id, f"panel.status_{'enabled' if is_enabled else 'disabled'}")
-    main_text = await at(
-        user_id,
-        "panel.ai_text",
-        status=status_text,
-        provider=provider,
-        model=model,
-        api_key=api_key,
+    kb = await ai_menu_kb(cid, user_id=uid)
+    s = await AIRepository.get_settings(ctx, cid)
+    is_e, pvd, mod = (
+        (s.isAssistantEnabled if s else False),
+        (s.provider if s else "openai").upper(),
+        (s.modelId if s else "N/A") or "N/A",
     )
+    ake = "****" if (s and s.apiKey) else await at(uid, "panel.not_set")
 
-    success_text = await at(user_id, "panel.input_success")
-    if field == "aiModelId":
-        success_text = await at(user_id, "panel.ai_model_set", model=model)
-
+    txt = await at(
+        uid,
+        "panel.ai_text",
+        status=await at(uid, f"panel.status_{'enabled' if is_e else 'disabled'}"),
+        provider=pvd,
+        model=mod,
+        api_key=ake,
+    )
+    ok = await at(uid, "panel.input_success")
+    if fld == "aiModelId":
+        ok = await at(uid, "panel.ai_model_set", model=mod)
     await finalize_input_capture(
-        client,
-        message,
-        user_id,
-        state["prompt_msg_id"],
-        main_text,
-        kb,
-        success_text=success_text,
+        client, message, uid, st["prompt_msg_id"], txt, kb, success_text=ok
     )

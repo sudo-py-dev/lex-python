@@ -10,6 +10,8 @@ from pyrogram.types import (
     User,
 )
 
+from src.utils.text import smart_split
+
 
 class ParsedMessage(TypedDict):
     text: str
@@ -184,3 +186,34 @@ class TelegramFormatter:
             common.pop("caption", None)
 
         return await sender(chat_id, file_id, **common)
+
+    @staticmethod
+    async def send_safe(
+        client,
+        chat_id: int,
+        text: str,
+        reply_to_message_id: int | None = None,
+        parse_mode: Any = "html",
+        **kwargs,
+    ) -> list[Any]:
+        """
+        Sends text safely, splitting it if it exceeds Telegram limits.
+        """
+        chunks = smart_split(text)
+        sent_messages = []
+        reply_params = (
+            ReplyParameters(message_id=reply_to_message_id) if reply_to_message_id else None
+        )
+
+        for i, chunk in enumerate(chunks):
+            # Only the first message is a reply to the original
+            params = reply_params if i == 0 else None
+            msg = await client.send_message(
+                chat_id=chat_id,
+                text=chunk,
+                parse_mode=parse_mode,
+                reply_parameters=params,
+                **kwargs,
+            )
+            sent_messages.append(msg)
+        return sent_messages

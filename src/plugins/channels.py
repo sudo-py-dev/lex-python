@@ -463,9 +463,21 @@ class ChannelsPlugin(Plugin):
         Downloads the image, applies the watermark and the final caption, then updates the post.
         """
         logger.debug(f"[channels] Start image watermark pipeline message={message.id}")
+
+        ext = ".jpg"
+        if message.photo:
+            ext = ".jpg"
+        elif message.document and message.document.mime_type:
+            if "webp" in message.document.mime_type:
+                ext = ".webp"
+            elif "png" in message.document.mime_type:
+                ext = ".png"
+        elif message.sticker:
+            ext = ".webp"
+
         with tempfile.TemporaryDirectory() as temp_dir:
-            input_path = self._safe_temp_media_path(temp_dir, "img_input", ".jpg")
-            output_path = self._safe_temp_media_path(temp_dir, "img_output", ".jpg")
+            input_path = self._safe_temp_media_path(temp_dir, "img_input", ext)
+            output_path = self._safe_temp_media_path(temp_dir, "img_output", ext)
             try:
                 photo_path = await message.download(file_name=input_path)
             except OSError as e:
@@ -871,7 +883,9 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
         kb = await channel_buttons_kb(ctx, channel_id, user_id)
         main_text = text
     else:
-        status = await at(user_id, "panel.status_enabled" if s.enabled else "panel.status_disabled")
+        status = await at(
+            user_id, "panel.status_enabled" if s.isActive else "panel.status_disabled"
+        )
         main_text = await at(
             user_id,
             "panel.channel_settings_text",
@@ -880,7 +894,7 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
             status=status,
             reactions=s.reactions or "👍",
             signature=s.signatureText or await at(user_id, "panel.not_set"),
-            sign_pos=s.signaturePosition.upper(),
+            sign_pos=(s.signaturePosition or "below").upper(),
         )
         from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb
 

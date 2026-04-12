@@ -98,7 +98,7 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
         await callback.message.edit_text(
             await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
         )
-    elif cat == "settings":
+    elif cat in ("settings", "general"):
         kb = await settings_category_kb(
             chat_id, user_id=user_id if is_pm else None, chat_type=chat_type_str
         )

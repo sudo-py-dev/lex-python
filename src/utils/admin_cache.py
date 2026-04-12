@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections import defaultdict
 from enum import Enum
 
 from loguru import logger
@@ -19,6 +20,7 @@ _TTL = 3600  # 1 hour for local cache
 
 # To avoid multiple concurrent API calls for the same chat
 fetching_semaphore = asyncio.Semaphore(5)
+sync_locks = defaultdict(asyncio.Lock)
 
 
 class Permission(Enum):
@@ -77,7 +79,7 @@ async def sync_admins_from_telegram(client: Client, chat_id: int) -> set[int]:
     if chat_id > 0:
         return {chat_id}
 
-    async with fetching_semaphore:
+    async with fetching_semaphore, sync_locks[chat_id]:
         ctx = get_context()
         try:
             admin_ids = set()

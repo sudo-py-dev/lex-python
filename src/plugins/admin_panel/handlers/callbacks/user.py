@@ -141,7 +141,7 @@ async def on_user_language_search(_: Client, callback: CallbackQuery):
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:set_lang:user:(\d+):(.*)$"))
+@bot.on_callback_query(filters.regex(r"^panel:set_lang:user:(\d+):([^:]+)(?::(.*))?$"))
 async def on_user_language_set(_: Client, callback: CallbackQuery):
     from src.plugins.language import set_user_lang
 
@@ -149,8 +149,30 @@ async def on_user_language_set(_: Client, callback: CallbackQuery):
     user_id = callback.from_user.id
     target_id = int(callback.matches[0].group(1))
     new_lang = callback.matches[0].group(2)
+    mode = callback.matches[0].group(3)
 
     await set_user_lang(ctx, target_id, new_lang)
+
+    if mode and mode.startswith("onboarding"):
+        payload = mode.replace("onboarding:", "") if ":" in mode else None
+
+        if payload and payload.startswith("settings_"):
+            cid = payload.replace("settings_", "")
+            if cid.startswith("-") and cid.lstrip("-").isdigit():
+                from src.plugins.admin_panel.handlers import open_settings_panel
+
+                await open_settings_panel(_, callback.message, int(cid))
+                return await callback.answer(
+                    _plain(await at(user_id, "panel.user_lang_set", lang=new_lang.upper()))
+                )
+
+        from src.plugins.admin import send_start_message
+
+        await send_start_message(_, callback.message, edit=True)
+        return await callback.answer(
+            _plain(await at(user_id, "panel.user_lang_set", lang=new_lang.upper()))
+        )
+
     await callback.message.edit_text(
         await at(user_id, "panel.main_text_user", user_id=user_id),
         reply_markup=await my_chats_menu_kb(user_id),

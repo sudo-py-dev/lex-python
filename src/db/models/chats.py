@@ -110,6 +110,9 @@ class ChatSettings(TimestampMixin, Base):
     signatureEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     signatureText: Mapped[str | None] = mapped_column(Text, nullable=True)
     buttons: Mapped[str | None] = mapped_column(Text, nullable=True)
+    signaturePosition: Mapped[str] = mapped_column(
+        String(10), default="below", server_default=sa_text("'below'")
+    )
 
     warns: Mapped[list["UserWarn"]] = relationship(back_populates="chat", lazy="raise")
     filters: Mapped[list["Filter"]] = relationship(back_populates="chat", lazy="raise")

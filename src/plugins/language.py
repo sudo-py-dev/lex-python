@@ -240,7 +240,7 @@ async def language_picker_kb(
         else:
             is_active = lang == current_lang
             prefix = "✅ " if is_active else ""
-            callback_data = f"panel:set_lang:{scope}:{target_id}:{lang}"
+            callback_data = f"panel:set_lang:{scope}:{target_id}:{lang}:{mode}"
 
         btn_text = f"{prefix}{flag} {name}"
         row.append(InlineKeyboardButton(btn_text, callback_data=callback_data))
@@ -285,12 +285,15 @@ async def language_picker_kb(
 
     if mode == "block":
         back_data = "panel:category:moderation"
+    elif mode and mode.startswith("onboarding"):
+        back_data = None
     else:
         back_data = "panel:my_chats" if scope == "user" else "panel:category:settings"
 
-    buttons.append(
-        [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data=back_data)]
-    )
+    if back_data:
+        buttons.append(
+            [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data=back_data)]
+        )
     return InlineKeyboardMarkup(buttons)
 
 

@@ -20,89 +20,78 @@ class AIRepository:
     @staticmethod
     async def update_settings(ctx: AppContext, chat_id: int, **kwargs) -> AISettings:
         async with ctx.db() as session:
-            settings = await session.get(AISettings, chat_id)
-            if not settings:
-                settings = AISettings(chatId=chat_id)
-                session.add(settings)
-
-            for key, value in kwargs.items():
-                if hasattr(settings, key):
-                    setattr(settings, key, value)
-
+            s = await session.get(AISettings, chat_id)
+            if not s:
+                s = AISettings(chatId=chat_id)
+                session.add(s)
+            for k, v in kwargs.items():
+                if hasattr(s, k):
+                    setattr(s, k, v)
             await session.commit()
-            await session.refresh(settings)
-            return settings
+            await session.refresh(s)
+            return s
 
     @staticmethod
     async def add_message(
-        ctx: AppContext, chat_id: int, message_id: int, user_id: int, user_name: str, text: str
+        ctx: AppContext, chat_id: int, msg_id: int, user_id: int, name: str, text: str
     ) -> None:
         async with ctx.db() as session:
-            new_msg = AIChatContext(
-                chatId=chat_id,
-                messageId=message_id,
-                userId=user_id,
-                userName=user_name,
-                text=text,
-                timestamp=datetime.now(UTC),
+            session.add(
+                AIChatContext(
+                    chatId=chat_id,
+                    messageId=msg_id,
+                    userId=user_id,
+                    userName=name,
+                    text=text,
+                    timestamp=datetime.now(UTC),
+                )
             )
-            session.add(new_msg)
-
-            stmt = (
-                select(AIChatContext)
+            # Keep history under limit via subquery delete
+            subq = (
+                select(AIChatContext.id)
                 .where(AIChatContext.chatId == chat_id)
                 .order_by(AIChatContext.timestamp.desc())
                 .offset(50)
+                .scalar_subquery()
             )
-            result = await session.execute(stmt)
-            to_delete = result.scalars().all()
-            for msg in to_delete:
-                await session.delete(msg)
-
+            await session.execute(delete(AIChatContext).where(AIChatContext.id.in_(subq)))
             await session.commit()
 
     @staticmethod
     async def get_context(ctx: AppContext, chat_id: int, bot_id: int) -> list[dict[str, str]]:
         async with ctx.db() as session:
-            stmt = (
+            res = await session.execute(
                 select(AIChatContext)
                 .where(AIChatContext.chatId == chat_id)
                 .order_by(AIChatContext.timestamp.desc())
                 .limit(AIRepository._CONTEXT_DB_LIMIT)
             )
-            result = await session.execute(stmt)
-            msgs = result.scalars().all()
+            msgs = res.scalars().all()
 
-            ai_messages = []
-            budget = AIRepository._CONTEXT_TOTAL_CHAR_BUDGET
-            current_chars = 0
-
+            ctx_list, cur_chars = [], 0
             for m in msgs:
                 role = "assistant" if m.userId == bot_id else "user"
-                content = m.text if role == "assistant" else f"[{m.userName}]: {m.text}"
-                msg_max = (
+                txt = m.text if role == "assistant" else f"[{m.userName}]: {m.text}"
+                limit = (
                     AIRepository._CONTEXT_ASSISTANT_MSG_MAX_CHARS
                     if role == "assistant"
                     else AIRepository._CONTEXT_USER_MSG_MAX_CHARS
                 )
-                if len(content) > msg_max:
-                    content = content[:msg_max] + "..."
 
-                if current_chars + len(content) > budget:
-                    remaining = budget - current_chars
-                    if remaining > 100:
-                        content = content[:remaining] + "..."
-                        ai_messages.append({"role": role, "content": content})
+                if len(txt) > limit:
+                    txt = txt[:limit] + "..."
+                if cur_chars + len(txt) > AIRepository._CONTEXT_TOTAL_CHAR_BUDGET:
+                    rem = AIRepository._CONTEXT_TOTAL_CHAR_BUDGET - cur_chars
+                    if rem > 100:
+                        ctx_list.append({"role": role, "content": txt[:rem] + "..."})
                     break
 
-                ai_messages.append({"role": role, "content": content})
-                current_chars += len(content)
-
-            return ai_messages[::-1]
+                ctx_list.append({"role": role, "content": txt})
+                cur_chars += len(txt)
+            return ctx_list[::-1]
 
     @staticmethod
     async def clear_context(ctx: AppContext, chat_id: int) -> None:
         async with ctx.db() as session:
-            stmt = delete(AIChatContext).where(AIChatContext.chatId == chat_id)
-            await session.execute(stmt)
+            await session.execute(delete(AIChatContext).where(AIChatContext.chatId == chat_id))
             await session.commit()

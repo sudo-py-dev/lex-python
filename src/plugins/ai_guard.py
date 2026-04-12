@@ -2,7 +2,7 @@ import io
 import json
 
 from loguru import logger
-from pyrogram import Client, StopPropagation, filters
+from pyrogram import Client, filters
 from pyrogram.types import Message
 
 from src.config import config
@@ -26,10 +26,7 @@ from src.utils.moderation import execute_moderation_action, resolve_sender
 
 
 class AIGuardPlugin(Plugin):
-    """Plugin for AI-powered spam detection using Groq (Llama 3.1)."""
-
-    name = "ai_guard"
-    priority = 80
+    name, priority = "ai_guard", 80
 
     async def setup(self, client: Client, ctx) -> None:
         pass
@@ -37,202 +34,158 @@ class AIGuardPlugin(Plugin):
 
 @bot.on_message(filters.group & (filters.text | filters.caption), group=-20)
 @safe_handler
-async def ai_guard_handler(client: Client, message: Message) -> None:
-    """Analyze incoming messages for spam using AI."""
-    if not message.text and not message.caption:
+async def ai_guard_handler(client: Client, message: Message):
+    if not (text := message.text or message.caption) or getattr(message, "command", None):
         return
-
-    if getattr(message, "command", None):
-        return
-
-    user_id, mention, is_white = await resolve_sender(client, message)
-    if not user_id or is_white:
+    uid, _, white = await resolve_sender(client, message)
+    if not uid or white:
         return
 
     ctx = get_context()
     s = await get_ai_guard_settings(ctx, message.chat.id)
-
     if not s.isTextEnabled or not s.apiKey:
         return
 
-    text = message.text or message.caption
-
     try:
-        response_text = await AIService.call_ai(
-            provider="groq",
-            api_key=s.apiKey,
-            model_id=config.AI_GUARD_MODEL,
-            system_prompt=AI_GUARD_SYSTEM_PROMPT,
-            custom_instruction=None,
-            messages=[{"role": "user", "content": AI_GUARD_TASK_PROMPT.format(user_input=text)}],
-            response_format={"type": "json_object"},
+        resp = await AIService.call_ai(
+            "groq",
+            s.apiKey,
+            config.AI_GUARD_MODEL,
+            AI_GUARD_SYSTEM_PROMPT,
+            None,
+            [{"role": "user", "content": AI_GUARD_TASK_PROMPT.format(user_input=text)}],
+            {"type": "json_object"},
+        )
+        res = json.loads(resp)
+        cls, conf, rea = (
+            str(res.get("classification", "HAM")).upper(),
+            float(res.get("confidence", 0)),
+            res.get("reason", "ai_detection"),
         )
 
-        result = json.loads(response_text)
-        classification = str(result.get("classification", "HAM")).upper()
-        confidence = float(result.get("confidence_score", 0))
-        reason = result.get("reason") or "ai_detection"
-
-        if classification == "SPAM" and confidence >= 0.7:
-            logger.debug(f"AI Guard: Spam detected in {message.chat.id}. Score: {confidence}")
+        if cls in ("SPAM", "INJECTION") and conf >= 0.7:
+            logger.debug(f"AI Guard: {cls} in {message.chat.id} ({conf})")
             await execute_moderation_action(
-                client=client,
-                message=message,
-                action=s.action,
-                reason=reason,
+                client,
+                message,
+                s.action,
+                rea,
                 log_tag="AI_GUARD",
                 violation_key="ai_guard.spam_detected",
             )
             await message.stop_propagation()
-
     except AIServiceError as e:
         if "authentication" in str(e).lower():
-            logger.warning(f"AI Guard: Auth failed for chat {message.chat.id}. Disabling.")
             await update_ai_guard_settings(
                 ctx, message.chat.id, isTextEnabled=False, isImageEnabled=False, apiKey=None
             )
-    except (json.JSONDecodeError, ValueError, TypeError):
-        logger.warning("AI Guard: Failed to parse AI response.")
-    except StopPropagation:
-        raise
     except Exception as e:
-        logger.error(f"AI Guard: Unexpected error in {message.chat.id}: {e}")
+        logger.debug(f"AI Guard Fail: {e}")
 
 
 @bot.on_message(filters.group & (filters.photo | filters.document), group=-20)
 @safe_handler
-async def ai_image_guard_handler(client: Client, message: Message) -> None:
-    """Analyze incoming photos/images for spam using AI Vision."""
+async def ai_image_guard_handler(client: Client, message: Message):
     if message.document and (
         not message.document.mime_type or not message.document.mime_type.startswith("image/")
     ):
         return
-    file_obj = message.photo or message.document
-    if file_obj and file_obj.file_size > (config.AI_GUARD_MAX_IMAGE_SIZE_MB * 1024 * 1024):
-        logger.debug(
-            f"AI Image Guard: Skipping large file ({file_obj.file_size} bytes) in {message.chat.id}"
-        )
+    fobj = message.photo or message.document
+    if fobj and fobj.file_size > (config.AI_GUARD_MAX_IMAGE_SIZE_MB * 1024 * 1024):
         return
-
-    user_id, mention, is_white = await resolve_sender(client, message)
-    if not user_id or is_white:
+    uid, _, white = await resolve_sender(client, message)
+    if not uid or white:
         return
 
     ctx = get_context()
     s = await get_ai_guard_settings(ctx, message.chat.id)
-
     if not s.isImageEnabled or not s.apiKey:
         return
 
     try:
         bio = io.BytesIO()
         await message.download(file_name=bio)
-        base64_image = encode_image_to_base64(bio)
-
-        response_text = await AIService.call_ai(
-            provider="groq",
-            api_key=s.apiKey,
-            model_id=config.AI_GUARD_VISION_MODEL,
-            system_prompt=AI_IMAGE_GUARD_SYSTEM_PROMPT,
-            custom_instruction=None,
-            messages=[
+        resp = await AIService.call_ai(
+            "groq",
+            s.apiKey,
+            config.AI_GUARD_VISION_MODEL,
+            AI_IMAGE_GUARD_SYSTEM_PROMPT,
+            None,
+            [
                 {
                     "role": "user",
                     "content": [
                         {"type": "text", "text": AI_IMAGE_GUARD_TASK_PROMPT},
                         {
                             "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{encode_image_to_base64(bio)}"
+                            },
                         },
                     ],
                 }
             ],
-            response_format={"type": "json_object"},
+            {"type": "json_object"},
+        )
+        res = json.loads(resp)
+        cls, conf, rea = (
+            str(res.get("classification", "HAM")).upper(),
+            float(res.get("confidence", 0)),
+            res.get("reason", "ai_image_detection"),
         )
 
-        result = json.loads(response_text)
-        classification = str(result.get("classification", "HAM")).upper()
-        confidence = float(result.get("confidence_score", 0))
-        reason = result.get("reason") or "ai_image_detection"
-
-        if classification == "SPAM" and confidence >= 0.7:
-            logger.debug(f"AI Image Guard: Spam in {message.chat.id}. Score: {confidence}")
+        if cls == "SPAM" and conf >= 0.7:
             await execute_moderation_action(
-                client=client,
-                message=message,
-                action=s.action,
-                reason=reason,
+                client,
+                message,
+                s.action,
+                rea,
                 log_tag="AI_IMAGE_GUARD",
                 violation_key="ai_guard.spam_detected",
             )
             await message.stop_propagation()
-
-    except (json.JSONDecodeError, ValueError, TypeError):
-        logger.warning("AI Image Guard: Failed to parse AI response.")
-    except AIServiceError as e:
-        if "authentication" in str(e).lower():
-            logger.warning(f"AI Image Guard: Auth failed for chat {message.chat.id}. Disabling.")
-            await update_ai_guard_settings(
-                ctx, message.chat.id, isImageEnabled=False, isTextEnabled=False, apiKey=None
-            )
-        else:
-            logger.error(f"AI Image Guard Service Error: {e}")
     except Exception as e:
-        logger.error(f"AI Image Guard: Unexpected error: {e}")
-
-
-# --- Admin Panel Input Handlers ---
+        logger.debug(f"AI Vision Fail: {e}")
 
 
 @bot.on_message(filters.private & is_waiting_for_input("groqKey"), group=-50)
 @safe_handler
-async def ai_guard_settings_input_handler(client: Client, message: Message) -> None:
-    state = message.input_state
-    chat_id = state["chat_id"]
-    user_id = message.from_user.id
-    ctx = get_context()
-    value = message.text or ""
-    str_value = str(value).strip()
-
-    if str_value.lower() == "reset":
+async def ai_guard_settings_input_handler(client: Client, message: Message):
+    st = message.input_state
+    cid, uid, ctx, val = (
+        st["chat_id"],
+        message.from_user.id,
+        get_context(),
+        (message.text or "").strip(),
+    )
+    if val.lower() == "reset":
         await update_ai_guard_settings(
-            ctx, chat_id, apiKey=None, isTextEnabled=False, isImageEnabled=False
+            ctx, cid, apiKey=None, isTextEnabled=False, isImageEnabled=False
         )
-        str_value = None
-    elif not str_value:
-        await message.reply(await at(user_id, "panel.input_invalid_string"))
-        return
+        val = None
+    elif not val:
+        return await message.reply(await at(uid, "panel.input_invalid_string"))
     else:
-        await update_ai_guard_settings(ctx, chat_id, apiKey=str_value)
+        await update_ai_guard_settings(ctx, cid, apiKey=val)
 
-    kb = await ai_security_kb(ctx, chat_id, user_id)
-
-    s = await get_ai_guard_settings(ctx, chat_id)
-    text_status = await at(user_id, f"panel.status_{'enabled' if s.isTextEnabled else 'disabled'}")
-    media_status = await at(
-        user_id, f"panel.status_{'enabled' if s.isImageEnabled else 'disabled'}"
-    )
-    action_label = await at(user_id, f"action.{s.action}")
-
-    api_key_status = "****" if s.apiKey else await at(user_id, "panel.not_set")
-    text = await at(
-        user_id,
+    s = await get_ai_guard_settings(ctx, cid)
+    txt = await at(
+        uid,
         "panel.ai_guard_text",
-        text_status=text_status,
-        media_status=media_status,
-        action=action_label,
+        text_status=await at(uid, f"panel.status_{'enabled' if s.isTextEnabled else 'disabled'}"),
+        media_status=await at(uid, f"panel.status_{'enabled' if s.isImageEnabled else 'disabled'}"),
+        action=await at(uid, f"action.{s.action}"),
         model=config.AI_GUARD_MODEL,
-        api_key=api_key_status,
+        api_key="****" if s.apiKey else await at(uid, "panel.not_set"),
     )
-
     await finalize_input_capture(
         client,
         message,
-        user_id,
-        state["prompt_msg_id"],
-        text,
-        kb,
-        success_text=await at(user_id, "panel.input_success"),
+        uid,
+        st["prompt_msg_id"],
+        txt,
+        await ai_security_kb(ctx, cid, uid),
+        success_text=await at(uid, "panel.input_success"),
     )
 
 

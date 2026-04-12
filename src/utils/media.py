@@ -370,8 +370,14 @@ def apply_watermark(
                     style if style in ("soft_shadow", "outline", "clean") else "soft_shadow",
                 )
 
-            out = Image.alpha_composite(img, overlay).convert("RGB")
-            out.save(output_path, "JPEG", quality=90)
+            out = Image.alpha_composite(img, overlay)
+
+            ext = Path(output_path).suffix.lower()
+            if ext in (".webp", ".png"):
+                out.save(output_path, quality=90 if ext == ".webp" else None)
+            else:
+                out.convert("RGB").save(output_path, "JPEG", quality=90)
+
             return True
     except Exception:
         logger.exception(f"Error applying watermark to {image_path}")

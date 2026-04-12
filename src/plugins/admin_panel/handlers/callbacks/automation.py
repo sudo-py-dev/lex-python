@@ -220,7 +220,7 @@ async def on_delete_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
                 pass
             except FloodWait as e:
                 await asyncio.sleep(e.value + 1)
-                return await on_toggle_reminder(_, callback, ap_ctx)
+                return await on_delete_reminder(_, callback, ap_ctx)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_chatnightlock$"))
@@ -261,7 +261,7 @@ async def on_toggle_nightlock(_: Client, callback: CallbackQuery, ap_ctx: AdminP
                 pass
             except FloodWait as e:
                 await asyncio.sleep(e.value + 1)
-                return await on_toggle_reminder(_, callback, ap_ctx)
+                return await on_toggle_nightlock(_, callback, ap_ctx)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_cleaner:(\w+)$"))
@@ -306,7 +306,7 @@ async def on_toggle_cleaner(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
                 pass
             except FloodWait as e:
                 await asyncio.sleep(e.value + 1)
-                return await on_toggle_reminder(_, callback, ap_ctx)
+                return await on_toggle_cleaner(_, callback, ap_ctx)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:timezone:?(\d+)?$"))
@@ -441,52 +441,153 @@ async def on_toggle_private_rules(_: Client, callback: CallbackQuery, ap_ctx: Ad
     )
 
 
-@bot.on_callback_query(filters.regex(r"^panel:svc:?(\w+)?:?(\d+)?$"))
+# --- Service Cleaner ---
+
+
+@bot.on_callback_query(filters.regex(r"^panel:svc:(\w+)$"))
 @admin_panel_context
-async def on_service_cleaner_nav(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+async def on_service_cleaner_main(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
     ctx = ap_ctx.ctx
-    sub = callback.matches[0].group(1)
+    nav_hint = callback.matches[0].group(1)
 
-    if sub == "types":
-        page = int(callback.matches[0].group(2)) if callback.matches[0].group(2) else 0
-        kb = await service_cleaner_types_kb(
-            ctx,
-            chat_id,
-            page,
-            user_id=user_id if ap_ctx.is_pm else None,
-            back_callback="panel:svc",
-        )
-        total = __import__("math").ceil(
-            len(
-                [
-                    e.name
-                    for e in __import__("pyrogram").enums.MessageServiceType
-                    if e.name != "UNSUPPORTED"
-                ]
-            )
-            / 10
-        )
-        text = await at(
-            at_id, "panel.service_cleaner_types_text", page=page + 1, total=max(1, total)
-        )
-        await callback.message.edit_text(text, reply_markup=kb)
-    else:
-        kb = await service_cleaner_kb(
-            ctx,
-            chat_id,
-            user_id=user_id if ap_ctx.is_pm else None,
-            back_callback="panel:category:automation",
-        )
-        await callback.message.edit_text(
-            await at(at_id, "panel.service_cleaner_text"), reply_markup=kb
-        )
+    kb = await service_cleaner_kb(
+        ctx,
+        chat_id,
+        user_id=user_id if ap_ctx.is_pm else None,
+        back_callback=f"panel:category:{nav_hint}",
+        types_callback=f"panel:svc_types:0:{nav_hint}",
+        toggle_callback=f"panel:svc_toggle:cleanAllServices:{nav_hint}",
+    )
+    await callback.message.edit_text(await at(at_id, "panel.service_cleaner_text"), reply_markup=kb)
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:tst:(\w+):(\d+)$"))
+@bot.on_callback_query(filters.regex(r"^panel:svc_toggle:(\w+):(\w+)$"))
+@admin_panel_context
+async def on_service_cleaner_toggle_master(
+    _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
+):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
+    field = callback.matches[0].group(1)
+    nav_hint = callback.matches[0].group(2)
+    chat_id = ap_ctx.chat_id
+    ctx = ap_ctx.ctx
+
+    from src.plugins.admin_panel.repository import toggle_setting
+
+    await toggle_setting(ctx, chat_id, field)
+
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    kb = await service_cleaner_kb(
+        ctx,
+        chat_id,
+        user_id=callback.from_user.id if ap_ctx.is_pm else None,
+        back_callback=f"panel:category:{nav_hint}",
+        types_callback=f"panel:svc_types:0:{nav_hint}",
+        toggle_callback=f"panel:svc_toggle:cleanAllServices:{nav_hint}",
+    )
+    with contextlib.suppress(MessageNotModified):
+        await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
+
+
+@bot.on_callback_query(filters.regex(r"^panel:svc_types:(\d+):(\w+)$"))
+@admin_panel_context
+async def on_service_cleaner_view_types(
+    _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
+):
+    user_id = callback.from_user.id
+    chat_id = ap_ctx.chat_id
+    page = int(callback.matches[0].group(1))
+    nav_hint = callback.matches[0].group(2)
+    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
+    ctx = ap_ctx.ctx
+
+    kb = await service_cleaner_types_kb(
+        ctx,
+        chat_id,
+        page,
+        user_id=user_id if ap_ctx.is_pm else None,
+        page_callback_prefix="panel:svc_types",  # Note: logic in Types KB will need hint
+        toggle_callback_prefix=f"panel:svc_type_toggle:{nav_hint}",
+        back_callback=f"panel:svc:{nav_hint}",
+    )
+
+    from src.db.repositories.chats import get_chat_settings
+    from src.plugins.admin_panel.handlers.service_cleaner import get_available_service_types
+
+    settings = await get_chat_settings(ctx, chat_id)
+    total = __import__("math").ceil(
+        len(get_available_service_types(settings.chatType or "supergroup")) / 10
+    )
+
+    # Manually fix pagination to include hint
+    for row in kb.inline_keyboard:
+        for btn in row:
+            if btn.callback_data.startswith("panel:svc_types:"):
+                btn.callback_data += f":{nav_hint}"
+
+    text = await at(at_id, "panel.service_cleaner_types_text", page=page + 1, total=max(1, total))
+    await callback.message.edit_text(text, reply_markup=kb)
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:svc_type_toggle:(\w+):(\w+):(\d+)$"))
+@admin_panel_context
+async def on_service_cleaner_toggle_type(
+    _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
+):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
+    nav_hint = callback.matches[0].group(1)
+    service_type = callback.matches[0].group(2)
+    page = int(callback.matches[0].group(3))
+    chat_id = ap_ctx.chat_id
+    ctx = ap_ctx.ctx
+
+    from src.plugins.admin_panel.repository import toggle_service_type
+
+    await toggle_service_type(ctx, chat_id, service_type)
+
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+
+    # Re-render types page
+    kb = await service_cleaner_types_kb(
+        ctx,
+        chat_id,
+        page,
+        user_id=callback.from_user.id if ap_ctx.is_pm else None,
+        page_callback_prefix="panel:svc_types",
+        toggle_callback_prefix=f"panel:svc_type_toggle:{nav_hint}",
+        back_callback=f"panel:svc:{nav_hint}",
+    )
+    for row in kb.inline_keyboard:
+        for btn in row:
+            if btn.callback_data.startswith("panel:svc_types:"):
+                btn.callback_data += f":{nav_hint}"
+
+    with contextlib.suppress(MessageNotModified):
+        await callback.message.edit_reply_markup(reply_markup=kb)
+
+    label_key = f"panel.service_type_{service_type}"
+    localized_type = await at(at_id, label_key)
+    if localized_type == label_key:
+        localized_type = service_type.replace("_", " ").title()
+    await callback.answer(_plain(await at(at_id, "common.btn_action", type=localized_type)))
+
+
 @admin_panel_context
 async def on_toggle_service_type_general(
     _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext

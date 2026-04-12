@@ -34,13 +34,41 @@ class AdminPlugin(Plugin):
 @bot.on_message(filters.command("start") & filters.private)
 @safe_handler
 async def start_handler(client: Client, message: Message) -> None:
-    if len(message.command) > 1 and (payload := message.command[1]).startswith("settings_"):
+    user_id = message.from_user.id
+    ctx = get_context()
+    payload = message.command[1] if len(message.command) > 1 else None
+
+    from src.db.models import UserSettings
+    from src.plugins.language import language_picker_kb, set_user_lang
+    from src.utils.i18n import at, list_locales
+
+    async with ctx.db() as session:
+        user_settings = await session.get(UserSettings, user_id)
+
+    if not user_settings:
+        # First-time user: Detect language
+        tg_lang = (message.from_user.language_code or "en").split("-")[0].lower()
+        supported_langs = list_locales()
+        default_lang = tg_lang if tg_lang in supported_langs else "en"
+
+        await set_user_lang(ctx, user_id, default_lang)
+
+        # Show language picker for onboarding (with optional payload preservation)
+        mode = f"onboarding:{payload}" if payload else "onboarding"
+        kb = await language_picker_kb(ctx, user_id, scope="user", mode=mode)
+        return await message.reply(
+            await at(user_id, "language.onboarding_picker_header"), reply_markup=kb
+        )
+
+    # Process deep-links for existing users
+    if payload and payload.startswith("settings_"):
         cid = payload.replace("settings_", "")
         if cid.startswith("-") and cid.lstrip("-").isdigit():
             from src.plugins.admin_panel.handlers import open_settings_panel
 
             with contextlib.suppress(Exception):
                 return await open_settings_panel(client, message, int(cid))
+
     await send_start_message(client, message)
 
 

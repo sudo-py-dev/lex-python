@@ -42,6 +42,11 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
     ) -> None:
         if isinstance(event, CallbackQuery):
             logger.debug(f"Admin Panel Callback Received: {event.data} from {event.from_user.id}")
+
+        # Check if ap_ctx is already provided (e.g. internal redirection)
+        if any(isinstance(arg, AdminPanelContext) for arg in args) or "ap_ctx" in kwargs:
+            return await func(client, event, *args, **kwargs)
+
         user_id = event.from_user.id
         is_pm = False
 
