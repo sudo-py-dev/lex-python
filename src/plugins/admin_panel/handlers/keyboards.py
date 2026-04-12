@@ -546,6 +546,16 @@ async def automation_category_kb(
             ]
         )
 
+    # Row 3: Service Cleaner
+    if is_setting_allowed("svc", chat_type):
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_service_cleaner"), callback_data="panel:svc"
+                )
+            ]
+        )
+
     buttons.append(
         [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")]
     )
