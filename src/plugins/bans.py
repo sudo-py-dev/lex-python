@@ -17,7 +17,7 @@ from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.actions import create_timed_action, log_action
 from src.plugins.scheduler.manager import SchedulerManager
-from src.utils.decorators import admin_only, resolve_target, safe_handler
+from src.utils.decorators import admin_permission_required, resolve_target, safe_handler
 from src.utils.i18n import at
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
@@ -51,7 +51,7 @@ async def _execute_restriction(
     uid = u.id
     aid = message.from_user.id
     if not await has_permission(client, cid, p):
-        return await message.reply(await at(cid, "error.no_permission"))
+        return await message.reply(await at(cid, "error.bot_no_permission"))
     ctx = get_context()
     try:
         if action in ("ban", "tban", "kick"):
@@ -99,7 +99,7 @@ async def _execute_restriction(
 
 @bot.on_message(filters.command(["ban", "unban", "kick", "mute", "unmute"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 @resolve_target
 async def ban_mute_kick_handler(client: Client, message: Message, target_user: User) -> None:
     cmd = message.command[0]
@@ -116,7 +116,7 @@ async def ban_mute_kick_handler(client: Client, message: Message, target_user: U
 
 @bot.on_message(filters.command(["tban", "tmute"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 @resolve_target
 async def timed_restriction_handler(client: Client, message: Message, target_user: User) -> None:
     cmd = message.command[0]

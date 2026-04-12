@@ -9,11 +9,11 @@ from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.chats import get_chat_settings as get_settings
 from src.db.repositories.chats import update_settings
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import execute_moderation_action, resolve_sender
-from src.utils.permissions import can_restrict_members
+from src.utils.permissions import Permission, has_permission
 
 
 class FloodPlugin(Plugin):
@@ -40,8 +40,10 @@ async def reset_flood(ctx, cid: int, uid: int) -> None:
 
 @bot.on_message(filters.command("setflood") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 async def set_flood_handler(client: Client, message: Message) -> None:
+    if not await has_permission(client, message.chat.id, Permission.CAN_BAN):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     if len(message.command) < 4:
         return
     try:
@@ -74,7 +76,7 @@ async def flood_interceptor(client: Client, message: Message) -> None:
 
     c = await increment_flood(ctx, message.chat.id, uid, s.floodWindow)
     if c == s.floodThreshold + 1:
-        if not await can_restrict_members(client, message.chat.id):
+        if not await has_permission(client, message.chat.id, Permission.CAN_BAN):
             return
         r = await at(
             message.chat.id,

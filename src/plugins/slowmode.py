@@ -8,10 +8,11 @@ from src.core.constants import CacheKeys
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.slowmode import clear_slowmode, get_slowmode, set_slowmode
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import resolve_sender
+from src.utils.permissions import Permission, has_permission
 from src.utils.time_parser import parse_time
 
 
@@ -27,8 +28,10 @@ class SlowmodePlugin(Plugin):
 
 @bot.on_message(filters.command("slowmode") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 async def slowmode_handler(client: Client, message: Message) -> None:
+    if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     """
     Set or clear the slowmode interval for the current chat.
 

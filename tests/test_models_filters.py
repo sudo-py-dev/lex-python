@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import select
-
 from src.cache.local_cache import AsyncSnapshotCache
+
 from src.core.context import AppContext
 from src.db.models import Filter
 from src.db.repositories.filters import (

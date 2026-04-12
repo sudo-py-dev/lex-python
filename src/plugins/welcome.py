@@ -8,7 +8,7 @@ from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.chats import get_chat_settings as get_settings
 from src.db.repositories.chats import update_settings
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
@@ -72,7 +72,7 @@ async def goodbye_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command(["setwelcome", "setgoodbye"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def set_handler(client: Client, message: Message) -> None:
     is_w = "welcome" in message.command[0]
     key, field = ("welcome", "welcomeEnabled") if is_w else ("goodbye", "goodbyeEnabled")
@@ -96,7 +96,7 @@ async def set_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("resetwelcome") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def reset_welcome_handler(client: Client, message: Message) -> None:
     await update_settings(get_context(), message.chat.id, welcomeText=None, welcomeEnabled=True)
     await message.reply(await at(message.chat.id, "welcome.reset"))
@@ -104,7 +104,7 @@ async def reset_welcome_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command(["welcometest", "goodbyetest"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def test_handler(client: Client, message: Message) -> None:
     is_w = "welcome" in message.command[0]
     await send_welcome_goodbye(client, message.chat.id, message.chat.title, message.from_user, is_w)

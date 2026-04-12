@@ -14,10 +14,11 @@ from src.db.repositories.stickers import (
     is_sticker_set_blocked,
     remove_blocked_sticker_set,
 )
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import execute_moderation_action, resolve_sender
+from src.utils.permissions import Permission, has_permission
 
 
 class StickersPlugin(Plugin):
@@ -32,8 +33,10 @@ class StickersPlugin(Plugin):
 
 @bot.on_message(filters.command(["addstickerset", "addsticker"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 async def add_stickerset_handler(client: Client, message: Message) -> None:
+    if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     set_name = None
     if message.reply_to_message and message.reply_to_message.sticker:
         set_name = message.reply_to_message.sticker.set_name
@@ -59,8 +62,10 @@ async def add_stickerset_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command(["rmstickerset", "rmsticker"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 async def rm_stickerset_handler(client: Client, message: Message) -> None:
+    if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     set_name = None
     if message.reply_to_message and message.reply_to_message.sticker:
         set_name = message.reply_to_message.sticker.set_name
@@ -86,8 +91,10 @@ async def rm_stickerset_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("stickers") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 async def list_stickersets_handler(client: Client, message: Message) -> None:
+    if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     ctx = get_context()
     blocked_sets = await get_blocked_sticker_sets(ctx, message.chat.id)
     if not blocked_sets:

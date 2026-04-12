@@ -7,10 +7,11 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.models import ChatSettings, UserSettings
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at, list_locales
 from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.local_cache import get_cache
+from src.utils.permissions import Permission
 
 _CACHE_TTL = 1200  # 20 minutes
 LANG_PAGE_SIZE = 6
@@ -86,7 +87,7 @@ async def set_user_lang(ctx, user_id: int, lang: str) -> None:
 
 @bot.on_message(filters.command(["setlang", "language"]))
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def set_lang_handler(client: Client, message: Message) -> None:
     """Command to apply a new language to the current chat context."""
     if len(message.command) < 2:

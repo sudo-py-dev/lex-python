@@ -92,23 +92,38 @@ async def logging_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKey
     at_id = user_id or chat_id
     settings = await get_chat_settings(ctx, chat_id)
     channel_display = (
-        settings.logChannelId if settings.logChannelId else await at(at_id, "panel.not_set")
+        settings.logChannelName
+        if settings.logChannelName
+        else (settings.logChannelId if settings.logChannelId else await at(at_id, "panel.not_set"))
     )
-    return InlineKeyboardMarkup(
+    buttons = [
         [
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_logging_channel", channel=channel_display),
+                callback_data="panel:logging_picker:0",
+            )
+        ]
+    ]
+
+    if settings.logChannelId:
+        buttons.append(
             [
                 InlineKeyboardButton(
-                    await at(at_id, "panel.btn_logging_channel", channel=channel_display),
-                    callback_data="panel:logging_picker:0",
+                    "❌ " + await at(at_id, "common.btn_delete"),
+                    callback_data="panel:logging_remove",
                 )
-            ],
-            [
-                InlineKeyboardButton(
-                    await at(at_id, "panel.btn_back"), callback_data="panel:category:moderation"
-                )
-            ],
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_back"), callback_data="panel:category:settings"
+            )
         ]
     )
+
+    return InlineKeyboardMarkup(buttons)
 
 
 async def langblock_kb(
@@ -371,6 +386,7 @@ async def log_channel_picker_kb(
                             can_post_messages=True,
                             can_invite_users=True,
                         ),
+                        request_title=True,
                     ),
                 ),
             ],

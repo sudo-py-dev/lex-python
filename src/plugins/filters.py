@@ -15,7 +15,7 @@ from src.db.repositories.filters import (
     remove_all_filters,
     remove_filter,
 )
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
 from src.utils.input import (
@@ -24,7 +24,7 @@ from src.utils.input import (
     is_waiting_for_input,
 )
 from src.utils.local_cache import get_cache
-from src.utils.permissions import is_admin
+from src.utils.permissions import Permission, has_permission, is_admin
 from src.utils.telegram_storage import extract_message_data
 
 
@@ -40,8 +40,10 @@ class FiltersPlugin(Plugin):
 
 @bot.on_message(filters.command("filter") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 async def add_filter_handler(client: Client, message: Message) -> None:
+    if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     if len(message.command) < 2:
         return
     txt = message.text.split(None, 1)[1] if " " in message.text else ""
@@ -96,8 +98,10 @@ async def add_filter_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("stop") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 async def stop_filter_handler(client: Client, message: Message) -> None:
+    if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     if len(message.command) < 2:
         return
     kw = message.command[1].lower()
@@ -109,8 +113,10 @@ async def stop_filter_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("stopall") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 async def stopall_filters_handler(client: Client, message: Message) -> None:
+    if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     if (c := await remove_all_filters(get_context(), message.chat.id)) > 0:
         await message.reply(await at(message.chat.id, "filter.stopall_done", count=c))
     else:

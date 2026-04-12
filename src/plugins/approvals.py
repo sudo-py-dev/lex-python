@@ -12,8 +12,9 @@ from src.db.repositories.approvals import (
     remove_approval,
 )
 from src.utils.approved_cache import invalidate_approved_cache
-from src.utils.decorators import admin_only, resolve_target, safe_handler
+from src.utils.decorators import admin_permission_required, resolve_target, safe_handler
 from src.utils.i18n import at
+from src.utils.permissions import Permission
 
 
 class ApprovalsPlugin(Plugin):
@@ -28,7 +29,7 @@ class ApprovalsPlugin(Plugin):
 
 @bot.on_message(filters.command("approve") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 @resolve_target
 async def approve_handler(client: Client, message: Message, target_user: User) -> None:
     ctx = get_context()
@@ -49,7 +50,7 @@ async def approve_handler(client: Client, message: Message, target_user: User) -
 
 @bot.on_message(filters.command("unapprove") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 @resolve_target
 async def unapprove_handler(client: Client, message: Message, target_user: User) -> None:
     if await remove_approval(get_context(), message.chat.id, target_user.id):
@@ -77,7 +78,7 @@ async def list_approved_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("unapproveall") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 async def unapproveall_handler(client: Client, message: Message) -> None:
     await clear_all_approvals(get_context(), message.chat.id)
     await invalidate_approved_cache(message.chat.id)

@@ -18,4 +18,4 @@ def test():
 
 
 def migrate():
-    subprocess.run(["alembic", "upgrade", "head"], check=False)
+    subprocess.run(["python3", "-m", "alembic", "upgrade", "head"], check=False)

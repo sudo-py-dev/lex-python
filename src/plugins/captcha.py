@@ -34,7 +34,8 @@ from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
     UNRESTRICTED_PERMISSIONS,
-    can_restrict_members,
+    Permission,
+    has_permission,
 )
 
 
@@ -56,7 +57,9 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
         s = await get_settings(ctx, message.chat.id)
     except Exception as e:
         return logger.error(f"Captcha DB Error: {e}")
-    if not s.captchaEnabled or not await can_restrict_members(client, message.chat.id):
+    if not s.captchaEnabled or not await has_permission(
+        client, message.chat.id, Permission.CAN_BAN
+    ):
         return
 
     res_any = False

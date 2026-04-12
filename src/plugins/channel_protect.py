@@ -19,8 +19,9 @@ from src.utils.allowlist_cache import (
 from src.utils.allowlist_cache import (
     is_channel_allowed as cached_is_channel_allowed,
 )
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
+from src.utils.permissions import Permission
 
 
 class ChannelProtectPlugin(Plugin):
@@ -53,7 +54,7 @@ async def get_channel_protect(ctx, cid: int) -> ChannelProtect | None:
 
 @bot.on_message(filters.command("antichannel") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def antichannel_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return
@@ -72,7 +73,7 @@ async def antichannel_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("antianon") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def antianon_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return
@@ -93,7 +94,7 @@ async def antianon_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("allowlist") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def allowlist_handler(client: Client, message: Message) -> None:
     tid = (
         message.reply_to_message.sender_chat.id
@@ -118,7 +119,7 @@ async def allowlist_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("unallowlist") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def unallowlist_handler(client: Client, message: Message) -> None:
     tid = (
         message.reply_to_message.sender_chat.id

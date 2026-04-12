@@ -52,6 +52,16 @@ class SchedulerManager:
                 tz = tz_map.get(cleaner.chatId, "UTC")
                 cls.schedule_cleaner(ctx, cleaner.chatId, tz, cleaner.cleanerRunTime)
 
+            from .service import invalidate_all_admins_task
+
+            ctx.scheduler.add_job(
+                invalidate_all_admins_task,
+                trigger="interval",
+                hours=3,
+                id="global_admin_refresh",
+                replace_existing=True,
+            )
+
             logger.info("Scheduler: Successfully synced all jobs.")
         except Exception as e:
             logger.error("Scheduler: Fatal error during sync_all: {}", e)

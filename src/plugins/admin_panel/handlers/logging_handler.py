@@ -3,34 +3,30 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, ReplyKeyboardRemove
 
 from src.core.bot import bot
+from src.core.context import get_context
 from src.utils.i18n import at
 from src.utils.local_cache import get_cache
+from src.utils.permissions import Permission, check_user_permission
 
-from ..repository import get_chat_settings, update_chat_setting
+from ..repository import get_chat_settings, update_settings
 from .moderation_kbs import logging_kb
 
 
-@bot.on_message(filters.private, group=-1)
-async def logging_picker_debug_handler(client: Client, message: Message) -> None:
-    """Debug handler to inspect all private messages for chat_shared attributes."""
-    cache = get_cache()
-    user_id = message.from_user.id
+@bot.on_message(filters.private & (filters.chat_shared | filters.text), group=-1)
+async def on_logging_picker_input(client: Client, message: Message) -> None:
+    """Handles channel selection and cancellation for the logging picker."""
+    if message.chat_shared:
+        await logging_picker_handler(client, message)
+        return
 
-    is_picking = await cache.exists(f"ap:logging_picker:{user_id}")
-
-    if message.chat_shared or is_picking:
-        logger.debug(
-            f"LOGGING PICKER DEBUG: msg_id={message.id}, chat_shared={message.chat_shared is not None}, is_picking={is_picking}"
-        )
-
-        if message.chat_shared:
-            await logging_picker_handler(client, message)
-            return
-
-        cancel_text = await at(user_id, "common.btn_cancel")
-        if message.text == cancel_text:
-            await logging_picker_cancel_handler(client, message)
-            return
+    if message.text:
+        user_id = message.from_user.id
+        cache = get_cache()
+        if await cache.exists(f"ap:logging_picker:{user_id}"):
+            cancel_text = await at(user_id, "common.btn_cancel")
+            if message.text == cancel_text:
+                await logging_picker_cancel_handler(client, message)
+                return
 
     await message.continue_propagation()
 
@@ -46,14 +42,22 @@ async def logging_picker_handler(client: Client, message: Message) -> None:
         logger.warning(f"No active logging_picker for user {user_id}")
         return
 
+    # Security check: Ensure the user still has appropriate admin rights
+    if not await check_user_permission(client, chat_id, user_id, Permission.CAN_BAN):
+        await message.reply(
+            await at(user_id, "error.admin_no_permission"), reply_markup=ReplyKeyboardRemove()
+        )
+        await cache.delete(f"ap:logging_picker:{user_id}")
+        return
+
     new_log_id = message.chat_shared.chat.id
     button_id = message.chat_shared.button_id
-    logger.info(f"User {user_id} selected channel {new_log_id} (button_id: {button_id})")
+    logger.debug(f"User {user_id} selected channel {new_log_id} (button_id: {button_id})")
 
-    from src.core.context import get_context
+    chat_title = message.chat_shared.chat.title or str(new_log_id)
 
     ctx = get_context()
-    await update_chat_setting(ctx, chat_id, "logChannelId", new_log_id)
+    await update_settings(ctx, chat_id, logChannelId=new_log_id, logChannelName=chat_title)
 
     await cache.delete(f"ap:logging_picker:{user_id}")
     kb = await logging_kb(ctx, chat_id, user_id=user_id)
@@ -63,17 +67,20 @@ async def logging_picker_handler(client: Client, message: Message) -> None:
         await at(
             user_id,
             "panel.logging_set_success",
-            title=f"Channel {new_log_id}",
+            title=chat_title,
             id=new_log_id,
         ),
         reply_markup=ReplyKeyboardRemove(),
     )
 
-    await message.reply(
+    await client.send_message(
+        user_id,
         await at(
             user_id,
             "panel.logging_text",
-            channel=settings.logChannelId or await at(user_id, "panel.not_set"),
+            channel=settings.logChannelName
+            or settings.logChannelId
+            or await at(user_id, "panel.not_set"),
         ),
         reply_markup=kb,
     )
@@ -100,10 +107,8 @@ async def logging_picker_cancel_handler(client: Client, message: Message) -> Non
             break
 
     if is_cancel:
-        logger.info(f"User {user_id} canceled logging selection.")
+        logger.debug(f"User {user_id} canceled logging selection.")
         await cache.delete(f"ap:logging_picker:{user_id}")
-
-        from src.core.context import get_context
 
         ctx = get_context()
         kb = await logging_kb(ctx, chat_id, user_id=user_id)
@@ -118,7 +123,9 @@ async def logging_picker_cancel_handler(client: Client, message: Message) -> Non
             await at(
                 user_id,
                 "panel.logging_text",
-                channel=settings.logChannelId or await at(user_id, "panel.not_set"),
+                channel=settings.logChannelName
+                or settings.logChannelId
+                or await at(user_id, "panel.not_set"),
             ),
             reply_markup=kb,
         )

@@ -18,7 +18,7 @@ from src.utils.i18n import at
 
 
 class DonatePlugin(Plugin):
-    """Plugin for handling donations and Telegram Stars support."""
+    """Plugin for handling donations via Telegram Stars and external links."""
 
     name = "donate"
     priority = 250
@@ -28,7 +28,7 @@ class DonatePlugin(Plugin):
 
 
 async def get_donate_kb(chat_id: int) -> InlineKeyboardMarkup:
-    """Generate the main donation keyboard."""
+    """Generate the main donation keyboard with Stars and external links."""
     return InlineKeyboardMarkup(
         [
             [
@@ -36,11 +36,11 @@ async def get_donate_kb(chat_id: int) -> InlineKeyboardMarkup:
                     await at(chat_id, "donate.stars_btn"), callback_data="donate:stars"
                 )
             ],
+            [InlineKeyboardButton(await at(chat_id, "donate.bmc_btn"), url=config.SUPPORT_URL)],
             [
-                InlineKeyboardButton(await at(chat_id, "donate.github_btn"), url=config.DEV_URL),
                 InlineKeyboardButton(
-                    await at(chat_id, "donate.crypto_btn"), callback_data="donate:crypto"
-                ),
+                    await at(chat_id, "donate.github_btn"), url=config.GITHUB_SPONSORS_URL
+                )
             ],
             [
                 InlineKeyboardButton(
@@ -65,7 +65,7 @@ async def donate_handler(client: Client, message: Message) -> None:
 @bot.on_callback_query(filters.regex(r"^donate:"))
 @safe_handler
 async def donate_callback_handler(client: Client, callback_query: CallbackQuery) -> None:
-    """Handle donation menu navigation and payment requests."""
+    """Handle donation menu navigation and Stars payment flow."""
     data = callback_query.data
     chat_id = callback_query.message.chat.id
     user_id = callback_query.from_user.id
@@ -125,12 +125,6 @@ async def donate_callback_handler(client: Client, callback_query: CallbackQuery)
             await callback_query.answer()
         except Exception as e:
             await callback_query.answer(f"Error: {str(e)}", show_alert=True)
-
-    elif data == "donate:crypto":
-        await callback_query.answer(
-            "Crypto support coming soon! Please use Telegram Stars for now.",
-            show_alert=True,
-        )
 
 
 @bot.on_pre_checkout_query()

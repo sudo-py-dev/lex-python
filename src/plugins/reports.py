@@ -7,8 +7,9 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.models import ReportSetting
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
+from src.utils.permissions import Permission
 
 
 class ReportsPlugin(Plugin):
@@ -53,12 +54,16 @@ async def report_handler(client: Client, message: Message) -> None:
     if not message.reply_to_message:
         await message.reply(await at(message.chat.id, "report.no_reply"))
         return
-    async for admin in client.get_chat_members(message.chat.id, filter="administrators"):
-        if admin.user.is_bot:
+
+    from src.utils.admin_cache import get_chat_admins
+
+    admin_ids = await get_chat_admins(client, message.chat.id)
+    for admin_id in admin_ids:
+        if admin_id == client.me.id:
             continue
         with contextlib.suppress(Exception):
             await client.send_message(
-                admin.user.id,
+                admin_id,
                 await at(
                     message.chat.id,
                     "report.alert",
@@ -83,7 +88,7 @@ async def at_admin_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("reports") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def toggle_reports_handler(client: Client, message: Message) -> None:
     """Toggle the report functionality on or off in the current chat."""
     if len(message.command) < 2:

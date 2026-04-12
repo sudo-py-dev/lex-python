@@ -6,8 +6,9 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.models import UserConnection
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
+from src.utils.permissions import Permission
 
 
 class ConnectionsPlugin(Plugin):
@@ -91,7 +92,7 @@ async def clear_connection(ctx, user_id: int) -> bool:
 
 @bot.on_message(filters.command("connect") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def connect_handler(client: Client, message: Message) -> None:
     """
     Establish a connection between the current group and the administrator's private session.

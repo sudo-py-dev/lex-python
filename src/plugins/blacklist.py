@@ -13,10 +13,11 @@ from src.db.repositories.blacklist import (
     remove_blacklist,
 )
 from src.db.repositories.chats import get_chat_settings as get_settings
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.moderation import execute_moderation_action, resolve_sender
+from src.utils.permissions import Permission
 
 
 class BlacklistPlugin(Plugin):
@@ -36,7 +37,7 @@ def detect_pattern_type(p: str) -> tuple[bool, bool, str]:
 
 @bot.on_message(filters.command(["addblacklist", "blacklistadd"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 async def add_blacklist_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return
@@ -58,7 +59,7 @@ async def add_blacklist_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command(["rmblacklist", "unblacklist"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 async def rm_blacklist_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return

@@ -26,6 +26,7 @@ from src.utils.actions import (
     cycle_action,
 )
 from src.utils.i18n import at
+from src.utils.permissions import Permission, check_user_permission
 
 
 @bot.on_callback_query(filters.regex(r"^panel:langblock:?(\d+)?$"))
@@ -343,14 +344,16 @@ async def on_logging_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     )
     await callback.message.edit_text(
         await at(
-            at_id, "panel.logging_text", channel=s.logChannelId or await at(at_id, "panel.not_set")
+            at_id,
+            "panel.logging_text",
+            channel=s.logChannelName or s.logChannelId or await at(at_id, "panel.not_set"),
         ),
         reply_markup=kb,
     )
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:logging_picker$"))
+@bot.on_callback_query(filters.regex(r"^panel:logging_picker(:(\d+))?$"))
 @admin_panel_context
 async def on_logging_picker(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     from src.plugins.admin_panel.handlers.moderation_kbs import log_channel_picker_kb
@@ -358,6 +361,11 @@ async def on_logging_picker(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
 
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
+
+    if not await check_user_permission(_, chat_id, user_id, Permission.CAN_BAN):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
 
     kb = await log_channel_picker_kb(ap_ctx.ctx, chat_id, user_id=user_id if ap_ctx.is_pm else None)
@@ -376,6 +384,12 @@ async def on_logging_picker(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
 @bot.on_callback_query(filters.regex(r"^panel:logging_set:(-?\d+)$"))
 @admin_panel_context
 async def on_logging_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     new_log_id = int(callback.matches[0].group(1))
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
@@ -389,7 +403,40 @@ async def on_logging_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     )
     await callback.message.edit_text(
         await at(
-            at_id, "panel.logging_text", channel=s.logChannelId or await at(at_id, "panel.not_set")
+            at_id,
+            "panel.logging_text",
+            channel=s.logChannelName or s.logChannelId or await at(at_id, "panel.not_set"),
+        ),
+        reply_markup=kb,
+    )
+
+
+@bot.on_callback_query(filters.regex(r"^panel:logging_remove$"))
+@admin_panel_context
+async def on_logging_remove(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+
+    from src.plugins.admin_panel.repository import update_settings
+
+    await update_settings(ap_ctx.ctx, chat_id, logChannelId=None, logChannelName=None)
+    await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
+
+    s = await get_chat_settings(ap_ctx.ctx, chat_id)
+    kb = await logging_kb(
+        ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+    )
+    await callback.message.edit_text(
+        await at(
+            at_id,
+            "panel.logging_text",
+            channel=s.logChannelName or s.logChannelId or await at(at_id, "panel.not_set"),
         ),
         reply_markup=kb,
     )
@@ -397,7 +444,13 @@ async def on_logging_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle:(\w+)$"))
 @admin_panel_context
-async def on_moderation_cycle(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+async def on_moderation_cycle(c: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        c, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     field = callback.matches[0].group(1)
     if field not in ("warnAction", "warnExpiry"):
         raise ContinuePropagation
@@ -450,7 +503,13 @@ async def on_moderation_cycle(_: Client, callback: CallbackQuery, ap_ctx: AdminP
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_entity:(.*):(\d+)$"))
 @admin_panel_context
-async def on_toggle_entity(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+async def on_toggle_entity(c: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        c, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     etype = callback.matches[0].group(1)
     page = int(callback.matches[0].group(2))
     chat_id = ap_ctx.chat_id
@@ -488,7 +547,13 @@ async def on_toggle_entity(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
 @bot.on_callback_query(filters.regex(r"^panel:reset_warns$"))
 @admin_panel_context
-async def on_reset_warns(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+async def on_reset_warns(c: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        c, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     from src.db.repositories.warns import reset_all_chat_warns
 
     await reset_all_chat_warns(ap_ctx.ctx, ap_ctx.chat_id)
@@ -518,6 +583,12 @@ async def on_user_warns(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
 @bot.on_callback_query(filters.regex(r"^panel:user_warn_reset:(\d+):(\d+)$"))
 @admin_panel_context
 async def on_user_warn_reset(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     target_uid = int(callback.matches[0].group(1))
     page = int(callback.matches[0].group(2))
     from src.db.repositories.warns import reset_warns
@@ -575,6 +646,12 @@ async def on_blacklist_blocks(_: Client, callback: CallbackQuery, ap_ctx: AdminP
 @bot.on_callback_query(filters.regex(r"^panel:blacklist_inject:(low|medium|hard):(\d+)$"))
 @admin_panel_context
 async def on_blacklist_inject(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     level = callback.matches[0].group(1)
     page = int(callback.matches[0].group(2))
     chat_id = ap_ctx.chat_id
@@ -616,6 +693,12 @@ async def on_stickers(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCont
 @bot.on_callback_query(filters.regex(r"^panel:cycle_sticker_action:(\d+)$"))
 @admin_panel_context
 async def on_cycle_sticker_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     page = int(callback.matches[0].group(1))
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
@@ -642,6 +725,12 @@ async def on_cycle_sticker_action(_: Client, callback: CallbackQuery, ap_ctx: Ad
 @bot.on_callback_query(filters.regex(r"^panel:sticker_remove:(.*):(\d+)$"))
 @admin_panel_context
 async def on_sticker_remove(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     set_name = callback.matches[0].group(1)
     page = int(callback.matches[0].group(2))
     chat_id = ap_ctx.chat_id

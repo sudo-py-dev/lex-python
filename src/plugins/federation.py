@@ -12,8 +12,13 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.models import FedBan, FedChat, Federation
-from src.utils.decorators import admin_only, resolve_target, safe_handler
+from src.utils.decorators import (
+    admin_permission_required,
+    resolve_target,
+    safe_handler,
+)
 from src.utils.i18n import at
+from src.utils.permissions import Permission
 
 
 class FederationPlugin(Plugin):
@@ -97,7 +102,7 @@ async def newfed_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("joinfed") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def joinfed_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return
@@ -107,7 +112,7 @@ async def joinfed_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("fban") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 @resolve_target
 async def fban_handler(client: Client, message: Message, target_user: User) -> None:
     ctx = get_context()

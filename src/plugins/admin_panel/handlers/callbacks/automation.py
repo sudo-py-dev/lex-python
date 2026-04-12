@@ -30,6 +30,7 @@ from src.plugins.admin_panel.handlers.service_cleaner import (
 )
 from src.plugins.admin_panel.repository import get_chat_settings, toggle_service_type
 from src.utils.i18n import at
+from src.utils.permissions import Permission, check_user_permission
 
 
 @bot.on_callback_query(filters.regex(r"^panel:welcome$"))
@@ -142,6 +143,12 @@ async def on_cleaner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 @bot.on_callback_query(filters.regex(r"^panel:toggle_reminder:(\d+)$"))
 @admin_panel_context
 async def on_toggle_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     rid = int(callback.matches[0].group(1))
     chat_id = ap_ctx.chat_id
     ctx = ap_ctx.ctx
@@ -178,6 +185,12 @@ async def on_toggle_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
 @bot.on_callback_query(filters.regex(r"^panel:delete_reminder:(\d+)$"))
 @admin_panel_context
 async def on_delete_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     rid = int(callback.matches[0].group(1))
     chat_id = ap_ctx.chat_id
     ctx = ap_ctx.ctx
@@ -213,6 +226,12 @@ async def on_delete_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
 @bot.on_callback_query(filters.regex(r"^panel:toggle_chatnightlock$"))
 @admin_panel_context
 async def on_toggle_nightlock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     chat_id = ap_ctx.chat_id
     ctx = ap_ctx.ctx
     async with ctx.db() as session:
@@ -248,6 +267,12 @@ async def on_toggle_nightlock(_: Client, callback: CallbackQuery, ap_ctx: AdminP
 @bot.on_callback_query(filters.regex(r"^panel:toggle_cleaner:(\w+)$"))
 @admin_panel_context
 async def on_toggle_cleaner(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     ctype = callback.matches[0].group(1)
     chat_id = ap_ctx.chat_id
     ctx = ap_ctx.ctx
@@ -359,6 +384,12 @@ async def on_timezone_search_prompt(_: Client, callback: CallbackQuery, ap_ctx: 
 @bot.on_callback_query(filters.regex(r"^panel:set_tz:(.*)$"))
 @admin_panel_context
 async def on_set_timezone(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     new_tz = callback.matches[0].group(1)
     chat_id = ap_ctx.chat_id
     ctx = ap_ctx.ctx
@@ -385,6 +416,12 @@ async def on_set_timezone(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
 @bot.on_callback_query(filters.regex(r"^panel:toggle_private_rules$"))
 @admin_panel_context
 async def on_toggle_private_rules(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     from src.db.repositories.rules import get_rules, toggle_private_rules
 
     chat_id = ap_ctx.chat_id
@@ -454,6 +491,12 @@ async def on_service_cleaner_nav(_: Client, callback: CallbackQuery, ap_ctx: Adm
 async def on_toggle_service_type_general(
     _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
 ):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     service_type = callback.matches[0].group(1)
     page = int(callback.matches[0].group(2))
     chat_id = ap_ctx.chat_id

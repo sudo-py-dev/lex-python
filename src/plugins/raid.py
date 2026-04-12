@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import ChatPermissions, Message
 
 from src.core.bot import bot
 from src.core.context import get_context
@@ -9,11 +9,11 @@ from src.core.plugin import Plugin, register
 from src.db.repositories.chats import get_chat_settings as get_settings
 from src.db.repositories.chats import update_settings
 from src.plugins.logging import log_event
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.local_cache import get_cache
-from src.utils.permissions import RESTRICTED_PERMISSIONS
+from src.utils.permissions import RESTRICTED_PERMISSIONS, Permission, has_permission
 from src.utils.time_parser import parse_time
 
 
@@ -35,9 +35,6 @@ async def _enable_active_raid(client: Client, chat_id: int, duration_str: str) -
 async def _disable_active_raid(client: Client, chat_id: int) -> None:
     r = get_cache()
     await r.delete(f"raid_active:{chat_id}")
-    # Note: Telegram will still respect base permissions, but restoring to previous state would require more logic.
-    # Typically, bots don't unlock entirely if it wasn't them who locked. For simplicity we unlock normal permissions.
-    from pyrogram.types import ChatPermissions
 
     await client.set_chat_permissions(
         chat_id,
@@ -53,8 +50,10 @@ async def _disable_active_raid(client: Client, chat_id: int) -> None:
 
 @bot.on_message(filters.command("antiraid") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 async def raid_handler(client: Client, message: Message) -> None:
+    if not await has_permission(client, message.chat.id, Permission.CAN_BAN):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     ctx = get_context()
 
     if not message.from_user:
@@ -64,7 +63,6 @@ async def raid_handler(client: Client, message: Message) -> None:
 
     if not args:
         settings = await get_settings(ctx, message.chat.id)
-        # Default behavior: Toggle using configured standard raid time
         r = get_cache()
         is_active = await r.get(f"raid_active:{message.chat.id}")
         if is_active:
@@ -95,7 +93,7 @@ async def raid_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("autoantiraid") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 async def autoantiraid_handler(client: Client, message: Message) -> None:
     if not message.from_user or len(message.command) < 2:
         return
@@ -118,7 +116,7 @@ async def autoantiraid_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("raidtime") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 async def raidtime_handler(client: Client, message: Message) -> None:
     ctx = get_context()
     if len(message.command) < 2:
@@ -138,7 +136,7 @@ async def raidtime_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("raidactiontime") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 async def raidactiontime_handler(client: Client, message: Message) -> None:
     ctx = get_context()
     if len(message.command) < 2:
@@ -171,7 +169,6 @@ async def raid_interceptor(client: Client, message: Message) -> None:
     is_active_raid = await r.exists(f"raid_active:{message.chat.id}")
 
     if is_active_raid:
-        # Raid is currently locked down - penalize new users directly
         action_time_secs = parse_time(settings.raidActionTime) or 3600
         until_date = datetime.now() + timedelta(seconds=action_time_secs)
 
@@ -181,9 +178,7 @@ async def raid_interceptor(client: Client, message: Message) -> None:
             elif settings.raidAction == "kick":
                 await client.ban_chat_member(message.chat.id, new_user.id)
                 await client.unban_chat_member(message.chat.id, new_user.id)
-            else:  # lock/mute
-                from pyrogram.types import ChatPermissions
-
+            else:
                 await client.restrict_chat_member(
                     message.chat.id,
                     new_user.id,
@@ -195,7 +190,6 @@ async def raid_interceptor(client: Client, message: Message) -> None:
     if not settings.raidEnabled or settings.raidThreshold <= 0:
         return
 
-    # Auto Anti-Raid detection logic
     key = f"raid_joins:{message.chat.id}"
     count = await r.incr(key)
     if count == 1:

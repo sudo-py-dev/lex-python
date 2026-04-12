@@ -20,6 +20,7 @@ from src.utils.actions import (
     cycle_action,
 )
 from src.utils.i18n import at
+from src.utils.permissions import Permission, check_user_permission
 
 
 @bot.on_callback_query(filters.regex(r"^panel:flood$"))
@@ -146,6 +147,12 @@ async def on_urlscanner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminP
 @bot.on_callback_query(filters.regex(r"^panel:toggle_flood_action$"))
 @admin_panel_context
 async def on_toggle_flood_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
@@ -186,6 +193,12 @@ async def on_toggle_flood_action(_: Client, callback: CallbackQuery, ap_ctx: Adm
 @bot.on_callback_query(filters.regex(r"^panel:tgs:(\w+)$"))
 @admin_panel_context
 async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     field = callback.matches[0].group(1)
     if field not in ("raidEnabled", "captchaEnabled", "urlScannerEnabled"):
         # Fall through to other handlers
@@ -260,6 +273,12 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
 @bot.on_callback_query(filters.regex(r"^panel:cycle:raidAction$"))
 @admin_panel_context
 async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
@@ -316,6 +335,12 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
 @bot.on_callback_query(filters.regex(r"^panel:cycle:captchaMode$"))
 @admin_panel_context
 async def on_cycle_captcha_mode(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx
@@ -348,6 +373,12 @@ async def on_cycle_captcha_mode(_: Client, callback: CallbackQuery, ap_ctx: Admi
 async def on_cycle_url_scanner_action(
     _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
 ):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     ctx = ap_ctx.ctx

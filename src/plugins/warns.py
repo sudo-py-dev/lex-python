@@ -17,7 +17,7 @@ from src.db.repositories.warns import (
     reset_warns,
 )
 from src.plugins.logging import log_event
-from src.utils.decorators import admin_only, resolve_target, safe_handler
+from src.utils.decorators import admin_permission_required, resolve_target, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.permissions import RESTRICTED_PERMISSIONS, Permission, has_permission
@@ -33,11 +33,11 @@ class WarnsPlugin(Plugin):
 
 @bot.on_message(filters.command("warn") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 @resolve_target
 async def warn_handler(client: Client, message: Message, target_user: User) -> None:
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
-        return await message.reply(await at(message.chat.id, "error.no_permission"))
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     ctx, off = get_context(), 1 if message.reply_to_message else 2
     res = " ".join(message.command[off:]) if len(message.command) > off else None
     count = await add_warn(ctx, message.chat.id, target_user.id, message.from_user.id, res)
@@ -113,11 +113,11 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
 
 @bot.on_message(filters.command("unwarn") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_RESTRICT)
 @resolve_target
 async def unwarn_handler(client: Client, message: Message, target_user: User) -> None:
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
-        return await message.reply(await at(message.chat.id, "error.no_permission"))
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     await reset_warns(get_context(), message.chat.id, target_user.id)
     await message.reply(await at(message.chat.id, "warn.reset", mention=target_user.mention))
 
@@ -156,7 +156,7 @@ async def warns_handler(client: Client, message: Message, target_user: User) -> 
 
 @bot.on_message(filters.command("resetallwarns") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_BAN)
 async def reset_all_warns_handler(client: Client, message: Message) -> None:
     await message.reply(
         await at(

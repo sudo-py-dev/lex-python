@@ -1,64 +1,37 @@
 import json
-from enum import Enum
 
-from loguru import logger
 from pyrogram import Client
-from pyrogram.enums import ChatMemberStatus
-from pyrogram.types import ChatMember, ChatPermissions
+from pyrogram.types import ChatPermissions
 
-from .admin_cache import is_admin as cached_is_admin
-from .approved_cache import is_approved as cached_is_approved
-
-RESTRICTED_PERMISSIONS = ChatPermissions(
-    can_send_messages=False,
-    can_send_other_messages=False,
-    can_add_web_page_previews=False,
-    can_change_info=False,
-    can_invite_users=False,
-    can_pin_messages=False,
-    can_send_audios=False,
-    can_send_documents=False,
-    can_send_photos=False,
-    can_send_videos=False,
-    can_send_video_notes=False,
-    can_send_voice_notes=False,
-    can_send_polls=False,
+from .admin_cache import (
+    RESTRICTED_PERMISSIONS,
+    UNRESTRICTED_PERMISSIONS,
+    Permission,
 )
+from .admin_cache import check_user_permission as fast_check_user_permission
+from .admin_cache import has_permission as fast_has_permission
+from .admin_cache import is_admin as fast_is_admin
 
-UNRESTRICTED_PERMISSIONS = ChatPermissions(
-    can_send_messages=True,
-    can_send_audios=True,
-    can_send_documents=True,
-    can_send_photos=True,
-    can_send_videos=True,
-    can_send_video_notes=True,
-    can_send_voice_notes=True,
-    can_send_polls=True,
-    can_add_web_page_previews=True,
-    can_change_info=True,
-    can_invite_users=True,
-    can_pin_messages=True,
-)
-
-
-class Permission(Enum):
-    CAN_BAN = "can_restrict_members"
-    CAN_RESTRICT = "can_restrict_members"
-    CAN_PROMOTE = "can_promote_members"
-    CAN_DELETE = "can_delete_messages"
-    CAN_PIN = "can_pin_messages"
-    CAN_INVITE = "can_invite_users"
+__all__ = [
+    "Permission",
+    "RESTRICTED_PERMISSIONS",
+    "UNRESTRICTED_PERMISSIONS",
+    "is_admin",
+    "is_whitelisted",
+    "check_user_permission",
+    "has_permission",
+    "serialize_permissions",
+    "deserialize_permissions",
+]
 
 
 async def is_admin(client: Client, chat_id: int | None, user_id: int | None) -> bool:
-    """Check if user is admin. Now uses local cache by default."""
-    if chat_id is None or user_id is None:
-        return False
-    return await cached_is_admin(client, chat_id, user_id)
+    """Check if user is admin. Redirects to unified 3-tier cache."""
+    return await fast_is_admin(client, chat_id, user_id)
 
 
 async def is_whitelisted(client: Client, chat_id: int | None, user_id: int | None) -> bool:
-    """Check if user is admin OR approved. Uses local caches."""
+    """Check if user is admin OR approved. Uses unified admin cache."""
     if chat_id is None or user_id is None:
         return False
 
@@ -68,51 +41,40 @@ async def is_whitelisted(client: Client, chat_id: int | None, user_id: int | Non
     if await is_admin(client, chat_id, user_id):
         return True
 
+    # Check approved cache (separate system)
+    from .approved_cache import is_approved as cached_is_approved
+
     return await cached_is_approved(chat_id, user_id)
 
 
+async def check_user_permission(
+    client: Client, chat_id: int | None, user_id: int, permission: Permission
+) -> bool:
+    """Check specific user privilege. Redirects to unified 3-tier cache."""
+    return await fast_check_user_permission(client, chat_id, user_id, permission)
+
+
 async def has_permission(client: Client, chat_id: int | None, permission: Permission) -> bool:
-    """Check if the BOT has a specific permission in a chat."""
-    if chat_id is None:
-        return False
-    try:
-        member: ChatMember = await client.get_chat_member(chat_id, client.me.id)
-
-        if member.status == ChatMemberStatus.OWNER:
-            return True
-
-        if member.status == ChatMemberStatus.ADMINISTRATOR:
-            if not member.privileges:
-                return False
-            can_do = getattr(member.privileges, permission.value, False)
-            logger.debug(
-                f"{client.me.username} permission check in {chat_id}: {permission.value} -> {can_do}"
-            )
-            return can_do
-
-        return False
-    except Exception as e:
-        logger.error(f"Permission check error in {chat_id}: {e}")
-        return False
-
-
-async def can_restrict_members(client: Client, chat_id: int | None) -> bool:
-    return await has_permission(client, chat_id, Permission.CAN_BAN)
+    """Check if BOT has specific permission. Redirects to unified optimized cache."""
+    return await fast_has_permission(client, chat_id, permission)
 
 
 def serialize_permissions(perms: ChatPermissions) -> str:
-    """Serialize ChatPermissions to a JSON string."""
-    data = {
-        k: v for k, v in perms.__dict__.items() if not k.startswith("_") and isinstance(v, bool)
-    }
-    return json.dumps(data)
+    """Serialize ChatPermissions object to JSON string."""
+    return json.dumps(
+        {
+            attr: getattr(perms, attr, False)
+            for attr in dir(perms)
+            if not attr.startswith("_") and not callable(getattr(perms, attr))
+        }
+    )
 
 
-def deserialize_permissions(data_str: str) -> ChatPermissions:
-    """Deserialize a JSON string back into a ChatPermissions object."""
+def deserialize_permissions(data: str | None) -> ChatPermissions:
+    """Deserialize JSON string to ChatPermissions object."""
+    if not data:
+        return UNRESTRICTED_PERMISSIONS
     try:
-        data = json.loads(data_str)
-        return ChatPermissions(**data)
-    except Exception as e:
-        logger.error(f"Failed to deserialize permissions: {e}")
+        return ChatPermissions(**json.loads(data))
+    except (json.JSONDecodeError, TypeError):
         return UNRESTRICTED_PERMISSIONS

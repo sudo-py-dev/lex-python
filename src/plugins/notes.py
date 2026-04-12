@@ -7,9 +7,10 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.models import Note
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
+from src.utils.permissions import Permission
 
 
 class NotesPlugin(Plugin):
@@ -78,7 +79,7 @@ async def send_note(c: Client, m: Message, n: Note, override_cid: int = None) ->
 
 @bot.on_message(filters.command("save") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def save_note_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return
@@ -126,7 +127,7 @@ async def list_notes_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("clear") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def clear_note_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return

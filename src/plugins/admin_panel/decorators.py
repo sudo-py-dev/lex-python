@@ -81,7 +81,7 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
 
         at_id = user_id if is_pm else chat_id
         if not await is_admin(client, chat_id, user_id):
-            logger.warning(f"User {user_id} is NOT admin in resolved chat {chat_id}. Redirecting.")
+            logger.debug(f"User {user_id} is NOT admin in resolved chat {chat_id}. Redirecting.")
             if is_pm:
                 from .handlers.keyboards import my_chats_menu_kb
 

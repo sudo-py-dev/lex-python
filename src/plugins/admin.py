@@ -15,7 +15,7 @@ from pyrogram.types import (
 from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
-from src.utils.decorators import admin_only, resolve_target, safe_handler
+from src.utils.decorators import admin_permission_required, resolve_target, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.permissions import Permission, has_permission
@@ -92,10 +92,10 @@ async def id_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command(["pin", "permapin"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_PIN)
 async def pin_handler(client: Client, message: Message) -> None:
     if not await has_permission(client, message.chat.id, Permission.CAN_PIN):
-        return await message.reply(await at(message.chat.id, "error.no_permission"))
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     if message.reply_to_message:
         await client.pin_chat_message(
             message.chat.id, message.reply_to_message.id, disable_notification=True
@@ -104,10 +104,10 @@ async def pin_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("unpin") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_PIN)
 async def unpin_handler(client: Client, message: Message) -> None:
     if not await has_permission(client, message.chat.id, Permission.CAN_PIN):
-        return await message.reply(await at(message.chat.id, "error.no_permission"))
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     await client.unpin_chat_message(
         message.chat.id, message.reply_to_message.id if message.reply_to_message else None
     )
@@ -115,22 +115,20 @@ async def unpin_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("unpinall") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_PIN)
 async def unpinall_handler(client: Client, message: Message) -> None:
     if not await has_permission(client, message.chat.id, Permission.CAN_PIN):
-        return await message.reply(await at(message.chat.id, "error.no_permission"))
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     if await client.unpin_all_chat_messages(message.chat.id):
         await message.reply(await at(message.chat.id, "admin.unpinned_all"))
 
 
 @bot.on_message(filters.command(["promote", "demote"]) & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_PROMOTE)
 @resolve_target
 async def promotion_handler(client: Client, message: Message, target_user: User) -> None:
     is_p = "promote" in message.command[0]
-    if not await has_permission(client, message.chat.id, Permission.CAN_PROMOTE):
-        return await message.reply(await at(message.chat.id, "error.no_permission"))
 
     title = ""
     if is_p:
@@ -166,10 +164,10 @@ async def promotion_handler(client: Client, message: Message, target_user: User)
 
 @bot.on_message(filters.command("invitelink") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_INVITE)
 async def invitelink_handler(client: Client, message: Message) -> None:
     if not await has_permission(client, message.chat.id, Permission.CAN_INVITE):
-        return await message.reply(await at(message.chat.id, "error.no_permission"))
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     await message.reply(
         await at(
             message.chat.id,

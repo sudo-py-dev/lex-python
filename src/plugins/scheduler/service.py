@@ -176,3 +176,38 @@ async def run_group_cleaner(chat_id: int) -> None:
             await session.commit()
         except Exception as e:
             logger.error("Group cleaner error in {}: {}", chat_id, e)
+
+
+async def invalidate_all_admins_task() -> None:
+    """Scheduled task to invalidate admin caches for all active chats."""
+    from src.core.context import get_context
+    from src.db.models import ChatSettings
+    from src.db.repositories.admins import clear_chat_admins
+    from src.utils.admin_cache import invalidate_cache
+
+    ctx = get_context()
+    async with ctx.db() as session:
+        stmt = select(ChatSettings.id).where(ChatSettings.isActive, ChatSettings.id < 0)
+        result = await session.execute(stmt)
+        chat_ids = result.scalars().all()
+
+    logger.info(f"Invalidating admin caches for {len(chat_ids)} chats...")
+    for chat_id in chat_ids:
+        try:
+            # 1. Clear local cache (Redis/Memory)
+            await invalidate_cache(chat_id)
+
+            # 2. Clear database admin list to force Tier 3 fallback on next check
+            await clear_chat_admins(ctx, chat_id)
+
+            # 3. Clear bot privileges in settings
+            async with ctx.db() as session:
+                settings = await session.get(ChatSettings, chat_id)
+                if settings:
+                    settings.botPrivileges = None
+                    session.add(settings)
+                    await session.commit()
+
+        except Exception as e:
+            logger.error(f"Failed to invalidate admin cache for chat {chat_id}: {e}")
+    logger.info("Admin cache invalidation complete.")

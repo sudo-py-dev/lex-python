@@ -63,6 +63,7 @@ class ChatSettings(TimestampMixin, Base):
     )
     captchaTimeout: Mapped[int] = mapped_column(default=120, server_default=sa_text("120"))
     logChannelId: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    logChannelName: Mapped[str | None] = mapped_column(Text, nullable=True)
     language: Mapped[str] = mapped_column(String(10), default="en", server_default=sa_text("'en'"))
     welcomeEnabled: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
     welcomeText: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -96,6 +97,7 @@ class ChatSettings(TimestampMixin, Base):
         default=False, server_default=sa_text("false")
     )
     isActive: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
+    botPrivileges: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     reactionsEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     reactions: Mapped[str] = mapped_column(Text, default="👍", server_default=sa_text("'👍'"))
@@ -207,3 +209,23 @@ class DisabledCommand(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     chatId: Mapped[int] = mapped_column(BigInteger, index=True)
     command: Mapped[str] = mapped_column(String(100))
+
+
+class ChatAdmin(Base):
+    __tablename__ = "chatadmins"
+
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), primary_key=True)
+    userId: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    firstName: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(50))  # owner, administrator
+    privileges: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON serialized privileges
+    updatedAt: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        server_default=sa_text("now()"),
+        nullable=False,
+    )
+
+    chat: Mapped["ChatSettings"] = relationship(lazy="raise")

@@ -233,23 +233,16 @@ async def moderation_category_kb(
     if row3:
         buttons.append(row3)
 
-    # Row 4: Purge & Logging
-    row4 = []
+    # Row 4: Purge
     if is_setting_allowed("purgeMessagesCount", chat_type):
-        row4.append(
-            InlineKeyboardButton(
-                await at(at_id, "panel.btn_purge"),
-                callback_data="panel:input:purgeMessagesCount",
-            )
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_purge"),
+                    callback_data="panel:input:purgeMessagesCount",
+                )
+            ]
         )
-    if is_setting_allowed("logging", chat_type):
-        row4.append(
-            InlineKeyboardButton(
-                await at(at_id, "panel.btn_logging"), callback_data="panel:logging"
-            )
-        )
-    if row4:
-        buttons.append(row4)
 
     buttons.append(
         [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")]
@@ -316,6 +309,25 @@ async def settings_category_kb(
         )
     if row1:
         buttons.append(row1)
+
+    # Row 2: Logging
+    if is_setting_allowed("logging", chat_type):
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_logging"), callback_data="panel:logging"
+                )
+            ]
+        )
+
+    # Row 3: Admin Management
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                await at(at_id, "panel.btn_admins_mgmt"), callback_data="panel:admins_mgmt"
+            )
+        ]
+    )
 
     buttons.append(
         [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data="panel:main")]
@@ -1227,6 +1239,31 @@ async def channel_buttons_kb(ctx, channel_id: int, user_id: int) -> InlineKeyboa
             InlineKeyboardButton(
                 await at(user_id, "panel.btn_back"),
                 callback_data=f"panel:channel_settings:{channel_id}",
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(buttons)
+
+
+async def admins_management_kb(
+    ctx, chat_id: int, user_id: int, admins: list
+) -> InlineKeyboardMarkup:
+    """Keyboard for viewing the admin list with manual refresh option."""
+    # Note: admins is a list of ChatAdmin objects
+    buttons = []
+    # Row 1: Manual Refresh
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                await at(user_id, "panel.btn_refresh_admins"),
+                callback_data=f"panel:admins_refresh:{chat_id}",
+            )
+        ]
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                await at(user_id, "panel.btn_back"), callback_data="panel:category:settings"
             )
         ]
     )

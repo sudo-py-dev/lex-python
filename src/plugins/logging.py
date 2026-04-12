@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from loguru import logger
 from pyrogram import Client, filters
+from pyrogram.errors import BadRequest, ChatAdminRequired, Forbidden
 from pyrogram.types import Message, User
 
 from src.core.bot import bot
@@ -13,9 +14,11 @@ from src.core.plugin import Plugin, register
 from src.plugins.admin_panel.repository import (
     get_chat_settings,
     update_chat_setting,
+    update_settings,
 )
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
+from src.utils.permissions import Permission
 
 
 class LoggingPlugin(Plugin):
@@ -118,11 +121,11 @@ class LoggingPlugin(Plugin):
 
         items = []
         for ev in events:
-            reason_str = (
-                f"\n   {await at(chat_id, 'logging.reason_label')} {ev['reason']}"
-                if ev["reason"]
-                else ""
-            )
+            reason_str = ""
+            if ev["reason"]:
+                reason_label = await at(chat_id, "logging.reason_label")
+                reason_str = f"\n  {reason_label} {ev['reason']}"
+
             item = await at(
                 chat_id,
                 "logging.batch_item",
@@ -138,6 +141,12 @@ class LoggingPlugin(Plugin):
         try:
             await client.send_message(settings.logChannelId, final_text)
             await asyncio.sleep(0.5)
+        except (Forbidden, ChatAdminRequired, BadRequest) as e:
+            logger.debug(
+                f"Logging: Removing invalid log channel {settings.logChannelId} "
+                f"for chat {chat_id} due to persistent error: {e}"
+            )
+            await update_settings(ctx, chat_id, logChannelId=None, logChannelName=None)
         except Exception as e:
             logger.error(f"Logging: Failed to flush batch to {settings.logChannelId}: {e}")
 
@@ -147,7 +156,7 @@ class LoggingPlugin(Plugin):
 
 @bot.on_message(filters.command("setlog") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def set_log_handler(client: Client, message: Message) -> None:
     """
     Designate a channel to receive moderation logs for the current group.
@@ -172,7 +181,7 @@ async def set_log_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("unsetlog") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def unset_log_handler(client: Client, message: Message) -> None:
     """
     Remove the current logging channel designation for the group.

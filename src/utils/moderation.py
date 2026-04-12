@@ -13,7 +13,6 @@ from src.utils.i18n import at
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
     Permission,
-    can_restrict_members,
     has_permission,
     is_whitelisted,
 )
@@ -74,7 +73,7 @@ async def execute_moderation_action(
 
         if action == ModerationAction.DELETE:
             return True
-        if not await can_restrict_members(client, message.chat.id):
+        if not await has_permission(client, message.chat.id, Permission.CAN_BAN):
             return True
 
         apply_punishment, notify_action = None, await at(message.chat.id, f"action.{action}")

@@ -10,9 +10,10 @@ from src.db.repositories.rules import (
     set_rules,
     toggle_private_rules,
 )
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
+from src.utils.permissions import Permission
 
 
 class RulesPlugin(Plugin):
@@ -25,7 +26,7 @@ class RulesPlugin(Plugin):
 
 @bot.on_message(filters.command("setrules") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def set_rules_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return
@@ -59,7 +60,7 @@ async def rules_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("resetrules") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def reset_rules_handler(client: Client, message: Message) -> None:
     ctx = get_context()
     await clear_rules(ctx, message.chat.id)
@@ -68,7 +69,7 @@ async def reset_rules_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("privaterules") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def private_rules_handler(client: Client, message: Message) -> None:
     if len(message.command) < 2:
         return

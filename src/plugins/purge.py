@@ -8,9 +8,10 @@ from pyrogram.types import Message
 
 from src.core.bot import bot
 from src.core.plugin import Plugin, register
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
 from src.utils.input import finalize_input_capture, is_waiting_for_input
+from src.utils.permissions import Permission, has_permission
 
 
 class PurgePlugin(Plugin):
@@ -25,9 +26,11 @@ class PurgePlugin(Plugin):
 
 @bot.on_message(filters.command("purge") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_DELETE)
 async def purge_handler(client: Client, message: Message) -> None:
     """Purge messages between the replied message and the /purge command."""
+    if not await has_permission(client, message.chat.id, Permission.CAN_DELETE):
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     if not message.reply_to_message:
         await message.reply(await at(message.chat.id, "purge.usage"))
         return
@@ -69,9 +72,12 @@ async def purge_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("del") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_DELETE)
 async def del_handler(client: Client, message: Message) -> None:
     """Delete a single message that is replied to."""
+    if not await has_permission(client, message.chat.id, Permission.CAN_DELETE):
+        # Silently fail or reply? For 'del', silent might be better, but let's be consistent.
+        return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     if not message.reply_to_message:
         return
     await asyncio.gather(message.delete(), message.reply_to_message.delete())

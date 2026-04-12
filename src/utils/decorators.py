@@ -22,7 +22,7 @@ from pyrogram.errors import (
 from pyrogram.types import CallbackQuery, Message
 
 from src.utils.i18n import at
-from src.utils.permissions import Permission, has_permission, is_admin
+from src.utils.permissions import Permission, check_user_permission, is_admin
 
 Handler = Callable[..., Awaitable[None]]
 
@@ -44,15 +44,29 @@ def admin_only(func: Handler) -> Handler:
     return wrapper
 
 
-def require_permission(permission: Permission) -> Callable[[Handler], Handler]:
-    """Reply with specific error if bot lacks the required permission."""
+def admin_permission_required(permission: Permission) -> Callable[[Handler], Handler]:
+    """Silently ignore if sender is NOT admin, OR reply with error if admin lacks permission."""
 
     def decorator(func: Handler) -> Handler:
         @functools.wraps(func)
         async def wrapper(client: Client, message: Message, *args: Any, **kwargs: Any) -> None:
-            if not await has_permission(client, message.chat.id, permission):
-                await message.reply(await at(message.chat.id, "error.no_permission"))
+            if not message.from_user:
                 return
+            if message.chat.type == ChatType.PRIVATE:
+                await func(client, message, *args, **kwargs)
+                return
+
+            # 1. First check if user is admin at all (uses local cache)
+            if not await is_admin(client, message.chat.id, message.from_user.id):
+                return
+
+            # 2. Then check for specific privilege (API call)
+            if not await check_user_permission(
+                client, message.chat.id, message.from_user.id, permission
+            ):
+                await message.reply(await at(message.chat.id, "error.admin_no_permission"))
+                return
+
             await func(client, message, *args, **kwargs)
 
         return wrapper

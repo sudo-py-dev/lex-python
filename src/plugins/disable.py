@@ -6,8 +6,9 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.models import DisabledCommand
-from src.utils.decorators import admin_only, safe_handler
+from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
+from src.utils.permissions import Permission
 
 
 class DisablePlugin(Plugin):
@@ -137,7 +138,7 @@ NON_DISABLEABLE = {"enable", "disable", "disabled", "settings", "start", "help"}
 
 @bot.on_message(filters.command("disable") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def disable_handler(client: Client, message: Message) -> None:
     """
     Disable a specific bot command within the current group.
@@ -166,7 +167,7 @@ async def disable_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(filters.command("enable") & filters.group)
 @safe_handler
-@admin_only
+@admin_permission_required(Permission.CAN_CHANGE_INFO)
 async def enable_handler(client: Client, message: Message) -> None:
     """
     Enable a command that was previously disabled in the current group.

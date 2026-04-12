@@ -13,6 +13,7 @@ from src.db.models import (
     BlockedEntity,
     BlockedLanguage,
     ChannelProtect,
+    ChatAdmin,
     ChatCleaner,
     ChatNightLock,
     ChatRules,
@@ -325,3 +326,14 @@ class ChannelSettingsFactory(factory.Factory):
     watermarkText = None
     signatureEnabled = False
     signatureText = None
+
+
+class ChatAdminFactory(factory.Factory):
+    class Meta:
+        model = ChatAdmin
+
+    chatId = factory.Sequence(lambda n: -100 - n)
+    userId = factory.Sequence(lambda n: 10000 + n)
+    status = "administrator"
+    privileges = None
+    updatedAt = factory.LazyFunction(lambda: datetime.now(UTC))
