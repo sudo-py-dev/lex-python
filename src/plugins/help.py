@@ -108,15 +108,17 @@ async def help_callback_handler(client: Client, callback_query: CallbackQuery) -
     if data.startswith("help:cat:"):
         cat_id = data.replace("help:cat:", "")
 
-        if cat_id == "about":
+        if cat_id.startswith("about"):
             text = await get_about_text(chat_id)
             options = LinkPreviewOptions(is_disabled=True)
+            back_target = "help:start" if cat_id.endswith(":start") else "help:main"
         else:
             text = await at(chat_id, f"help.{cat_id}_text")
             options = None
+            back_target = "help:main"
 
         kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton(await at(chat_id, "help.back_btn"), callback_data="help:main")]]
+            [[InlineKeyboardButton(await at(chat_id, "help.back_btn"), callback_data=back_target)]]
         )
         await callback_query.message.edit_text(text, reply_markup=kb, link_preview_options=options)
 

@@ -54,16 +54,19 @@ fix-perms:
 # Initial Setup
 setup:
 	@if [ ! -f .env ]; then \
-		echo "⚠️  .env missing. Creating from example..."; \
+		echo "⚠️  .env missing. Creating secure environment..."; \
 		cp .env.example .env; \
-		echo "🚨 Edit .env and run 'make up' again."; \
-		exit 1; \
+		DB_PASS=$$(openssl rand -hex 16); \
+		sed -i "s/POSTGRES_PASSWORD=bot_password/POSTGRES_PASSWORD=$$DB_PASS/g" .env; \
+		sed -i "s/bot_password@db/$$DB_PASS@db/g" .env; \
+		echo "✅ Generated secure random database password."; \
 	fi
 	@bash scripts/setup_docker.sh
 
 # Cleanup
 clean:
 	@echo "🧹 Cleaning up..."
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
-	sudo docker compose down --rmi local --volumes --remove-orphans
+	sudo docker compose down --rmi local --volumes --remove-orphans || true
+	-find . -type d -name "__pycache__" -exec rm -rf {} +
+	-find . -type f -name "*.pyc" -delete
+	sudo rm -rf pgdata sessions logs
