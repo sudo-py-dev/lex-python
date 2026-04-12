@@ -40,6 +40,8 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
     async def wrapper(
         client: Client, event: Message | CallbackQuery, *args: Any, **kwargs: Any
     ) -> None:
+        if isinstance(event, CallbackQuery):
+            logger.info(f"Admin Panel Callback Received: {event.data} from {event.from_user.id}")
         user_id = event.from_user.id
         is_pm = False
 
@@ -55,7 +57,7 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
         else:
             chat_id, chat_type_str = await get_active_chat(ctx, user_id)
             if not chat_id:
-                logger.debug(f"No active connection for user {user_id} in PM.")
+                logger.info(f"Admin Panel: NO ACTIVE CONNECTION found for user {user_id} in PM.")
                 from .handlers.keyboards import my_chats_menu_kb
 
                 kb = await my_chats_menu_kb(user_id)
@@ -69,6 +71,7 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
                 return
 
             # Resolve type and title
+            logger.info(f"Admin Panel: Resolving chat info for {chat_id}...")
             chat_type_obj, chat_title = await get_chat_info(ctx, chat_id)
             chat_type = chat_type_obj
 
@@ -81,7 +84,7 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
 
         at_id = user_id if is_pm else chat_id
         if not await is_admin(client, chat_id, user_id):
-            logger.debug(f"User {user_id} is NOT admin in resolved chat {chat_id}. Redirecting.")
+            logger.info(f"Admin Panel: User {user_id} REJECTED (Not Admin) for chat {chat_id}")
             if is_pm:
                 from .handlers.keyboards import my_chats_menu_kb
 

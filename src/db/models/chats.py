@@ -18,6 +18,9 @@ from sqlalchemy import (
     ForeignKey,
     String,
     Text,
+    false,
+    func,
+    true,
 )
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -40,7 +43,7 @@ class ChatSettings(TimestampMixin, Base):
     floodAction: Mapped[str] = mapped_column(
         String(50), default="mute", server_default=sa_text("'mute'")
     )
-    raidEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    raidEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
     raidThreshold: Mapped[int] = mapped_column(default=0, server_default=sa_text("0"))
     raidWindow: Mapped[int] = mapped_column(default=60, server_default=sa_text("60"))
     raidTime: Mapped[str] = mapped_column(String(20), default="6h", server_default=sa_text("'6h'"))
@@ -57,7 +60,7 @@ class ChatSettings(TimestampMixin, Base):
     warnExpiry: Mapped[str] = mapped_column(
         String(50), default="never", server_default=sa_text("'never'")
     )
-    captchaEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    captchaEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
     captchaMode: Mapped[str] = mapped_column(
         String(50), default="button", server_default=sa_text("'button'")
     )
@@ -65,7 +68,7 @@ class ChatSettings(TimestampMixin, Base):
     logChannelId: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     logChannelName: Mapped[str | None] = mapped_column(Text, nullable=True)
     language: Mapped[str] = mapped_column(String(10), default="en", server_default=sa_text("'en'"))
-    welcomeEnabled: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
+    welcomeEnabled: Mapped[bool] = mapped_column(default=True, server_default=true())
     welcomeText: Mapped[str | None] = mapped_column(Text, nullable=True)
     goodbyeEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
     goodbyeText: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -137,12 +140,12 @@ class ChatRules(Base):
 
     chatId: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     content: Mapped[str] = mapped_column(Text)
-    privateMode: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    privateMode: Mapped[bool] = mapped_column(default=False, server_default=false())
     updatedAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
+        server_default=func.now(),
         nullable=False,
     )
 
@@ -151,8 +154,8 @@ class ChatCleaner(Base):
     __tablename__ = "chatcleaner"
 
     chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), primary_key=True)
-    cleanDeleted: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    cleanFake: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    cleanDeleted: Mapped[bool] = mapped_column(default=False, server_default=false())
+    cleanFake: Mapped[bool] = mapped_column(default=False, server_default=false())
     cleanInactiveDays: Mapped[int] = mapped_column(default=0, server_default=sa_text("0"))
     cleanerRunTime: Mapped[str] = mapped_column(
         String(5), default="04:00", server_default=sa_text("'04:00'")
@@ -165,7 +168,7 @@ class ChatCleaner(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
+        server_default=func.now(),
         nullable=False,
     )
 
@@ -176,7 +179,7 @@ class ChatNightLock(Base):
     __tablename__ = "chatnightlock"
 
     chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), primary_key=True)
-    isEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    isEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
     startTime: Mapped[str] = mapped_column(
         String(5), default="23:00", server_default=sa_text("'23:00'")
     )
@@ -188,7 +191,7 @@ class ChatNightLock(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
+        server_default=func.now(),
         nullable=False,
     )
 
@@ -226,7 +229,7 @@ class ChatAdmin(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
+        server_default=func.now(),
         nullable=False,
     )
 

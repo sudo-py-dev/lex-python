@@ -12,7 +12,9 @@ from sqlalchemy import (
     ForeignKey,
     String,
     Text,
+    false,
     func,
+    true,
 )
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -46,7 +48,7 @@ class Note(Base):
     chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     content: Mapped[str] = mapped_column(Text)
-    isPrivate: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    isPrivate: Mapped[bool] = mapped_column(default=False, server_default=false())
     createdAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )
@@ -68,7 +70,7 @@ class Reminder(Base):
     sendTime: Mapped[str] = mapped_column(
         String(5), default="12:00", server_default=sa_text("'12:00'")
     )
-    isActive: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
+    isActive: Mapped[bool] = mapped_column(default=True, server_default=true())
     createdAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
     )

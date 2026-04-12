@@ -253,13 +253,15 @@ async def blacklist_kb(
 
     kb.extend(
         [
-            InlineKeyboardButton(
-                f"{await at(at_id, 'panel.blacklist_badge_regex' if b.isRegex else ('panel.blacklist_badge_wildcard' if b.isWildcard else 'panel.blacklist_badge_literal'))} {(b.pattern[:30] + '...') if len(b.pattern) > 30 else b.pattern}",
-                callback_data="panel:noop",
-            ),
-            InlineKeyboardButton("❌", callback_data=f"panel:blacklist_remove:{b.id}:{page}"),
+            [
+                InlineKeyboardButton(
+                    f"{await at(at_id, 'panel.blacklist_badge_regex' if b.isRegex else ('panel.blacklist_badge_wildcard' if b.isWildcard else 'panel.blacklist_badge_literal'))} {(b.pattern[:30] + '...') if len(b.pattern) > 30 else b.pattern}",
+                    callback_data="panel:noop",
+                ),
+                InlineKeyboardButton("❌", callback_data=f"panel:blacklist_remove:{b.id}:{page}"),
+            ]
+            for b in current_page_blocks
         ]
-        for b in current_page_blocks
     )
 
     nav_row = await get_pager(page, len(blocks), PAGE_SIZE, "panel:blacklist")
@@ -339,15 +341,20 @@ async def user_warns_kb(
 
     kb.extend(
         [
-            InlineKeyboardButton(
-                await at(
-                    at_id, "panel.warn_item", id=uid, count=await get_warn_count(ctx, chat_id, uid)
+            [
+                InlineKeyboardButton(
+                    await at(
+                        at_id,
+                        "panel.warn_item",
+                        id=uid,
+                        count=await get_warn_count(ctx, chat_id, uid),
+                    ),
+                    callback_data=f"panel:user_warn_info:{uid}:{page}",
                 ),
-                callback_data=f"panel:user_warn_info:{uid}:{page}",
-            ),
-            InlineKeyboardButton("❌", callback_data=f"panel:user_warn_reset:{uid}:{page}"),
+                InlineKeyboardButton("❌", callback_data=f"panel:user_warn_reset:{uid}:{page}"),
+            ]
+            for uid in slice_ids
         ]
-        for uid in slice_ids
     )
 
     nav_row = await get_pager(page, len(user_ids), PAGE_SIZE, "panel:user_warns")

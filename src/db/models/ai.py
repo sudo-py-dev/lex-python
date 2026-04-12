@@ -10,6 +10,8 @@ from sqlalchemy import (
     ForeignKey,
     String,
     Text,
+    false,
+    func,
 )
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -28,7 +30,7 @@ class AISettings(Base):
     modelId: Mapped[str | None] = mapped_column(String(100), nullable=True)
     systemPrompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     customInstruction: Mapped[str | None] = mapped_column(Text, nullable=True)
-    isAssistantEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    isAssistantEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
 
     chat: Mapped["ChatSettings"] = relationship(
         back_populates="aiSettings", uselist=False, lazy="selectin"
@@ -39,12 +41,12 @@ class AIGuardSettings(Base):
     __tablename__ = "aiguardsettings"
 
     chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), primary_key=True)
-    isTextEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    isTextEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
     apiKey: Mapped[str | None] = mapped_column(Text, nullable=True)
     action: Mapped[str] = mapped_column(
         String(50), default="delete", server_default=sa_text("'delete'")
     )
-    isImageEnabled: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    isImageEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
 
     chat: Mapped["ChatSettings"] = relationship(
         back_populates="aiGuardSettings", uselist=False, lazy="selectin"
@@ -63,6 +65,6 @@ class AIChatContext(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
+        server_default=func.now(),
         nullable=False,
     )

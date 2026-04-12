@@ -30,7 +30,7 @@ from src.utils.i18n import at
 from src.utils.permissions import Permission, check_user_permission
 
 
-@bot.on_callback_query(filters.regex(r"^panel:langblock(?::(\d+))?$"))
+@bot.on_callback_query(filters.regex(r"^panel:langblock:?(\d+)?$"))
 @admin_panel_context
 async def on_langblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
@@ -45,7 +45,7 @@ async def on_langblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCon
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:entityblock(?::(\d+))?$"))
+@bot.on_callback_query(filters.regex(r"^panel:entityblock:?(\d+)?$"))
 @admin_panel_context
 async def on_entityblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
@@ -58,20 +58,23 @@ async def on_entityblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:blacklist(?::(\d+))?$"))
+@bot.on_callback_query(filters.regex(r"^panel:blacklist:?(\d+)?$"))
 @admin_panel_context
 async def on_blacklist(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    logger.info(
-        f"Admin Panel: on_blacklist triggered by {callback.from_user.id} for chat {ap_ctx.chat_id}"
-    )
-    user_id = callback.from_user.id
-    chat_id = ap_ctx.chat_id
-    at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
-    page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
+    try:
+        user_id = callback.from_user.id
+        chat_id = ap_ctx.chat_id
+        at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
+        page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
 
-    kb = await blacklist_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
-    await callback.message.edit_text(await at(at_id, "panel.blacklist_text"), reply_markup=kb)
-    await callback.answer()
+        kb = await blacklist_kb(
+            ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None
+        )
+        await callback.message.edit_text(await at(at_id, "panel.blacklist_text"), reply_markup=kb)
+        await callback.answer()
+    except Exception as e:
+        logger.exception(f"Error in on_blacklist handler: {e}")
+        await callback.answer(f"Error: {str(e)[:50]}", show_alert=True)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:blacklist_remove:(\d+):(\d+)$"))
@@ -683,7 +686,7 @@ async def on_blacklist_inject(_: Client, callback: CallbackQuery, ap_ctx: AdminP
     await callback.message.edit_text(await at(at_id, "panel.blacklist_text"), reply_markup=kb)
 
 
-@bot.on_callback_query(filters.regex(r"^panel:stickers(?::(\d+))?$"))
+@bot.on_callback_query(filters.regex(r"^panel:stickers:?(\d+)?$"))
 @admin_panel_context
 async def on_stickers(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id

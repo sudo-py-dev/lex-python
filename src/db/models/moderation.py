@@ -12,7 +12,9 @@ from sqlalchemy import (
     ForeignKey,
     String,
     Text,
+    false,
     func,
+    true,
 )
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -26,8 +28,8 @@ class Blacklist(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), index=True)
     pattern: Mapped[str] = mapped_column(Text)
-    isRegex: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    isWildcard: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    isRegex: Mapped[bool] = mapped_column(default=False, server_default=false())
+    isWildcard: Mapped[bool] = mapped_column(default=False, server_default=false())
     action: Mapped[str] = mapped_column(
         String(50), default="delete", server_default=sa_text("'delete'")
     )
@@ -114,13 +116,13 @@ class ChannelProtect(Base):
     __tablename__ = "channelprotect"
 
     chatId: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    antiChannel: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
-    antiAnon: Mapped[bool] = mapped_column(default=False, server_default=sa_text("false"))
+    antiChannel: Mapped[bool] = mapped_column(default=False, server_default=false())
+    antiAnon: Mapped[bool] = mapped_column(default=False, server_default=false())
     updatedAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
+        server_default=func.now(),
         nullable=False,
     )
 
@@ -134,7 +136,7 @@ class SlowmodeSetting(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
+        server_default=func.now(),
         nullable=False,
     )
 
@@ -143,12 +145,12 @@ class ReportSetting(Base):
     __tablename__ = "reportsetting"
 
     chatId: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    enabled: Mapped[bool] = mapped_column(default=True, server_default=sa_text("true"))
+    enabled: Mapped[bool] = mapped_column(default=True, server_default=true())
     updatedAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
-        server_default=sa_text("now()"),
+        server_default=func.now(),
         nullable=False,
     )
 

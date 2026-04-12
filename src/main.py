@@ -71,8 +71,15 @@ def run() -> None:
     """Entry point for the application."""
     setup_logger()
 
-    if os.getenv("DATABASE_URL", "").startswith("postgresql"):
-        asyncio.run(wait_for_db())
+    db_url = os.getenv("DATABASE_URL", "")
+    if db_url.startswith("postgresql"):
+        try:
+            parts = db_url.split("@")[-1].split("/")[0].split(":")
+            host = parts[0]
+            port = int(parts[1]) if len(parts) > 1 else 5432
+            asyncio.run(wait_for_db(host, port))
+        except Exception:
+            asyncio.run(wait_for_db())
     run_migrations()
 
     with contextlib.suppress(KeyboardInterrupt):
