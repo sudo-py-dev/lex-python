@@ -221,7 +221,7 @@ class FilterFactory(factory.Factory):
 
     chatId = factory.Sequence(lambda n: -100 - n)
     keyword = "test"
-    responseData = "test response"
+    text = "test response"
 
 
 class NoteFactory(factory.Factory):
@@ -258,7 +258,7 @@ class AISettingsFactory(factory.Factory):
 
     chatId = factory.Sequence(lambda n: -100 - n)
     provider = "openai"
-    isEnabled = True
+    isAssistantEnabled = True
 
 
 class AIChatContextFactory(factory.Factory):

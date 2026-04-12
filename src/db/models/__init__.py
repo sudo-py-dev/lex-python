@@ -1,6 +1,7 @@
 from .ai import AIChatContext, AIGuardSettings, AISettings
 from .chats import (
     AllowedChannel,
+    ChatAdmin,
     ChatCleaner,
     ChatNightLock,
     ChatRules,
@@ -58,4 +59,5 @@ __all__ = [
     "AIChatContext",
     "AIGuardSettings",
     "UserSettings",
+    "ChatAdmin",
 ]

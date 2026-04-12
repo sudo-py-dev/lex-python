@@ -20,7 +20,7 @@ def event_loop():
     loop.close()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def db_engine():
     """Create a database engine for tests."""
     engine = create_async_engine(TEST_DATABASE_URL, future=True, echo=False)

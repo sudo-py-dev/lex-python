@@ -17,7 +17,7 @@ async def test_filter_creation(db_session):
     db_session.add(gs)
     await db_session.flush()
 
-    f = FilterFactory.build(chatId=-100, keyword="hello", responseData="hi there")
+    f = FilterFactory.build(chatId=-100, keyword="hello", text="hi there")
     db_session.add(f)
     await db_session.flush()
 

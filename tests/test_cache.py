@@ -2,7 +2,8 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from src.cache.local_cache import AsyncSnapshotCache
+
+from src.utils.local_cache import AsyncSnapshotCache
 
 
 @pytest.fixture

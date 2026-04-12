@@ -1,9 +1,9 @@
 import pytest
-from src.cache.local_cache import AsyncSnapshotCache
-from src.plugins.flood.service import increment_flood
 
 from src.core.constants import CacheKeys
 from src.core.context import AppContext
+from src.plugins.flood import increment_flood
+from src.utils.local_cache import AsyncSnapshotCache
 
 
 @pytest.fixture

@@ -41,6 +41,11 @@ COPY --from=builder /app /app
 # Add the virtualenv bin directory to PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create directories for persistent data
 RUN mkdir -p /app/data /app/sessions /app/logs
 

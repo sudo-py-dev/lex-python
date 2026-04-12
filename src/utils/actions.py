@@ -1,3 +1,4 @@
+import contextlib
 from enum import Enum, StrEnum
 from typing import TypeVar
 
@@ -91,9 +92,16 @@ def cycle_action[T: str | Enum](
         return val.value if isinstance(val, Enum) else str(val)
 
     normalized_allowed = [_to_str(x).lower() for x in allowed_actions]
-    fallback = _to_str(default_action) if default_action is not None else normalized_allowed[0]
+    fallback_idx = 0
+    if default_action is not None:
+        with contextlib.suppress(ValueError):
+            fallback_idx = normalized_allowed.index(_to_str(default_action).lower())
 
-    if current_action is None:
+    fallback = _to_str(allowed_actions[fallback_idx])
+
+    if not current_action:
+        if default_action is not None:
+            return _to_str(default_action)
         return fallback
 
     current_str = _to_str(current_action).lower()
@@ -102,6 +110,9 @@ def cycle_action[T: str | Enum](
         idx = normalized_allowed.index(current_str)
         next_val = allowed_actions[(idx + 1) % len(allowed_actions)]
         return _to_str(next_val)
+
+    if default_action is not None:
+        return _to_str(default_action)
 
     return fallback
 

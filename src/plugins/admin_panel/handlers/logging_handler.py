@@ -42,7 +42,6 @@ async def logging_picker_handler(client: Client, message: Message) -> None:
         logger.warning(f"No active logging_picker for user {user_id}")
         return
 
-    # Security check: Ensure the user still has appropriate admin rights
     if not await check_user_permission(client, chat_id, user_id, Permission.CAN_BAN):
         await message.reply(
             await at(user_id, "error.admin_no_permission"), reply_markup=ReplyKeyboardRemove()

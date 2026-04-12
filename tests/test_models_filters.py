@@ -1,6 +1,5 @@
 import pytest
 from sqlalchemy import select
-from src.cache.local_cache import AsyncSnapshotCache
 
 from src.core.context import AppContext
 from src.db.models import Filter
@@ -11,6 +10,7 @@ from src.db.repositories.filters import (
     remove_all_filters,
     remove_filter_by_id,
 )
+from src.utils.local_cache import AsyncSnapshotCache
 from tests.factories import ChatSettingsFactory
 
 

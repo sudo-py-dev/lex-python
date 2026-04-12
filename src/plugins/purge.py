@@ -76,7 +76,6 @@ async def purge_handler(client: Client, message: Message) -> None:
 async def del_handler(client: Client, message: Message) -> None:
     """Delete a single message that is replied to."""
     if not await has_permission(client, message.chat.id, Permission.CAN_DELETE):
-        # Silently fail or reply? For 'del', silent might be better, but let's be consistent.
         return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
     if not message.reply_to_message:
         return

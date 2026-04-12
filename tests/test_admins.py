@@ -31,9 +31,12 @@ def mock_context(db_session, mocker):
 async def test_sync_admins_from_telegram(db_session, mock_context, mocker):
     """Test that sync_admins_from_telegram correctly populates DB and cache."""
     client = MagicMock()
+    client.me.id = 999  # Mock bot ID
 
     member = MagicMock()
     member.user.id = 123
+    member.user.first_name = "TestUser"
+    member.user.username = "testuser"
     member.status = ChatMemberStatus.ADMINISTRATOR
     member.privileges = MagicMock()
     member.privileges.can_restrict_members = True
@@ -68,6 +71,7 @@ async def test_sync_admins_from_telegram(db_session, mock_context, mocker):
 async def test_is_admin_tiers(db_session, mock_context, mocker):
     """Test the 3-tier is_admin logic (Cache -> DB -> API)."""
     client = MagicMock()
+    client.me.id = 111  # Mock bot ID
     chat_id = -500
     user_id = 999
 
@@ -86,6 +90,8 @@ async def test_is_admin_tiers(db_session, mock_context, mocker):
     ):
         member = MagicMock()
         member.user.id = user_id
+        member.user.first_name = "AdminUser"
+        member.user.username = "adminuser"
         member.status = ChatMemberStatus.ADMINISTRATOR
 
         async def mock_members(*args, **kwargs):
@@ -136,6 +142,7 @@ async def test_check_user_permission(db_session, mock_context, mocker):
             chatId=chat_id,
             userId=user_id,
             status="administrator",
+            firstName="PermUser",
             privileges=json.dumps({"can_restrict_members": True}),
         )
         db_session.add(admin)
@@ -157,6 +164,7 @@ async def test_check_user_permission(db_session, mock_context, mocker):
 async def test_get_chat_admins(db_session, mock_context, mocker):
     """Test that get_chat_admins follows tiers and returns correct IDs."""
     client = MagicMock()
+    client.me.id = 111  # Mock bot ID
     chat_id = -999
     user_id = 777
 
@@ -175,6 +183,8 @@ async def test_get_chat_admins(db_session, mock_context, mocker):
     ):
         member = MagicMock()
         member.user.id = user_id
+        member.user.first_name = "TargetAdmin"
+        member.user.username = "targetadmin"
         member.status = ChatMemberStatus.ADMINISTRATOR
 
         async def mock_members(*args, **kwargs):
@@ -211,6 +221,8 @@ async def test_bot_permission_persistence(db_session, mock_context, mocker):
 
     member = MagicMock()
     member.user.id = bot_id
+    member.user.first_name = "BotUser"
+    member.user.username = "botuser"
     member.status = ChatMemberStatus.ADMINISTRATOR
     member.privileges = MagicMock()
     member.privileges.can_restrict_members = True
