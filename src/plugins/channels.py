@@ -770,7 +770,7 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
             ctx, channel_id, "reactions", " ".join(emojis) if emojis else "👍"
         )
     elif field == "watermarkText":
-        from src.utils.watermark import (
+        from src.utils.media import (
             build_watermark_config,
             parse_watermark_config,
         )

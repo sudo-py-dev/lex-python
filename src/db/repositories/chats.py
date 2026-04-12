@@ -7,6 +7,7 @@ from pyrogram import Client
 from pyrogram.enums import ChatType
 from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
 from sqlalchemy import and_, select
+from sqlalchemy.exc import IntegrityError
 
 from src.core.context import AppContext
 from src.db.models import ChatSettings
@@ -17,10 +18,15 @@ from src.utils.permissions import is_admin
 async def _get_or_create_settings(ctx: AppContext, chat_id: int, session) -> ChatSettings:
     settings = await session.get(ChatSettings, chat_id)
     if not settings:
-        settings = ChatSettings(id=chat_id)
-        session.add(settings)
-        await session.commit()
-        await session.refresh(settings)
+        try:
+            async with session.begin_nested():
+                settings = ChatSettings(id=chat_id)
+                session.add(settings)
+            await session.commit()
+        except IntegrityError:
+            # Race condition: another task created it. Rollback the savepoint and fetch.
+            await session.rollback()
+            settings = await session.get(ChatSettings, chat_id)
     return settings
 
 
@@ -180,9 +186,19 @@ async def set_chat_active_status(ctx: AppContext, chat_id: int, is_active: bool)
     async with ctx.db() as session:
         settings = await session.get(ChatSettings, chat_id)
         if not settings:
-            settings = ChatSettings(id=chat_id, isActive=is_active)
-            session.add(settings)
+            try:
+                async with session.begin_nested():
+                    settings = ChatSettings(id=chat_id, isActive=is_active)
+                    session.add(settings)
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                settings = await session.get(ChatSettings, chat_id)
+                if settings:
+                    settings.isActive = is_active
+                    session.add(settings)
+                    await session.commit()
         else:
             settings.isActive = is_active
             session.add(settings)
-        await session.commit()
+            await session.commit()

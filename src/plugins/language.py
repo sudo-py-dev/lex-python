@@ -2,6 +2,7 @@ import contextlib
 
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from sqlalchemy.exc import IntegrityError
 
 from src.core.bot import bot
 from src.core.context import get_context
@@ -49,8 +50,17 @@ async def set_chat_lang(ctx, chat_id: int, lang: str) -> None:
             settings.language = lang
             session.add(settings)
         else:
-            settings = ChatSettings(id=chat_id, language=lang)
-            session.add(settings)
+            try:
+                async with session.begin_nested():
+                    settings = ChatSettings(id=chat_id, language=lang)
+                    session.add(settings)
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                settings = await session.get(ChatSettings, chat_id)
+                if settings:
+                    settings.language = lang
+                    session.add(settings)
         await session.commit()
     r = get_cache()
     await r.delete(f"lang:{chat_id}")
@@ -78,8 +88,17 @@ async def set_user_lang(ctx, user_id: int, lang: str) -> None:
             settings.language = lang
             session.add(settings)
         else:
-            settings = UserSettings(userId=user_id, language=lang)
-            session.add(settings)
+            try:
+                async with session.begin_nested():
+                    settings = UserSettings(userId=user_id, language=lang)
+                    session.add(settings)
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                settings = await session.get(UserSettings, user_id)
+                if settings:
+                    settings.language = lang
+                    session.add(settings)
         await session.commit()
     r = get_cache()
     await r.delete(f"user_lang:{user_id}")
