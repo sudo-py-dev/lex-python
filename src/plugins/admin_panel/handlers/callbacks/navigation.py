@@ -83,7 +83,7 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
             chat_id, user_id=user_id if is_pm else None, chat_type=chat_type_str
         )
         title_key = (
-            "panel.general_text_channel" if chat_type_str == "channel" else "panel.general_text"
+            "panel.general_text_channel" if chat_type_str == "channel" else "panel.greetings_text"
         )
         await callback.message.edit_text(
             await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
@@ -103,7 +103,7 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
             chat_id, user_id=user_id if is_pm else None, chat_type=chat_type_str
         )
         title_key = (
-            "panel.general_text_channel" if chat_type_str == "channel" else "panel.general_text"
+            "panel.general_text_channel" if chat_type_str == "channel" else "panel.settings_text"
         )
         await callback.message.edit_text(
             await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb

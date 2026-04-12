@@ -276,7 +276,7 @@ async def on_chat_language_search(_: Client, callback: CallbackQuery, ap_ctx: Ad
 @bot.on_callback_query(filters.regex(r"^panel:set_lang:chat:(-?\d+):(.*)$"))
 @admin_panel_context
 async def on_chat_language_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
-    from src.plugins.admin_panel.handlers.keyboards import greetings_category_kb
+    from src.plugins.admin_panel.handlers.keyboards import settings_category_kb
     from src.plugins.language import set_chat_lang
 
     chat_id = ap_ctx.chat_id
@@ -287,10 +287,10 @@ async def on_chat_language_set(_: Client, callback: CallbackQuery, ap_ctx: Admin
     await callback.answer(_plain(await at(at_id, "panel.group_lang_set", lang=new_lang.upper())))
 
     chat_type_str = ap_ctx.chat_type.name.lower() if ap_ctx.chat_type else "supergroup"
-    kb = await greetings_category_kb(
+    kb = await settings_category_kb(
         chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None, chat_type=chat_type_str
     )
-    title_key = "panel.general_text_channel" if chat_type_str == "channel" else "panel.general_text"
+    title_key = "panel.general_text_channel" if chat_type_str == "channel" else "panel.settings_text"
     await callback.message.edit_text(await at(at_id, title_key), reply_markup=kb)
 
 
