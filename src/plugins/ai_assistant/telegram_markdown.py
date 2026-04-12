@@ -10,10 +10,12 @@ def render_pyrogram_html(text: str) -> str:
 
     src = text.strip()
 
-    # Triple backtick blocks first.
+    # Triple backtick blocks.
     src = re.sub(
-        r"```(?:[a-zA-Z0-9_+-]+\n)?([\s\S]*?)```",
-        lambda m: f"<pre><code>{m.group(1).strip()}</code></pre>",
+        r"```([a-zA-Z0-9_+-]+)?\n?([\s\S]*?)```",
+        lambda m: (
+            f'<pre><code class="language-{m.group(1) or "text"}">{m.group(2).strip()}</code></pre>'
+        ),
         src,
     )
     # Inline code.
