@@ -57,7 +57,7 @@ async def on_entityblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:blacklist:?(\d+)?$"))
+@bot.on_callback_query(filters.regex(r"^panel:blacklist(?::(\d+))?$"))
 @admin_panel_context
 async def on_blacklist(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
@@ -749,4 +749,9 @@ async def on_sticker_remove(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
 
 @bot.on_callback_query(filters.regex(r"^panel:sticker_noop:(\d+)$"))
 async def on_sticker_noop(_: Client, callback: CallbackQuery):
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:noop$"))
+async def on_noop(_: Client, callback: CallbackQuery):
     await callback.answer()
