@@ -17,6 +17,7 @@ from pyrogram.errors import (
     AuthKeyDuplicated,
     AuthKeyInvalid,
     AuthKeyUnregistered,
+    FloodWait,
     Unauthorized,
 )
 
@@ -131,6 +132,11 @@ async def main() -> None:
     except (AccessTokenInvalid, AccessTokenExpired):
         logger.critical(
             f"🚨 {config.BOT_NAME} startup failed: Bot token is invalid or expired. Check your .env file."
+        )
+    except FloodWait as e:
+        logger.critical(
+            f"🚨 {config.BOT_NAME} is rate-limited by Telegram (Flood Wait). "
+            f"Please wait {e.value} seconds before attempting to start the bot again."
         )
     except (AuthKeyInvalid, AuthKeyUnregistered, Unauthorized) as e:
         logger.critical(
