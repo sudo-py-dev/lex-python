@@ -33,10 +33,11 @@ from src.utils.logger import setup_logger
 
 
 def run_migrations() -> None:
-    """Run database migrations using Alembic."""
+    """Run database migrations."""
     logger.info("🔄 Running database migrations...")
     try:
         alembic_cfg = Config("alembic.ini")
+        alembic_cfg.set_main_option("sqlalchemy.url", config.async_db_url)
         command.upgrade(alembic_cfg, "head")
         logger.info("✅ Migrations completed successfully.")
     except Exception as e:
