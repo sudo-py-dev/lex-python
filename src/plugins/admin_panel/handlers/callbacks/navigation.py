@@ -8,6 +8,7 @@ from src.plugins.admin_panel.handlers.callbacks.common import (
     _panel_lang_id,
     _render_ai_guard_panel,
     _render_ai_panel,
+    safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import (
     automation_category_kb,
@@ -39,7 +40,8 @@ async def on_panel_main(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
             chat_id, user_id=user_id if ap_ctx.is_pm else None, chat_type=ap_ctx.chat_type
         )
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(at_id, text_key, title=ap_ctx.chat_title),
         reply_markup=kb,
     )
@@ -63,8 +65,8 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
         title_key = (
             "panel.security_text_channel" if chat_type_str == "channel" else "panel.security_text"
         )
-        await callback.message.edit_text(
-            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        await safe_edit(
+            callback, await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
         )
     elif cat == "moderation":
         kb = await moderation_category_kb(
@@ -75,8 +77,8 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
             if chat_type_str == "channel"
             else "panel.moderation_text"
         )
-        await callback.message.edit_text(
-            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        await safe_edit(
+            callback, await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
         )
     elif cat == "greetings":
         kb = await greetings_category_kb(
@@ -85,8 +87,8 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
         title_key = (
             "panel.general_text_channel" if chat_type_str == "channel" else "panel.greetings_text"
         )
-        await callback.message.edit_text(
-            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        await safe_edit(
+            callback, await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
         )
     elif cat == "automation":
         kb = await automation_category_kb(
@@ -95,8 +97,8 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
         title_key = (
             "panel.scheduler_text_channel" if chat_type_str == "channel" else "panel.scheduler_text"
         )
-        await callback.message.edit_text(
-            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        await safe_edit(
+            callback, await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
         )
     elif cat in ("settings", "general"):
         kb = await settings_category_kb(
@@ -105,8 +107,8 @@ async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
         title_key = (
             "panel.general_text_channel" if chat_type_str == "channel" else "panel.settings_text"
         )
-        await callback.message.edit_text(
-            await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
+        await safe_edit(
+            callback, await at(at_id, title_key, title=ap_ctx.chat_title), reply_markup=kb
         )
     elif cat == "ai":
         await _render_ai_panel(callback, ap_ctx.ctx, chat_id, at_id, user_id)

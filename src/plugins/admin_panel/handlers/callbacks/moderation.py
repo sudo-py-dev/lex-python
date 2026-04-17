@@ -4,7 +4,11 @@ from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
-from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
+from src.plugins.admin_panel.handlers.callbacks.common import (
+    _panel_lang_id,
+    _plain,
+    safe_edit,
+)
 from src.plugins.admin_panel.handlers.moderation_kbs import (
     blacklist_defaults_kb,
     blacklist_kb,
@@ -39,9 +43,7 @@ async def on_langblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCon
     page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
 
     kb = await langblock_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
-    await callback.message.edit_text(
-        await at(at_id, "panel.langblock_picker_text"), reply_markup=kb
-    )
+    await safe_edit(callback, await at(at_id, "panel.langblock_picker_text"), reply_markup=kb)
     await callback.answer()
 
 
@@ -54,7 +56,7 @@ async def on_entityblock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
 
     kb = await entityblock_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
-    await callback.message.edit_text(await at(at_id, "panel.entityblock_text"), reply_markup=kb)
+    await safe_edit(callback, await at(at_id, "panel.entityblock_text"), reply_markup=kb)
     await callback.answer()
 
 
@@ -70,7 +72,7 @@ async def on_blacklist(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCon
         kb = await blacklist_kb(
             ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None
         )
-        await callback.message.edit_text(await at(at_id, "panel.blacklist_text"), reply_markup=kb)
+        await safe_edit(callback, await at(at_id, "panel.blacklist_text"), reply_markup=kb)
         await callback.answer()
     except Exception as e:
         logger.exception(f"Error in on_blacklist handler: {e}")
@@ -128,7 +130,7 @@ async def on_cycle_blacklist_action(_: Client, callback: CallbackQuery, ap_ctx: 
     kb = await blacklist_kb(
         ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    await safe_edit(callback, reply_markup=kb)
     await callback.answer()
 
 
@@ -186,7 +188,7 @@ async def on_lang_toggle(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     kb = await langblock_kb(
         ap_ctx.ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    await safe_edit(callback, reply_markup=kb)
     await callback.answer(msg)
 
 
@@ -214,7 +216,7 @@ async def on_cycle_lang_block_action(_: Client, callback: CallbackQuery, ap_ctx:
     kb = await language_picker_kb(
         ap_ctx.ctx, chat_id, page=page, mode="block", scope="chat", display_id=callback.from_user.id
     )
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    await safe_edit(callback, reply_markup=kb)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:language:chat:?(\d+)?$"))
@@ -225,7 +227,8 @@ async def on_chat_language(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(at_id, "language.group_picker_header"),
         reply_markup=await language_picker_kb(
             ap_ctx.ctx, chat_id, scope="chat", page=page, display_id=callback.from_user.id
@@ -248,7 +251,8 @@ async def on_chat_language_page(_: Client, callback: CallbackQuery, ap_ctx: Admi
         "panel.langblock_picker_text" if mode == "block" else "language.group_picker_header"
     )
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(at_id, header_key),
         reply_markup=await language_picker_kb(
             ap_ctx.ctx,
@@ -276,7 +280,7 @@ async def on_chat_language_search(_: Client, callback: CallbackQuery, ap_ctx: Ad
     await begin_language_search(
         user_id, scope, target_id, prompt_msg_id=callback.message.id, mode=mode
     )
-    await callback.message.edit_text(await at(at_id, "language.search_prompt"))
+    await safe_edit(callback, await at(at_id, "language.search_prompt"))
     await callback.answer()
 
 
@@ -300,7 +304,7 @@ async def on_chat_language_set(_: Client, callback: CallbackQuery, ap_ctx: Admin
     title_key = (
         "panel.general_text_channel" if chat_type_str == "channel" else "panel.settings_text"
     )
-    await callback.message.edit_text(await at(at_id, title_key), reply_markup=kb)
+    await safe_edit(callback, await at(at_id, title_key), reply_markup=kb)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:warns$"))
@@ -312,7 +316,8 @@ async def on_warns_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     kb = await warns_kb(
         ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             at_id,
             "panel.warns_text",
@@ -336,9 +341,7 @@ async def on_slowmode_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
     kb = await slowmode_kb(
         ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_text(
-        await at(at_id, "panel.slowmode_text", interval=i), reply_markup=kb
-    )
+    await safe_edit(callback, await at(at_id, "panel.slowmode_text", interval=i), reply_markup=kb)
     await callback.answer()
 
 
@@ -351,7 +354,8 @@ async def on_logging_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     kb = await logging_kb(
         ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             at_id,
             "panel.logging_text",
@@ -479,7 +483,8 @@ async def on_moderation_cycle(c: Client, callback: CallbackQuery, ap_ctx: AdminP
             kb = await warns_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            await callback.message.edit_text(
+            await safe_edit(
+                callback,
                 await at(
                     at_id,
                     "panel.warns_text",
@@ -497,7 +502,8 @@ async def on_moderation_cycle(c: Client, callback: CallbackQuery, ap_ctx: AdminP
             kb = await warns_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            await callback.message.edit_text(
+            await safe_edit(
+                callback,
                 await at(
                     at_id,
                     "panel.warns_text",
@@ -550,7 +556,7 @@ async def on_toggle_entity(c: Client, callback: CallbackQuery, ap_ctx: AdminPane
     kb = await entityblock_kb(
         ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    await safe_edit(callback, reply_markup=kb)
     await callback.answer(res_msg)
 
 
@@ -585,7 +591,7 @@ async def on_user_warns(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
     kb = await user_warns_kb(
         ap_ctx.ctx, ap_ctx.chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_text(await at(at_id, "panel.user_warns_text"), reply_markup=kb)
+    await safe_edit(callback, await at(at_id, "panel.user_warns_text"), reply_markup=kb)
     await callback.answer()
 
 
@@ -606,7 +612,7 @@ async def on_user_warn_reset(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
     kb = await user_warns_kb(
         ap_ctx.ctx, ap_ctx.chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_reply_markup(reply_markup=kb)
+    await safe_edit(callback, reply_markup=kb)
     await callback.answer(
         _plain(
             await at(
@@ -646,9 +652,7 @@ async def on_blacklist_blocks(_: Client, callback: CallbackQuery, ap_ctx: AdminP
     kb = await blacklist_defaults_kb(
         ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_text(
-        await at(at_id, "panel.blacklist_blocks_text"), reply_markup=kb
-    )
+    await safe_edit(callback, await at(at_id, "panel.blacklist_blocks_text"), reply_markup=kb)
     await callback.answer()
 
 
@@ -683,7 +687,7 @@ async def on_blacklist_inject(_: Client, callback: CallbackQuery, ap_ctx: AdminP
     await callback.answer(msg, show_alert=True)
 
     kb = await blacklist_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
-    await callback.message.edit_text(await at(at_id, "panel.blacklist_text"), reply_markup=kb)
+    await safe_edit(callback, await at(at_id, "panel.blacklist_text"), reply_markup=kb)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:stickers:?(\d+)?$"))
@@ -695,7 +699,7 @@ async def on_stickers(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCont
     page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
 
     kb = await stickers_kb(ap_ctx.ctx, chat_id, page, user_id=user_id if ap_ctx.is_pm else None)
-    await callback.message.edit_text(await at(at_id, "panel.stickers_text"), reply_markup=kb)
+    await safe_edit(callback, await at(at_id, "panel.stickers_text"), reply_markup=kb)
     await callback.answer()
 
 

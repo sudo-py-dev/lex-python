@@ -4,7 +4,7 @@ from pyrogram.types import CallbackQuery
 from src.core.bot import bot
 from src.db.repositories.admins import get_admins_for_chat
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
-from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id
+from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, safe_edit
 from src.plugins.admin_panel.handlers.keyboards import admins_management_kb
 from src.utils.admin_cache import force_refresh
 from src.utils.i18n import at
@@ -46,7 +46,8 @@ async def on_admins_management(_: Client, callback: CallbackQuery, ap_ctx: Admin
     text = await at(at_id, "panel.admins_mgmt_text", title=ap_ctx.chat_title, date=last_sync)
     text += f"\n\n{table}"
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         text,
         reply_markup=await admins_management_kb(ctx, chat_id, user_id, admins),
     )
@@ -93,7 +94,8 @@ async def on_admins_refresh(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
     text = await at(at_id, "panel.admins_mgmt_text", title=ap_ctx.chat_title, date=last_sync)
     text += f"\n\n{table}"
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         text,
         reply_markup=await admins_management_kb(ctx, chat_id, user_id, admins),
     )

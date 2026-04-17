@@ -3,12 +3,16 @@ import contextlib
 
 from loguru import logger
 from pyrogram import Client, ContinuePropagation, filters
-from pyrogram.errors import FloodWait, MessageNotModified, QueryIdInvalid, RPCError
+from pyrogram.errors import FloodWait, QueryIdInvalid, RPCError
 from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
-from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
+from src.plugins.admin_panel.handlers.callbacks.common import (
+    _panel_lang_id,
+    _plain,
+    safe_edit,
+)
 from src.plugins.admin_panel.handlers.keyboards import flood_kb
 from src.plugins.admin_panel.handlers.security_kbs import captcha_kb, raid_kb, url_scanner_kb
 from src.plugins.admin_panel.repository import get_chat_settings, toggle_setting
@@ -36,7 +40,8 @@ async def on_flood_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
         at_id, "panel.status_enabled" if s.floodThreshold > 0 else "panel.status_disabled"
     )
     try:
-        await callback.message.edit_text(
+        await safe_edit(
+            callback,
             await at(
                 at_id,
                 "panel.flood_text",
@@ -47,8 +52,6 @@ async def on_flood_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
             ),
             reply_markup=kb,
         )
-    except MessageNotModified:
-        pass
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
         return await on_flood_panel(_, callback, ap_ctx)
@@ -68,7 +71,8 @@ async def on_raid_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
     kb = await raid_kb(ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
     status = await at(at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled")
     try:
-        await callback.message.edit_text(
+        await safe_edit(
+            callback,
             await at(
                 at_id,
                 "panel.raid_text",
@@ -81,8 +85,6 @@ async def on_raid_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
             ),
             reply_markup=kb,
         )
-    except MessageNotModified:
-        pass
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
         return await on_raid_panel(_, callback, ap_ctx)
@@ -105,7 +107,8 @@ async def on_captcha_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     status = await at(
         at_id, "panel.status_enabled" if s.captchaEnabled else "panel.status_disabled"
     )
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             at_id,
             "panel.captcha_text",
@@ -131,16 +134,16 @@ async def on_urlscanner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminP
     status = await at(
         at_id, "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled"
     )
-    with contextlib.suppress(MessageNotModified):
-        await callback.message.edit_text(
-            await at(
-                at_id,
-                "panel.urlscanner_text",
-                status=status,
-                key="********" if s.gsbKey else await at(at_id, "panel.not_set"),
-            ),
-            reply_markup=kb,
-        )
+    await safe_edit(
+        callback,
+        await at(
+            at_id,
+            "panel.urlscanner_text",
+            status=status,
+            key="********" if s.gsbKey else await at(at_id, "panel.not_set"),
+        ),
+        reply_markup=kb,
+    )
     await callback.answer()
 
 
@@ -174,7 +177,8 @@ async def on_toggle_flood_action(_: Client, callback: CallbackQuery, ap_ctx: Adm
     status = await at(
         at_id, "panel.status_enabled" if settings.floodThreshold > 0 else "panel.status_disabled"
     )
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             at_id,
             "panel.flood_text",
@@ -231,7 +235,8 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
         status = await at(
             at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled"
         )
-        await callback.message.edit_text(
+        await safe_edit(
+            callback,
             await at(
                 at_id,
                 "panel.raid_text",
@@ -250,7 +255,8 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
         status = await at(
             at_id, "panel.status_enabled" if s.captchaEnabled else "panel.status_disabled"
         )
-        await callback.message.edit_text(
+        await safe_edit(
+            callback,
             await at(
                 at_id,
                 "panel.captcha_text",
@@ -272,7 +278,8 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
         status = await at(
             at_id, "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled"
         )
-        await callback.message.edit_text(
+        await safe_edit(
+            callback,
             await at(
                 at_id,
                 "panel.urlscanner_text",
@@ -330,8 +337,7 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
             action=await at(at_id, f"action.{s.raidAction.lower()}"),
         )
 
-        with contextlib.suppress(MessageNotModified):
-            await callback.message.edit_text(text, reply_markup=kb)
+        await safe_edit(callback, text, reply_markup=kb)
 
     except QueryIdInvalid:
         pass
@@ -369,7 +375,8 @@ async def on_cycle_captcha_mode(_: Client, callback: CallbackQuery, ap_ctx: Admi
     status = await at(
         at_id, "panel.status_enabled" if s.captchaEnabled else "panel.status_disabled"
     )
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             at_id,
             "panel.captcha_text",
@@ -415,7 +422,8 @@ async def on_cycle_url_scanner_action(
     status = await at(
         at_id, "panel.status_enabled" if s.urlScannerEnabled else "panel.status_disabled"
     )
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             at_id,
             "panel.urlscanner_text",

@@ -1,3 +1,7 @@
+from pyrogram.errors import RPCError
+import contextlib
+
+from pyrogram.errors import MessageNotModified
 from pyrogram.types import CallbackQuery
 
 from src.config import config
@@ -39,6 +43,12 @@ def _next_ai_provider(current_provider: str) -> str:
     return cycle_action(current_provider, AI_PROVIDERS, default_action=AI_PROVIDERS[0])
 
 
+async def safe_edit(callback: CallbackQuery, text: str, reply_markup=None):
+    """Safely edit message text while ignoring MessageNotModified errors."""
+    with contextlib.suppress(MessageNotModified, RPCError):
+        await callback.message.edit_text(text, reply_markup=reply_markup)
+
+
 async def _render_ai_panel(
     callback: CallbackQuery, ctx, chat_id: int, at_id: int, user_id: int
 ) -> None:
@@ -49,7 +59,8 @@ async def _render_ai_panel(
     api_key = "****" if (s and s.apiKey) else await at(at_id, "panel.not_set")
     status_text = await at(at_id, f"panel.status_{'enabled' if is_enabled else 'disabled'}")
     kb = await ai_menu_kb(chat_id, user_id=user_id)
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             at_id,
             "panel.ai_text",
@@ -72,7 +83,8 @@ async def _render_ai_guard_panel(
     media_status = await at(at_id, f"panel.status_{'enabled' if s.isImageEnabled else 'disabled'}")
     api_key_status = "****" if s.apiKey else await at(at_id, "panel.not_set")
     action_label = await at(at_id, f"action.{s.action}")
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             at_id,
             "panel.ai_guard_text",
@@ -101,7 +113,8 @@ async def _render_channel_watermark_panel(
         if config.ENABLE_VIDEO_WATERMARK
         else ""
     )
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             ui_id,
             "panel.channel_watermark_text",

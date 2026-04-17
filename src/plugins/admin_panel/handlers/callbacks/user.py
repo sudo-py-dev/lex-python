@@ -4,7 +4,11 @@ from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
 from src.core.context import get_context
-from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
+from src.plugins.admin_panel.handlers.callbacks.common import (
+    _panel_lang_id,
+    _plain,
+    safe_edit,
+)
 from src.plugins.admin_panel.handlers.keyboards import (
     channels_menu_kb,
     main_menu_kb,
@@ -29,7 +33,8 @@ async def on_panel_close(_: Client, callback: CallbackQuery):
 @bot.on_callback_query(filters.regex(r"^panel:my_chats$"))
 async def on_my_chats(_: Client, callback: CallbackQuery):
     user_id = callback.from_user.id
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(user_id, "panel.main_text_user", user_id=user_id),
         reply_markup=await my_chats_menu_kb(user_id),
     )
@@ -41,7 +46,7 @@ async def on_list_groups(client: Client, callback: CallbackQuery):
     user_id = callback.from_user.id
     ctx = get_context()
     kb = await my_groups_kb(ctx, client, user_id)
-    await callback.message.edit_text(await at(user_id, "panel.groups_list_title"), reply_markup=kb)
+    await safe_edit(callback, await at(user_id, "panel.groups_list_title"), reply_markup=kb)
     await callback.answer()
 
 
@@ -50,9 +55,7 @@ async def on_list_channels(client: Client, callback: CallbackQuery):
     user_id = callback.from_user.id
     ctx = get_context()
     kb = await channels_menu_kb(ctx, client, user_id)
-    await callback.message.edit_text(
-        await at(user_id, "panel.channels_list_title"), reply_markup=kb
-    )
+    await safe_edit(callback, await at(user_id, "panel.channels_list_title"), reply_markup=kb)
     await callback.answer()
 
 

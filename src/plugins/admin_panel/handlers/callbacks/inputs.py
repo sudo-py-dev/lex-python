@@ -4,7 +4,7 @@ from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMa
 
 from src.core.bot import bot
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
-from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
+from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain, safe_edit
 from src.plugins.admin_panel.handlers.keyboards import main_menu_kb
 from src.plugins.admin_panel.repository import resolve_chat_type
 from src.plugins.admin_panel.validation import is_setting_allowed
@@ -90,7 +90,7 @@ async def on_panel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     kb = InlineKeyboardMarkup(
         [[InlineKeyboardButton(await at(at_id, "common.btn_cancel"), callback_data=cancel_cb)]]
     )
-    await callback.message.edit_text(prompt_text, reply_markup=kb)
+    await safe_edit(callback, prompt_text, reply_markup=kb)
     await callback.answer()
 
 
@@ -104,7 +104,8 @@ async def on_cancel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
     r = get_cache()
     await r.delete(f"panel_input:{user_id}")
     await callback.answer(_plain(await at(at_id, "panel.input_cancelled")), show_alert=True)
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(at_id, "panel.main_text"),
         reply_markup=await main_menu_kb(chat_id, user_id=user_id if ap_ctx.is_pm else None),
     )

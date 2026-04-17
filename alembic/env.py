@@ -15,10 +15,10 @@ from alembic import context
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.config import config
+from src.db import models  # noqa: F401
 
 # Import all models to ensure they are registered with Base.metadata
 from src.db.base import Base
-from src.db import models  # noqa: F401
 
 # 2. Alembic Config object
 alembic_config = context.config

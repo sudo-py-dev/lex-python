@@ -14,7 +14,11 @@ from pyrogram.types import CallbackQuery
 from src.core.bot import bot
 from src.db.models import ChatCleaner, ChatNightLock, ChatShabbatLock, Reminder
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
-from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
+from src.plugins.admin_panel.handlers.callbacks.common import (
+    _panel_lang_id,
+    _plain,
+    safe_edit,
+)
 from src.plugins.admin_panel.handlers.keyboards import (
     chatnightlock_menu_kb,
     chatshabbatlock_menu_kb,
@@ -42,9 +46,7 @@ async def on_welcome_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
         ap_ctx.ctx, ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
     try:
-        await callback.message.edit_text(await at(at_id, "panel.welcome_text"), reply_markup=kb)
-    except MessageNotModified:
-        pass
+        await safe_edit(callback, await at(at_id, "panel.welcome_text"), reply_markup=kb)
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
         return await on_welcome_panel(_, callback, ap_ctx)
@@ -61,9 +63,7 @@ async def on_rules_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     kb = await rules_kb(ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
     try:
-        await callback.message.edit_text(await at(at_id, "panel.rules_text"), reply_markup=kb)
-    except MessageNotModified:
-        pass
+        await safe_edit(callback, await at(at_id, "panel.rules_text"), reply_markup=kb)
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
         return await on_rules_panel(_, callback, ap_ctx)
@@ -84,7 +84,7 @@ async def on_reminders_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
         user_id=callback.from_user.id if ap_ctx.is_pm else None,
         back_callback="panel:category:automation",
     )
-    await callback.message.edit_text(await at(at_id, "panel.reminder_text"), reply_markup=kb)
+    await safe_edit(callback, await at(at_id, "panel.reminder_text"), reply_markup=kb)
     await callback.answer()
 
 
@@ -98,7 +98,7 @@ async def on_nightlock_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
         user_id=callback.from_user.id if ap_ctx.is_pm else None,
         back_callback="panel:category:automation",
     )
-    await callback.message.edit_text(await at(at_id, "panel.nightlock_text"), reply_markup=kb)
+    await safe_edit(callback, await at(at_id, "panel.nightlock_text"), reply_markup=kb)
     await callback.answer()
 
 
@@ -123,7 +123,8 @@ async def on_shabbatlock_panel(_: Client, callback: CallbackQuery, ap_ctx: Admin
             await session.commit()
 
     status = await at(at_id, "panel.status_enabled" if lock.isEnabled else "panel.status_disabled")
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(at_id, "panel.shabbat_text", status=status, timezone=settings.timezone),
         reply_markup=kb,
     )
@@ -162,13 +163,14 @@ async def on_toggle_shabbatlock(_: Client, callback: CallbackQuery, ap_ctx: Admi
                 at_id, "panel.status_enabled" if lock.isEnabled else "panel.status_disabled"
             )
             try:
-                await callback.message.edit_text(
+                await safe_edit(
+                    callback,
                     await at(
                         at_id, "panel.shabbat_text", status=status, timezone=settings.timezone
                     ),
                     reply_markup=kb,
                 )
-            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+            except (MessageIdInvalid, QueryIdInvalid):
                 pass
             except FloodWait as e:
                 await asyncio.sleep(e.value + 1)
@@ -199,7 +201,8 @@ async def on_cleaner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     s_fake = await at(
         at_id, "panel.status_enabled" if cleaner.cleanFake else "panel.status_disabled"
     )
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(
             at_id,
             "panel.cleaner_text",

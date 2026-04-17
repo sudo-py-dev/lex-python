@@ -16,6 +16,7 @@ from src.plugins.admin_panel.handlers.callbacks.common import (
     _plain,
     _render_ai_guard_panel,
     _render_ai_panel,
+    safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import ai_security_kb
 from src.plugins.ai_assistant.repository import AIRepository
@@ -50,7 +51,8 @@ async def on_ai_settings(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
         s = await AIRepository.get_settings(ctx, chat_id)
         provider = s.provider if s else "openai"
         kb = await model_selection_kb(provider, chat_id, user_id=user_id if ap_ctx.is_pm else None)
-        await callback.message.edit_text(
+        await safe_edit(
+            callback,
             await at(at_id, "panel.ai_select_model_text", provider=provider.upper()),
             reply_markup=kb,
         )
@@ -139,7 +141,8 @@ async def on_set_groq_key(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
     at_id = _panel_lang_id(ap_ctx.is_pm, user_id, chat_id)
 
     await capture_next_input(user_id, chat_id, "groqKey", prompt_msg_id=callback.message.id)
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(at_id, "panel.input_prompt_groqKey"),
         reply_markup=InlineKeyboardMarkup(
             [
@@ -162,7 +165,8 @@ async def on_ai_guard_setup(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
     from src.config import config
 
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(at_id, "panel.ai_guard_setup_guide", model=config.AI_GUARD_MODEL),
         reply_markup=await ai_security_kb(ap_ctx.ctx, ap_ctx.chat_id, callback.from_user.id),
         disable_web_page_preview=True,

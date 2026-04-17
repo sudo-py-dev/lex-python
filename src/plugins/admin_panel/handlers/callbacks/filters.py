@@ -7,7 +7,6 @@ from pyrogram import Client, filters
 from pyrogram.errors import (
     FloodWait,
     MessageIdInvalid,
-    MessageNotModified,
     QueryIdInvalid,
     RPCError,
 )
@@ -15,7 +14,11 @@ from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMa
 
 from src.core.bot import bot
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
-from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
+from src.plugins.admin_panel.handlers.callbacks.common import (
+    _panel_lang_id,
+    _plain,
+    safe_edit,
+)
 from src.plugins.admin_panel.handlers.keyboards import filter_options_kb, filters_menu_kb
 from src.utils.i18n import at
 from src.utils.input import capture_next_input
@@ -32,9 +35,7 @@ async def on_filters_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
         ap_ctx.ctx, chat_id, page=page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
     try:
-        await callback.message.edit_text(await at(at_id, "panel.filters_text"), reply_markup=kb)
-    except MessageNotModified:
-        pass
+        await safe_edit(callback, await at(at_id, "panel.filters_text"), reply_markup=kb)
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
         return await on_filters_panel(_, callback, ap_ctx)
@@ -65,7 +66,8 @@ async def on_add_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
     await capture_next_input(
         user_id, chat_id, "filterKeyword", prompt_msg_id=callback.message.id, page=page
     )
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(at_id, "panel.input_prompt_filterKeyword"),
         reply_markup=InlineKeyboardMarkup(
             [
@@ -110,7 +112,8 @@ async def on_edit_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
         await capture_next_input(
             user_id, chat_id, "filterResponse", prompt_msg_id=callback.message.id, page=page
         )
-        await callback.message.edit_text(
+        await safe_edit(
+            callback,
             await at(at_id, "panel.input_prompt_filterResponse", keyword=f_obj.keyword),
             reply_markup=InlineKeyboardMarkup(
                 [
@@ -147,12 +150,11 @@ async def on_delete_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
         ap_ctx.ctx, chat_id, page=page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
     try:
-        await callback.message.edit_reply_markup(reply_markup=kb)
-    except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+        await safe_edit(callback, reply_markup=kb)
+    except (MessageIdInvalid, QueryIdInvalid):
         pass
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
-        # Note: selective retry logic based on context would go here
         pass
 
 
@@ -170,12 +172,11 @@ async def on_clear_filters(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
         ap_ctx.ctx, chat_id, page=0, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
     try:
-        await callback.message.edit_reply_markup(reply_markup=kb)
-    except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+        await safe_edit(callback, reply_markup=kb)
+    except (MessageIdInvalid, QueryIdInvalid):
         pass
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
-        # Note: selective retry logic based on context would go here
         pass
 
 
@@ -200,12 +201,11 @@ async def on_toggle_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     await r.set(f"temp_filter_settings:{user_id}", json.dumps(settings), ttl=600)
     kb = await filter_options_kb(ap_ctx.ctx, ap_ctx.chat_id, user_id, page)
     try:
-        await callback.message.edit_reply_markup(reply_markup=kb)
-    except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+        await safe_edit(callback, reply_markup=kb)
+    except (MessageIdInvalid, QueryIdInvalid):
         pass
     except FloodWait as e:
         await asyncio.sleep(e.value + 1)
-        # Note: selective retry logic based on context would go here
         pass
     await callback.answer()
 
@@ -271,4 +271,4 @@ async def on_save_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     kb = await filters_menu_kb(
         ap_ctx.ctx, chat_id, page=page, user_id=user_id if ap_ctx.is_pm else None
     )
-    await callback.message.edit_text(await at(at_id, "panel.filters_text"), reply_markup=kb)
+    await safe_edit(callback, await at(at_id, "panel.filters_text"), reply_markup=kb)

@@ -12,6 +12,7 @@ from src.core.context import get_context
 from src.plugins.admin_panel.handlers.callbacks.common import (
     _plain,
     _render_channel_watermark_panel,
+    safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import (
     channel_reactions_kb,
@@ -62,7 +63,8 @@ async def on_channel_settings(client: Client, callback: CallbackQuery):
     title = s.title or f"Channel {channel_id}"
     kb = await channel_settings_kb(ctx, channel_id, user_id)
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(user_id, "panel.channel_settings_text", title=title, id=channel_id),
         reply_markup=kb,
     )
@@ -80,9 +82,7 @@ async def on_channel_reactions(client: Client, callback: CallbackQuery):
         return
 
     kb = await channel_reactions_kb(ctx, channel_id, user_id)
-    await callback.message.edit_text(
-        await at(user_id, "panel.channel_reactions_text"), reply_markup=kb
-    )
+    await safe_edit(callback, await at(user_id, "panel.channel_reactions_text"), reply_markup=kb)
     await callback.answer()
 
 
@@ -97,9 +97,7 @@ async def on_channel_signature(client: Client, callback: CallbackQuery):
         return
 
     kb = await channel_signature_kb(ctx, channel_id, user_id)
-    await callback.message.edit_text(
-        await at(user_id, "panel.channel_signature_text"), reply_markup=kb
-    )
+    await safe_edit(callback, await at(user_id, "panel.channel_signature_text"), reply_markup=kb)
     await callback.answer()
 
 
@@ -135,9 +133,7 @@ async def on_channel_service_cleaner(client: Client, callback: CallbackQuery):
         types_callback=f"panel:chsp:{channel_id}:0",
         toggle_callback=f"panel:chsg:{channel_id}",
     )
-    await callback.message.edit_text(
-        await at(user_id, "panel.service_cleaner_text"), reply_markup=kb
-    )
+    await safe_edit(callback, await at(user_id, "panel.service_cleaner_text"), reply_markup=kb)
     await callback.answer()
 
 
@@ -163,8 +159,7 @@ async def on_channel_service_cleaner_toggle_all(client: Client, callback: Callba
         types_callback=f"panel:chsp:{channel_id}:0",
         toggle_callback=f"panel:chsg:{channel_id}",
     )
-    with contextlib.suppress(MessageNotModified):
-        await callback.message.edit_reply_markup(reply_markup=kb)
+    await safe_edit(callback, reply_markup=kb)
     await callback.answer(_plain(await at(user_id, "panel.setting_updated")))
 
 
@@ -191,7 +186,7 @@ async def on_channel_service_cleaner_types(client: Client, callback: CallbackQue
     )
     total = math.ceil(len(get_available_service_types("channel")) / 10)
     text = await at(user_id, "panel.service_cleaner_types_text", page=page + 1, total=max(1, total))
-    await callback.message.edit_text(text, reply_markup=kb)
+    await safe_edit(callback, text, reply_markup=kb)
     await callback.answer()
 
 
@@ -226,8 +221,7 @@ async def on_channel_service_cleaner_toggle_type(client: Client, callback: Callb
         back_callback=f"panel:chs:{channel_id}",
         toggle_mode="index",
     )
-    with contextlib.suppress(MessageNotModified):
-        await callback.message.edit_reply_markup(reply_markup=kb)
+    await safe_edit(callback, reply_markup=kb)
 
     label_key = f"panel.service_type_{service_type}"
     localized_type = await at(user_id, label_key)
@@ -417,7 +411,7 @@ async def on_channel_buttons(client: Client, callback: CallbackQuery):
     text = await at(user_id, "panel.channel_buttons_text", count=btn_count)
     kb = await channel_buttons_kb(ctx, channel_id, user_id)
 
-    await callback.message.edit_text(text, reply_markup=kb)
+    await safe_edit(callback, text, reply_markup=kb)
     await callback.answer()
 
 
