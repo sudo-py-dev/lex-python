@@ -55,6 +55,7 @@ async def on_chat_member_updated(client: Client, update: ChatMemberUpdated):
 
     ctx = get_context()
     new_status = update.new_chat_member.status if update.new_chat_member else None
+    old_status = update.old_chat_member.status if update.old_chat_member else None
 
     # Handle bot's own status changes (replaces legacy status.py and registration.py)
     if user_id == client.me.id:
@@ -95,9 +96,22 @@ async def on_chat_member_updated(client: Client, update: ChatMemberUpdated):
                 session.add(settings)
                 await session.commit()
 
-        raise ContinuePropagation
+            # If the bot was just promoted to admin, notify the person who did it
+            if (
+                old_status != ChatMemberStatus.ADMINISTRATOR
+                and new_status == ChatMemberStatus.ADMINISTRATOR
+                and update.from_user
+            ):
+                import contextlib
 
-    old_status = update.old_chat_member.status if update.old_chat_member else None
+                from src.plugins.admin_panel.handlers.commands import send_admin_dashboard
+
+                with contextlib.suppress(Exception):
+                    await send_admin_dashboard(
+                        client, update.from_user.id, chat_id, text_key="panel.promotion_notify"
+                    )
+
+        raise ContinuePropagation
 
     was_admin = old_status in {ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}
     is_admin = new_status in {ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}
