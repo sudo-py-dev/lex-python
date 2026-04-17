@@ -1,10 +1,4 @@
-import contextlib
-
 from pyrogram import Client, filters
-from pyrogram.errors import (
-    MessageNotModified,
-    QueryIdInvalid,
-)
 from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
@@ -139,8 +133,7 @@ async def on_toggle_shabbatlock(_: Client, callback: CallbackQuery, ap_ctx: Admi
 
             await SchedulerManager.sync_group(ctx, chat_id)
             at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
-            with contextlib.suppress(QueryIdInvalid):
-                await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
+            await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
 
             kb = await chatshabbatlock_menu_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
@@ -532,8 +525,7 @@ async def on_service_cleaner_toggle_master(
         types_callback=f"panel:svc_types:0:{nav_hint}",
         toggle_callback=f"panel:svc_toggle:cleanAllServices:{nav_hint}",
     )
-    with contextlib.suppress(MessageNotModified):
-        await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.message.edit_reply_markup(reply_markup=kb)
     await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
 
 
@@ -617,8 +609,7 @@ async def on_service_cleaner_toggle_type(
             if btn.callback_data.startswith("panel:svc_types:"):
                 btn.callback_data += f":{nav_hint}"
 
-    with contextlib.suppress(MessageNotModified):
-        await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.message.edit_reply_markup(reply_markup=kb)
 
     label_key = f"panel.service_type_{service_type}"
     localized_type = await at(at_id, label_key)
@@ -648,8 +639,7 @@ async def on_toggle_service_type_general(
     kb = await service_cleaner_types_kb(
         ctx, chat_id, page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    with contextlib.suppress(MessageNotModified):
-        await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.message.edit_reply_markup(reply_markup=kb)
     label_key = f"panel.service_type_{service_type}"
     localized_type = await at(at_id, label_key)
     if localized_type == label_key:

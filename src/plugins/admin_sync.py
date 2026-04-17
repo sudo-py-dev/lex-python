@@ -14,21 +14,17 @@ async def _ensure_chat_identity(ctx, chat):
     """Ensure the chat type and title are correctly persisted in the database."""
     if chat.id in _REGISTERED_CHATS:
         return
-    from src.db.models import ChatSettings
 
-    async with ctx.db() as session:
-        settings = await session.get(ChatSettings, chat.id)
-        if not settings:
-            settings = ChatSettings(id=chat.id)
+    from src.db.repositories.chats import get_chat_settings, update_settings
 
-        raw_type = chat.type.name.lower()
-        chat_type = "group" if raw_type in ("group", "supergroup") else "channel"
+    settings = await get_chat_settings(ctx, chat.id)
+    raw_type = chat.type.name.lower()
+    chat_type = "group" if raw_type in ("group", "supergroup") else "channel"
 
-        if settings.chatType != chat_type or settings.title != chat.title:
-            settings.chatType = chat_type
-            settings.title = chat.title
-            session.add(settings)
-            await session.commit()
+    # Update if identity changed
+    if settings.chatType != chat_type or settings.title != chat.title:
+        await update_settings(ctx, chat.id, chatType=chat_type, title=chat.title)
+
     _REGISTERED_CHATS.add(chat.id)
 
 
@@ -57,7 +53,7 @@ async def on_chat_member_updated(client: Client, update: ChatMemberUpdated):
     new_status = update.new_chat_member.status if update.new_chat_member else None
     old_status = update.old_chat_member.status if update.old_chat_member else None
 
-    # Handle bot's own status changes (replaces legacy status.py and registration.py)
+    # Handle bot's own status changes
     if user_id == client.me.id:
         from src.db.models import ChatSettings
 

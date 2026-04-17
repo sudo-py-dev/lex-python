@@ -186,6 +186,16 @@ async def run_group_cleaner(chat_id: int) -> None:
             return
 
         try:
+            from src.utils.local_cache import get_cache
+            cache = get_cache()
+            scan_key = f"cleaner_scan:{chat_id}"
+            if await cache.exists(scan_key):
+                logger.debug(f"ChatCleaner for {chat_id} skipped (1-hour cooldown active)")
+                return
+
+            # Mark as scanned for 1 hour
+            await cache.setex(scan_key, 3600, True)
+
             kicked_deleted = 0
             kicked_fake = 0
             kicked_inactive = 0

@@ -69,7 +69,7 @@ UNRESTRICTED_PERMISSIONS = ChatPermissions(
 )
 
 
-async def sync_admins_from_telegram(client: Client, chat_id: int) -> set[int]:
+async def sync_admins_from_telegram(client: Client, chat_id: int, force: bool = False) -> set[int]:
     """
     Fetch full admin list from Telegram, update DB and Local Cache.
     This is the primary way to re-synchronize a chat's administration state.
@@ -79,10 +79,27 @@ async def sync_admins_from_telegram(client: Client, chat_id: int) -> set[int]:
     if chat_id > 0:
         return {chat_id}
 
+    cache = get_cache()
+    cooldown_key = f"admin_sync_cooldown:{chat_id}"
+
+    if not force and await cache.exists(cooldown_key):
+        logger.debug(f"Admin sync for {chat_id} suppressed (cooldown active)")
+        # Return what we have in DB/Cache currently to avoid re-triggering sync
+        ctx = get_context()
+        from src.db.repositories.admins import get_admins_for_chat
+
+        db_admins = await get_admins_for_chat(ctx, chat_id)
+        if db_admins:
+            return {a.userId for a in db_admins}
+        return set()
+
     async with fetching_semaphore, sync_locks[chat_id]:
         ctx = get_context()
         try:
             admin_ids = set()
+            # Set cooldown early to prevent rapid concurrent hits
+            await cache.setex(cooldown_key, 600, True)  # 10 minutes
+
             # Clear existing DB entries for this chat to ensure accuracy
             await clear_chat_admins(ctx, chat_id)
 
@@ -108,11 +125,10 @@ async def sync_admins_from_telegram(client: Client, chat_id: int) -> set[int]:
                 )
 
                 # Update specialized cache key
-                cache = get_cache()
                 cache_key = f"admin_detail:{chat_id}:{m.user.id}"
                 await cache.setex(cache_key, _TTL, "owner" if status == "owner" else privs or {})
 
-                # If this is the bot itself, also update ChatSettings.botPrivileges for high-speed access
+                # If this is the bot itself, also update ChatSettings.botPrivileges
                 if m.user.id == client.me.id:
                     from src.db.repositories.chats import update_chat_setting
 
@@ -123,12 +139,13 @@ async def sync_admins_from_telegram(client: Client, chat_id: int) -> set[int]:
                     await cache.setex(f"bot_privs:{chat_id}", _TTL, privs or {})
 
             # Update global list cache
-            r = get_cache()
-            await r.set(CacheKeys.admins(chat_id), json.dumps(list(admin_ids)), ttl=_TTL)
+            await cache.set(CacheKeys.admins(chat_id), json.dumps(list(admin_ids)), ttl=_TTL)
             logger.debug(f"Admin cache/DB refreshed for chat {chat_id}: {len(admin_ids)} admins")
             return admin_ids
         except Exception as e:
             logger.warning(f"Failed to fetch admins for chat {chat_id}: {e}")
+            # If it failed, maybe don't hold the cooldown too long?
+            await cache.delete(cooldown_key)
             return set()
 
 
@@ -229,7 +246,7 @@ async def force_refresh(client: Client, chat_id: int | None) -> set[int]:
     if chat_id is None:
         return set()
     await invalidate_cache(chat_id)
-    return await sync_admins_from_telegram(client, chat_id)
+    return await sync_admins_from_telegram(client, chat_id, force=True)
 
 
 async def check_user_permission(

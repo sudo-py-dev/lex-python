@@ -1,9 +1,7 @@
-import contextlib
 import json
 import math
 
 from pyrogram import Client, filters
-from pyrogram.errors import MessageNotModified
 from pyrogram.types import CallbackQuery
 
 from src.config import config
@@ -455,8 +453,7 @@ async def on_channel_button_delete(client: Client, callback: CallbackQuery):
     from src.plugins.admin_panel.handlers.keyboards import channel_buttons_kb
 
     kb = await channel_buttons_kb(ctx, channel_id, user_id)
-    with contextlib.suppress(MessageNotModified):
-        await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.message.edit_reply_markup(reply_markup=kb)
     await callback.answer(await at(user_id, "panel.setting_updated"))
 
 
@@ -489,6 +486,5 @@ async def on_channel_button_cycle_style(client: Client, callback: CallbackQuery)
     from src.plugins.admin_panel.handlers.keyboards import channel_buttons_kb
 
     kb = await channel_buttons_kb(ctx, channel_id, user_id)
-    with contextlib.suppress(MessageNotModified):
-        await callback.message.edit_reply_markup(reply_markup=kb)
+    await callback.message.edit_reply_markup(reply_markup=kb)
     await callback.answer()

@@ -57,7 +57,7 @@ async def update_chat_setting(ctx: AppContext, chat_id: int, field: str, value: 
 
 
 async def update_settings(ctx: AppContext, chat_id: int, **kwargs) -> ChatSettings:
-    """Update multiple fields in ChatSettings (Legacy compatibility)."""
+    """Update multiple fields in ChatSettings."""
     async with ctx.db() as session:
         settings = await session.get(ChatSettings, chat_id)
         if not settings:

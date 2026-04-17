@@ -1,8 +1,5 @@
-import contextlib
-
 from loguru import logger
 from pyrogram import Client, ContinuePropagation, filters
-from pyrogram.errors import QueryIdInvalid
 from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
@@ -53,8 +50,7 @@ async def on_flood_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
         reply_markup=kb,
     )
 
-    with contextlib.suppress(QueryIdInvalid):
-        await callback.answer()
+    await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:raid$"))
@@ -81,8 +77,7 @@ async def on_raid_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
         reply_markup=kb,
     )
 
-    with contextlib.suppress(QueryIdInvalid):
-        await callback.answer()
+    await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:captcha$"))

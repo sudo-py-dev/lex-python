@@ -80,7 +80,7 @@ def admin_panel_context(func: Callable[..., Awaitable[None]]) -> Callable[..., A
             chat_type_obj, chat_title = await get_chat_info(ctx, chat_id)
             chat_type = chat_type_obj
 
-            # If the stored type was missing (legacy) or changed, update it in the DB session/connection
+            # If the stored type was missing or changed, update it in the DB session/connection
             chat_type_name = chat_type.name.lower()
             if not chat_type_str or chat_type_str != chat_type_name:
                 from .repository import set_active_chat as update_conn
