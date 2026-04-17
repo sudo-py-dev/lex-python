@@ -1,25 +1,33 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from pyrogram import Client, filters
+from pyrogram import filters
 from pyrogram.types import Message
 
+from src.core.bot import bot
 from src.core.context import get_context
+from src.core.plugin import Plugin, register
 from src.db.repositories.chats import get_chat_settings
+from src.utils.decorators import admin_only, safe_handler
 from src.utils.hebcal import get_shabbat_events
 from src.utils.i18n import at
-from src.utils.permissions import is_admin
 
 
-@Client.on_message(filters.command("shabbat") & filters.group)
-async def shabbat_command(client: Client, message: Message):
+class ShabbatPlugin(Plugin):
+    """Plugin for checking group Shabbat closure status."""
+
+    name = "shabbat"
+    priority = 100
+
+    async def setup(self, client, ctx) -> None:
+        pass
+
+
+@bot.on_message(filters.command("shabbat") & filters.group)
+@admin_only
+@safe_handler
+async def shabbat_command(client, message: Message):
     chat_id = message.chat.id
-    user_id = message.from_user.id if message.from_user else None
-
-    # Check if user is admin as requested
-    if not await is_admin(client, chat_id, user_id):
-        return
-
     ctx = get_context()
     settings = await get_chat_settings(ctx, chat_id)
 
@@ -62,3 +70,6 @@ async def shabbat_command(client: Client, message: Message):
         await temp.edit(text)
     except Exception as e:
         await temp.edit(f"❌ Error calculating Shabbat times: {e}")
+
+
+register(ShabbatPlugin())
