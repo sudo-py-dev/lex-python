@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class Config:
     """
     Application configuration and environment variables.
@@ -70,27 +70,25 @@ class Config:
         return url
 
     def validate(self):
-        """Ensures all critical variables are present."""
-        missing = []
-        if not self.API_ID:
-            missing.append("API_ID")
-        if not self.API_HASH:
-            missing.append("API_HASH")
-        if not self.BOT_TOKEN:
-            missing.append("BOT_TOKEN")
-        if not self.DATABASE_URL:
-            missing.append("DATABASE_URL")
-        if not self.OWNER_ID:
-            missing.append("OWNER_ID")
+        """Ensures critical variables are present (skipped for CLI tools)."""
+        if any(x in sys.argv[0].lower() for x in ["alembic", "pytest"]):
+            return
 
-        if missing:
+        missing_data = []
+        for key in ["API_ID", "API_HASH", "BOT_TOKEN", "DATABASE_URL", "OWNER_ID"]:
+            val = environ.get(key)
+            if not val or val == "0":
+                missing_data.append((key, val))
+
+        if missing_data:
             print("\n" + "=" * 50)
-            print("❌ CONFIGURATION ERROR")
+            print("CONFIGURATION ERROR")
             print("=" * 50)
-            print("The following required environment variables are missing:")
-            for var in missing:
-                print(f" - {var}")
-            print("\nPlease check your Railway dashboard and ensure these are set.")
+            print("Required variables are missing or invalid:")
+            for key, val in missing_data:
+                print(f" - {key}: {val or 'NOT FOUND'}")
+            
+            print("\nCheck Railway Variables (remove quotes and ensure drafts are deployed).")
             print("=" * 50 + "\n")
             sys.exit(1)
 
