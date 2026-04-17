@@ -96,7 +96,6 @@ async def on_chat_member_updated(client: Client, update: ChatMemberUpdated):
                 session.add(settings)
                 await session.commit()
 
-
         is_bot_admin = new_status in {ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}
         was_bot_admin = old_status in {ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}
 
