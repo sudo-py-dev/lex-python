@@ -1,9 +1,6 @@
-import os
-
-from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine
 
-load_dotenv()
+from src.config import config
 
 
 def make_engine(url: str | None = None, *, echo: bool = False):
@@ -11,17 +8,14 @@ def make_engine(url: str | None = None, *, echo: bool = False):
     Creates an asynchronous engine for database operations.
     Supports asynchronous Postgres via asyncpg.
     """
-    if url is None:
-        url = os.getenv("DATABASE_URL")
+    # Use the centralized async URL conversion from config
+    target_url = url or config.async_db_url
 
-    if not url:
+    if not target_url:
         raise RuntimeError("DATABASE_URL environment variable is not set")
 
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-
     return create_async_engine(
-        url,
+        target_url,
         pool_size=10,
         max_overflow=20,
         pool_pre_ping=True,
