@@ -1,9 +1,8 @@
-import asyncio
 import contextlib
 
 from loguru import logger
 from pyrogram import Client, ContinuePropagation, filters
-from pyrogram.errors import FloodWait, QueryIdInvalid, RPCError
+from pyrogram.errors import QueryIdInvalid
 from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
@@ -11,6 +10,7 @@ from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_co
 from src.plugins.admin_panel.handlers.callbacks.common import (
     _panel_lang_id,
     _plain,
+    safe_callback,
     safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import flood_kb
@@ -29,6 +29,7 @@ from src.utils.permissions import Permission, check_user_permission
 
 @bot.on_callback_query(filters.regex(r"^panel:flood$"))
 @admin_panel_context
+@safe_callback
 async def on_flood_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
@@ -39,24 +40,18 @@ async def on_flood_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     status = await at(
         at_id, "panel.status_enabled" if s.floodThreshold > 0 else "panel.status_disabled"
     )
-    try:
-        await safe_edit(
-            callback,
-            await at(
-                at_id,
-                "panel.flood_text",
-                status=status,
-                threshold=s.floodThreshold,
-                window=s.floodWindow,
-                action=await at(at_id, f"action.{s.floodAction.lower()}"),
-            ),
-            reply_markup=kb,
-        )
-    except FloodWait as e:
-        await asyncio.sleep(e.value + 1)
-        return await on_flood_panel(_, callback, ap_ctx)
-    except (RPCError, Exception) as e:
-        logger.debug(f"Flood panel UI update failed: {e}")
+    await safe_edit(
+        callback,
+        await at(
+            at_id,
+            "panel.flood_text",
+            status=status,
+            threshold=s.floodThreshold,
+            window=s.floodWindow,
+            action=await at(at_id, f"action.{s.floodAction.lower()}"),
+        ),
+        reply_markup=kb,
+    )
 
     with contextlib.suppress(QueryIdInvalid):
         await callback.answer()
@@ -64,32 +59,27 @@ async def on_flood_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 
 @bot.on_callback_query(filters.regex(r"^panel:raid$"))
 @admin_panel_context
+@safe_callback
 async def on_raid_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     s = await get_chat_settings(ap_ctx.ctx, chat_id)
     kb = await raid_kb(ap_ctx.ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
     status = await at(at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled")
-    try:
-        await safe_edit(
-            callback,
-            await at(
-                at_id,
-                "panel.raid_text",
-                status=status,
-                threshold=s.raidThreshold,
-                window=s.raidWindow,
-                time=s.raidTime,
-                actiontime=s.raidActionTime,
-                action=await at(at_id, f"action.{s.raidAction.lower()}"),
-            ),
-            reply_markup=kb,
-        )
-    except FloodWait as e:
-        await asyncio.sleep(e.value + 1)
-        return await on_raid_panel(_, callback, ap_ctx)
-    except (RPCError, Exception) as e:
-        logger.debug(f"Raid panel UI update failed: {e}")
+    await safe_edit(
+        callback,
+        await at(
+            at_id,
+            "panel.raid_text",
+            status=status,
+            threshold=s.raidThreshold,
+            window=s.raidWindow,
+            time=s.raidTime,
+            actiontime=s.raidActionTime,
+            action=await at(at_id, f"action.{s.raidAction.lower()}"),
+        ),
+        reply_markup=kb,
+    )
 
     with contextlib.suppress(QueryIdInvalid):
         await callback.answer()
@@ -97,6 +87,7 @@ async def on_raid_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
 
 @bot.on_callback_query(filters.regex(r"^panel:captcha$"))
 @admin_panel_context
+@safe_callback
 async def on_captcha_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
@@ -124,6 +115,7 @@ async def on_captcha_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
 @bot.on_callback_query(filters.regex(r"^panel:urlscanner$"))
 @admin_panel_context
+@safe_callback
 async def on_urlscanner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
@@ -149,6 +141,7 @@ async def on_urlscanner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminP
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_flood_action$"))
 @admin_panel_context
+@safe_callback
 async def on_toggle_flood_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -196,6 +189,7 @@ async def on_toggle_flood_action(_: Client, callback: CallbackQuery, ap_ctx: Adm
 
 @bot.on_callback_query(filters.regex(r"^panel:tgs:(\w+)$"))
 @admin_panel_context
+@safe_callback
 async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -294,6 +288,7 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle:raidAction$"))
 @admin_panel_context
+@safe_callback
 async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -307,54 +302,40 @@ async def on_cycle_raid_action(_: Client, callback: CallbackQuery, ap_ctx: Admin
 
     logger.debug(f"on_cycle_raid_action triggered for chat {chat_id}")
 
-    try:
-        from src.plugins.admin_panel.repository import (
-            get_chat_settings,
-            update_chat_setting,
-        )
+    from src.plugins.admin_panel.repository import (
+        get_chat_settings,
+        update_chat_setting,
+    )
 
-        s = await get_chat_settings(ctx, chat_id)
-        old_action = s.raidAction
-        next_action = cycle_action(old_action, RAID_ACTIONS, default_action="lock")
+    s = await get_chat_settings(ctx, chat_id)
+    old_action = s.raidAction
+    next_action = cycle_action(old_action, RAID_ACTIONS, default_action="lock")
 
-        logger.debug(f"Raid action cycle: {chat_id} | {old_action} -> {next_action}")
-        await update_chat_setting(ctx, chat_id, "raidAction", next_action)
+    logger.debug(f"Raid action cycle: {chat_id} | {old_action} -> {next_action}")
+    await update_chat_setting(ctx, chat_id, "raidAction", next_action)
 
-        s = await get_chat_settings(ctx, chat_id)
-        kb = await raid_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
-        status = await at(
-            at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled"
-        )
+    s = await get_chat_settings(ctx, chat_id)
+    kb = await raid_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
+    status = await at(at_id, "panel.status_enabled" if s.raidEnabled else "panel.status_disabled")
 
-        text = await at(
-            at_id,
-            "panel.raid_text",
-            status=status,
-            threshold=s.raidThreshold,
-            window=s.raidWindow,
-            time=s.raidTime,
-            actiontime=s.raidActionTime,
-            action=await at(at_id, f"action.{s.raidAction.lower()}"),
-        )
+    text = await at(
+        at_id,
+        "panel.raid_text",
+        status=status,
+        threshold=s.raidThreshold,
+        window=s.raidWindow,
+        time=s.raidTime,
+        actiontime=s.raidActionTime,
+        action=await at(at_id, f"action.{s.raidAction.lower()}"),
+    )
 
-        await safe_edit(callback, text, reply_markup=kb)
-
-    except QueryIdInvalid:
-        pass
-    except FloodWait as e:
-        await asyncio.sleep(e.value + 1)
-        return await on_cycle_raid_action(_, callback, ap_ctx)
-    except (RPCError, Exception) as e:
-        logger.exception(f"CRITICAL ERROR in on_cycle_raid_action for chat {chat_id}: {e}")
-        with contextlib.suppress(QueryIdInvalid):
-            await callback.answer(f"UI Error: {e}", show_alert=True)
-    finally:
-        with contextlib.suppress(QueryIdInvalid):
-            await callback.answer()
+    await safe_edit(callback, text, reply_markup=kb)
+    await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle:captchaMode$"))
 @admin_panel_context
+@safe_callback
 async def on_cycle_captcha_mode(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -392,6 +373,7 @@ async def on_cycle_captcha_mode(_: Client, callback: CallbackQuery, ap_ctx: Admi
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle:urlScannerAction$"))
 @admin_panel_context
+@safe_callback
 async def on_cycle_url_scanner_action(
     _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
 ):

@@ -1,7 +1,14 @@
-from pyrogram.errors import RPCError
+import asyncio
 import contextlib
+import functools
 
-from pyrogram.errors import MessageNotModified
+from loguru import logger
+from pyrogram.errors import (
+    FloodWait,
+    MessageNotModified,
+    QueryIdInvalid,
+    RPCError,
+)
 from pyrogram.types import CallbackQuery
 
 from src.config import config
@@ -43,10 +50,45 @@ def _next_ai_provider(current_provider: str) -> str:
     return cycle_action(current_provider, AI_PROVIDERS, default_action=AI_PROVIDERS[0])
 
 
-async def safe_edit(callback: CallbackQuery, text: str, reply_markup=None):
-    """Safely edit message text while ignoring MessageNotModified errors."""
+def safe_callback(func):
+    """
+    Decorator to safely handle common Telegram RPC errors in callback handlers.
+    Suppresses MessageNotModified, QueryIdInvalid, and automatically handles FloodWait.
+    """
+
+    @functools.wraps(func)
+    async def wrapper(client, callback: CallbackQuery, *args, **kwargs):
+        try:
+            return await func(client, callback, *args, **kwargs)
+        except (QueryIdInvalid, MessageNotModified):
+            # Silence error if callback became stale (e.g. user clicked twice)
+            pass
+        except FloodWait as e:
+            # Auto-retry on flood wait
+            await asyncio.sleep(e.value + 1)
+            return await wrapper(client, callback, *args, **kwargs)
+        except (RPCError, Exception) as e:
+            # Log other errors and answer with a generic error if possible
+            logger.error(f"Error in {func.__name__}: {e}")
+            with contextlib.suppress(Exception):
+                await callback.answer(
+                    _plain(await at(callback.from_user.id, "panel.error_generic")), show_alert=True
+                )
+
+    return wrapper
+
+
+async def safe_edit(callback: CallbackQuery, text: str = None, reply_markup=None, **kwargs):
+    """
+    Safely edit message text or reply_markup while ignoring MessageNotModified errors.
+    If text is None, only the reply_markup is edited.
+    Additional kwargs are passed to the underlying edit method.
+    """
     with contextlib.suppress(MessageNotModified, RPCError):
-        await callback.message.edit_text(text, reply_markup=reply_markup)
+        if text:
+            await callback.message.edit_text(text, reply_markup=reply_markup, **kwargs)
+        else:
+            await callback.message.edit_reply_markup(reply_markup=reply_markup)
 
 
 async def _render_ai_panel(

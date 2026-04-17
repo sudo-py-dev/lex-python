@@ -1,14 +1,11 @@
 import asyncio
-import contextlib
 import json
 
-from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.errors import (
     FloodWait,
     MessageIdInvalid,
     QueryIdInvalid,
-    RPCError,
 )
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -17,6 +14,7 @@ from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_co
 from src.plugins.admin_panel.handlers.callbacks.common import (
     _panel_lang_id,
     _plain,
+    safe_callback,
     safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import filter_options_kb, filters_menu_kb
@@ -27,6 +25,7 @@ from src.utils.local_cache import get_cache
 
 @bot.on_callback_query(filters.regex(r"^panel:filters:?(\d+)?$"))
 @admin_panel_context
+@safe_callback
 async def on_filters_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
@@ -34,22 +33,14 @@ async def on_filters_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     kb = await filters_menu_kb(
         ap_ctx.ctx, chat_id, page=page, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    try:
-        await safe_edit(callback, await at(at_id, "panel.filters_text"), reply_markup=kb)
-    except FloodWait as e:
-        await asyncio.sleep(e.value + 1)
-        return await on_filters_panel(_, callback, ap_ctx)
-    except (MessageIdInvalid, QueryIdInvalid):
-        pass
-    except (RPCError, Exception) as e:
-        logger.debug(f"Filters panel UI update failed: {e}")
+    await safe_edit(callback, await at(at_id, "panel.filters_text"), reply_markup=kb)
 
-    with contextlib.suppress(QueryIdInvalid):
-        await callback.answer()
+    await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:add_filter:?(\d+)?$"))
 @admin_panel_context
+@safe_callback
 async def on_add_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     from src.db.repositories.filters import get_filters_count
 
@@ -84,6 +75,7 @@ async def on_add_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
 
 @bot.on_callback_query(filters.regex(r"^panel:edit_filter:(\d+):(\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_edit_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     f_id = int(callback.matches[0].group(1))
     page = int(callback.matches[0].group(2))
@@ -131,6 +123,7 @@ async def on_edit_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 
 @bot.on_callback_query(filters.regex(r"^panel:delete_filter:(\d+):(\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_delete_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     f_id = int(callback.matches[0].group(1))
     page = int(callback.matches[0].group(2))
@@ -141,8 +134,7 @@ async def on_delete_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
     success = await remove_filter_by_id(ap_ctx.ctx, f_id)
     if success:
-        with contextlib.suppress(QueryIdInvalid):
-            await callback.answer(_plain(await at(at_id, "common.done")))
+        await callback.answer(_plain(await at(at_id, "common.done")))
     else:
         await callback.answer(_plain(await at(at_id, "panel.error_generic")), show_alert=True)
 
@@ -160,14 +152,14 @@ async def on_delete_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
 @bot.on_callback_query(filters.regex(r"^panel:clear_filters$"))
 @admin_panel_context
+@safe_callback
 async def on_clear_filters(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     from src.db.repositories.filters import remove_all_filters
 
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
     await remove_all_filters(ap_ctx.ctx, chat_id)
-    with contextlib.suppress(QueryIdInvalid):
-        await callback.answer(_plain(await at(at_id, "common.done")))
+    await callback.answer(_plain(await at(at_id, "common.done")))
     kb = await filters_menu_kb(
         ap_ctx.ctx, chat_id, page=0, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
@@ -182,6 +174,7 @@ async def on_clear_filters(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_filter:(\w+):(\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_toggle_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     mode = callback.matches[0].group(1)
     page = int(callback.matches[0].group(2))
@@ -212,6 +205,7 @@ async def on_toggle_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
 @bot.on_callback_query(filters.regex(r"^panel:save_filter:(\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_save_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     page = int(callback.matches[0].group(1))
     user_id = callback.from_user.id

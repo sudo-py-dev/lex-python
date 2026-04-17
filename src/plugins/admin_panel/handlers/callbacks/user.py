@@ -7,6 +7,7 @@ from src.core.context import get_context
 from src.plugins.admin_panel.handlers.callbacks.common import (
     _panel_lang_id,
     _plain,
+    safe_callback,
     safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import (
@@ -24,6 +25,7 @@ from src.utils.i18n import at
 
 
 @bot.on_callback_query(filters.regex(r"^panel:close$"))
+@safe_callback
 async def on_panel_close(_: Client, callback: CallbackQuery):
     if callback.message:
         await callback.message.delete()
@@ -31,6 +33,7 @@ async def on_panel_close(_: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:my_chats$"))
+@safe_callback
 async def on_my_chats(_: Client, callback: CallbackQuery):
     user_id = callback.from_user.id
     await safe_edit(
@@ -42,6 +45,7 @@ async def on_my_chats(_: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:list_groups$"))
+@safe_callback
 async def on_list_groups(client: Client, callback: CallbackQuery):
     user_id = callback.from_user.id
     ctx = get_context()
@@ -51,6 +55,7 @@ async def on_list_groups(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:list_channels$"))
+@safe_callback
 async def on_list_channels(client: Client, callback: CallbackQuery):
     user_id = callback.from_user.id
     ctx = get_context()
@@ -60,6 +65,7 @@ async def on_list_channels(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:select_chat:(-?\d+)$"))
+@safe_callback
 async def on_select_chat(_: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -70,7 +76,8 @@ async def on_select_chat(_: Client, callback: CallbackQuery):
     chat_type, chat_title = await get_chat_info(ctx, new_chat_id)
     await set_active_chat(ctx, user_id, new_chat_id, chat_type=chat_type.name.lower())
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(at_id, "panel.main_text", user_id=user_id, title=chat_title),
         reply_markup=await main_menu_kb(
             new_chat_id,
@@ -82,6 +89,7 @@ async def on_select_chat(_: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:select_channel:(-?\d+)$"))
+@safe_callback
 async def on_select_channel(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -94,7 +102,8 @@ async def on_select_channel(client: Client, callback: CallbackQuery):
     title = s.title or f"Channel {channel_id}"
     kb = await channel_settings_kb(ctx, channel_id, user_id)
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(user_id, "panel.channel_settings_text", title=title, id=channel_id),
         reply_markup=kb,
     )
@@ -102,6 +111,7 @@ async def on_select_channel(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:language:user:?(\d+)?$"))
+@safe_callback
 async def on_user_language(_: Client, callback: CallbackQuery):
     from src.plugins.language import language_picker_kb
 
@@ -109,7 +119,8 @@ async def on_user_language(_: Client, callback: CallbackQuery):
     ctx = get_context()
     page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(user_id, "language.user_picker_header"),
         reply_markup=await language_picker_kb(ctx, user_id, scope="user", page=page),
     )
@@ -117,6 +128,7 @@ async def on_user_language(_: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:language_page:user:(\d+):(\d+)$"))
+@safe_callback
 async def on_user_language_page(_: Client, callback: CallbackQuery):
     from src.plugins.language import language_picker_kb
 
@@ -125,7 +137,8 @@ async def on_user_language_page(_: Client, callback: CallbackQuery):
     target_id = int(callback.matches[0].group(1))
     page = int(callback.matches[0].group(2))
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(user_id, "language.user_picker_header"),
         reply_markup=await language_picker_kb(ctx, target_id, scope="user", page=page),
     )
@@ -133,6 +146,7 @@ async def on_user_language_page(_: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:language_search:user:(\d+)$"))
+@safe_callback
 async def on_user_language_search(_: Client, callback: CallbackQuery):
     from src.plugins.language import begin_language_search
 
@@ -140,11 +154,12 @@ async def on_user_language_search(_: Client, callback: CallbackQuery):
     target_id = int(callback.matches[0].group(1))
 
     await begin_language_search(user_id, "user", target_id, prompt_msg_id=callback.message.id)
-    await callback.message.edit_text(await at(user_id, "language.search_prompt"))
+    await safe_edit(callback, await at(user_id, "language.search_prompt"))
     await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:set_lang:user:(\d+):([^:]+)(?::(.*))?$"))
+@safe_callback
 async def on_user_language_set(_: Client, callback: CallbackQuery):
     from src.plugins.language import set_user_lang
 
@@ -176,7 +191,8 @@ async def on_user_language_set(_: Client, callback: CallbackQuery):
             _plain(await at(user_id, "panel.user_lang_set", lang=new_lang.upper()))
         )
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback,
         await at(user_id, "panel.main_text_user", user_id=user_id),
         reply_markup=await my_chats_menu_kb(user_id),
     )

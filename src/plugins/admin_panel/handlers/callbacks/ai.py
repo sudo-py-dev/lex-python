@@ -16,6 +16,7 @@ from src.plugins.admin_panel.handlers.callbacks.common import (
     _plain,
     _render_ai_guard_panel,
     _render_ai_panel,
+    safe_callback,
     safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import ai_security_kb
@@ -27,6 +28,7 @@ from src.utils.input import capture_next_input
 
 @bot.on_callback_query(filters.regex(r"^panel:ai:(.*)"))
 @admin_panel_context
+@safe_callback
 async def on_ai_settings(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
@@ -69,6 +71,7 @@ async def on_ai_settings(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_ai_guard$"))
 @admin_panel_context
+@safe_callback
 async def on_toggle_ai_guard(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     from src.db.repositories.ai_guard import get_ai_guard_settings, update_ai_guard_settings
 
@@ -90,6 +93,7 @@ async def on_toggle_ai_guard(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_ai_image_guard$"))
 @admin_panel_context
+@safe_callback
 async def on_toggle_ai_image_guard(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     from src.db.repositories.ai_guard import get_ai_guard_settings, update_ai_guard_settings
 
@@ -111,6 +115,7 @@ async def on_toggle_ai_image_guard(_: Client, callback: CallbackQuery, ap_ctx: A
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle_ai_guard_action$"))
 @admin_panel_context
+@safe_callback
 async def on_cycle_ai_guard_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     from src.db.repositories.ai_guard import get_ai_guard_settings, update_ai_guard_settings
 
@@ -135,6 +140,7 @@ async def on_cycle_ai_guard_action(_: Client, callback: CallbackQuery, ap_ctx: A
 
 @bot.on_callback_query(filters.regex(r"^panel:set_groq_key$"))
 @admin_panel_context
+@safe_callback
 async def on_set_groq_key(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
@@ -161,6 +167,7 @@ async def on_set_groq_key(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
 
 @bot.on_callback_query(filters.regex(r"^panel:ai_guard_setup$"))
 @admin_panel_context
+@safe_callback
 async def on_ai_guard_setup(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     from src.config import config
 

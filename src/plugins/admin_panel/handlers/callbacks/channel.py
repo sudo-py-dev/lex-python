@@ -12,6 +12,7 @@ from src.core.context import get_context
 from src.plugins.admin_panel.handlers.callbacks.common import (
     _plain,
     _render_channel_watermark_panel,
+    safe_callback,
     safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import (
@@ -50,6 +51,7 @@ from src.utils.permissions import is_admin
 
 
 @bot.on_callback_query(filters.regex(r"^panel:channel_settings:(-?\d+)$"))
+@safe_callback
 async def on_channel_settings(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -72,6 +74,7 @@ async def on_channel_settings(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:channel_reactions:(-?\d+)$"))
+@safe_callback
 async def on_channel_reactions(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -87,6 +90,7 @@ async def on_channel_reactions(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:channel_signature:(-?\d+)$"))
+@safe_callback
 async def on_channel_signature(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -102,6 +106,7 @@ async def on_channel_signature(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:channel_watermark:(-?\d+)$"))
+@safe_callback
 async def on_channel_watermark(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -116,6 +121,7 @@ async def on_channel_watermark(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:chs:(-?\d+)$"))
+@safe_callback
 async def on_channel_service_cleaner(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -138,6 +144,7 @@ async def on_channel_service_cleaner(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:chsg:(-?\d+)$"))
+@safe_callback
 async def on_channel_service_cleaner_toggle_all(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -164,6 +171,7 @@ async def on_channel_service_cleaner_toggle_all(client: Client, callback: Callba
 
 
 @bot.on_callback_query(filters.regex(r"^panel:chsp:(-?\d+):(\d+)$"))
+@safe_callback
 async def on_channel_service_cleaner_types(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -191,6 +199,7 @@ async def on_channel_service_cleaner_types(client: Client, callback: CallbackQue
 
 
 @bot.on_callback_query(filters.regex(r"^panel:chst:(-?\d+):(\d+):(\d+)$"))
+@safe_callback
 async def on_channel_service_cleaner_toggle_type(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -231,6 +240,7 @@ async def on_channel_service_cleaner_toggle_type(client: Client, callback: Callb
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_ch:(\w+):(-?\d+)$"))
+@safe_callback
 async def on_channel_toggle_setting(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -266,12 +276,12 @@ async def on_channel_toggle_setting(client: Client, callback: CallbackQuery):
         await toggle_ch_setting(ctx, channel_id, field)
         kb = await channel_settings_kb(ctx, channel_id, user_id)
 
-    with contextlib.suppress(MessageNotModified):
-        await callback.message.edit_reply_markup(reply_markup=kb)
+    await safe_edit(callback, reply_markup=kb)
     await callback.answer(_plain(await at(user_id, "panel.setting_updated")))
 
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle_wm:(\w+):(-?\d+)$"))
+@safe_callback
 async def on_channel_cycle_watermark(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -321,6 +331,7 @@ async def on_channel_cycle_watermark(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_wm_image:(-?\d+)$"))
+@safe_callback
 async def on_channel_toggle_wm_image(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -353,6 +364,7 @@ async def on_channel_toggle_wm_image(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_wm_video:(-?\d+)$"))
+@safe_callback
 async def on_channel_toggle_wm_video(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -389,6 +401,7 @@ async def on_channel_toggle_wm_video(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:channel_buttons:(-?\d+)$"))
+@safe_callback
 async def on_channel_buttons(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -416,6 +429,7 @@ async def on_channel_buttons(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:delete_ch_btn:(-?\d+):(\d+):(\d+)$"))
+@safe_callback
 async def on_channel_button_delete(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
@@ -447,6 +461,7 @@ async def on_channel_button_delete(client: Client, callback: CallbackQuery):
 
 
 @bot.on_callback_query(filters.regex(r"^panel:cycle_ch_btn_style:(-?\d+):(\d+):(\d+)$"))
+@safe_callback
 async def on_channel_button_cycle_style(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id

@@ -8,6 +8,7 @@ from src.plugins.admin_panel.handlers.callbacks.common import (
     _panel_lang_id,
     _render_ai_guard_panel,
     _render_ai_panel,
+    safe_callback,
     safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import (
@@ -23,6 +24,7 @@ from src.utils.i18n import at
 
 @bot.on_callback_query(filters.regex(r"^panel:main$"))
 @admin_panel_context
+@safe_callback
 async def on_panel_main(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
@@ -50,6 +52,7 @@ async def on_panel_main(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelCo
 
 @bot.on_callback_query(filters.regex(r"^panel:category:(\w+)$"))
 @admin_panel_context
+@safe_callback
 async def on_panel_category(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id

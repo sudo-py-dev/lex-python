@@ -4,7 +4,12 @@ from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMa
 
 from src.core.bot import bot
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
-from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain, safe_edit
+from src.plugins.admin_panel.handlers.callbacks.common import (
+    _panel_lang_id,
+    _plain,
+    safe_callback,
+    safe_edit,
+)
 from src.plugins.admin_panel.handlers.keyboards import main_menu_kb
 from src.plugins.admin_panel.repository import resolve_chat_type
 from src.plugins.admin_panel.validation import is_setting_allowed
@@ -16,6 +21,7 @@ from src.utils.local_cache import get_cache
 
 @bot.on_callback_query(filters.regex(r"^panel:input:(\w+):?(-?\d+)?$"))
 @admin_panel_context
+@safe_callback
 async def on_panel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
@@ -96,6 +102,7 @@ async def on_panel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 
 @bot.on_callback_query(filters.regex(r"^panel:cancel_input$"))
 @admin_panel_context
+@safe_callback
 async def on_cancel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id

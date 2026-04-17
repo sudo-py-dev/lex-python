@@ -1,13 +1,9 @@
-import asyncio
 import contextlib
 
 from pyrogram import Client, filters
 from pyrogram.errors import (
-    FloodWait,
-    MessageIdInvalid,
     MessageNotModified,
     QueryIdInvalid,
-    RPCError,
 )
 from pyrogram.types import CallbackQuery
 
@@ -17,6 +13,7 @@ from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_co
 from src.plugins.admin_panel.handlers.callbacks.common import (
     _panel_lang_id,
     _plain,
+    safe_callback,
     safe_edit,
 )
 from src.plugins.admin_panel.handlers.keyboards import (
@@ -40,42 +37,29 @@ from src.utils.permissions import Permission, check_user_permission
 
 @bot.on_callback_query(filters.regex(r"^panel:welcome$"))
 @admin_panel_context
+@safe_callback
 async def on_welcome_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     kb = await welcome_kb(
         ap_ctx.ctx, ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    try:
-        await safe_edit(callback, await at(at_id, "panel.welcome_text"), reply_markup=kb)
-    except FloodWait as e:
-        await asyncio.sleep(e.value + 1)
-        return await on_welcome_panel(_, callback, ap_ctx)
-    except (RPCError, Exception):
-        pass
-
-    with contextlib.suppress(QueryIdInvalid):
-        await callback.answer()
+    await safe_edit(callback, await at(at_id, "panel.welcome_text"), reply_markup=kb)
+    await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:rules$"))
 @admin_panel_context
+@safe_callback
 async def on_rules_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     kb = await rules_kb(ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
-    try:
-        await safe_edit(callback, await at(at_id, "panel.rules_text"), reply_markup=kb)
-    except FloodWait as e:
-        await asyncio.sleep(e.value + 1)
-        return await on_rules_panel(_, callback, ap_ctx)
-    except (RPCError, Exception):
-        pass
-
-    with contextlib.suppress(QueryIdInvalid):
-        await callback.answer()
+    await safe_edit(callback, await at(at_id, "panel.rules_text"), reply_markup=kb)
+    await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:reminders$"))
 @admin_panel_context
+@safe_callback
 async def on_reminders_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     kb = await reminders_menu_kb(
@@ -90,6 +74,7 @@ async def on_reminders_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
 
 @bot.on_callback_query(filters.regex(r"^panel:chatnightlock$"))
 @admin_panel_context
+@safe_callback
 async def on_nightlock_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     kb = await chatnightlock_menu_kb(
@@ -104,6 +89,7 @@ async def on_nightlock_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
 
 @bot.on_callback_query(filters.regex(r"^panel:chatshabbatlock$"))
 @admin_panel_context
+@safe_callback
 async def on_shabbatlock_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
     kb = await chatshabbatlock_menu_kb(
@@ -133,6 +119,7 @@ async def on_shabbatlock_panel(_: Client, callback: CallbackQuery, ap_ctx: Admin
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_chatshabbatlock$"))
 @admin_panel_context
+@safe_callback
 async def on_toggle_shabbatlock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -162,23 +149,17 @@ async def on_toggle_shabbatlock(_: Client, callback: CallbackQuery, ap_ctx: Admi
             status = await at(
                 at_id, "panel.status_enabled" if lock.isEnabled else "panel.status_disabled"
             )
-            try:
-                await safe_edit(
-                    callback,
-                    await at(
-                        at_id, "panel.shabbat_text", status=status, timezone=settings.timezone
-                    ),
-                    reply_markup=kb,
-                )
-            except (MessageIdInvalid, QueryIdInvalid):
-                pass
-            except FloodWait as e:
-                await asyncio.sleep(e.value + 1)
-                return await on_toggle_shabbatlock(_, callback, ap_ctx)
+            await safe_edit(
+                callback,
+                await at(at_id, "panel.shabbat_text", status=status, timezone=settings.timezone),
+                reply_markup=kb,
+            )
+            await callback.answer()
 
 
 @bot.on_callback_query(filters.regex(r"^panel:cleaner$"))
 @admin_panel_context
+@safe_callback
 async def on_cleaner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     chat_id = ap_ctx.chat_id
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
@@ -218,6 +199,7 @@ async def on_cleaner_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_reminder:(\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_toggle_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -237,29 +219,23 @@ async def on_toggle_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
             from src.plugins.scheduler.manager import SchedulerManager
 
             await SchedulerManager.sync_group(ctx, chat_id)
-            with contextlib.suppress(QueryIdInvalid):
-                await callback.answer(
-                    _plain(
-                        await at(
-                            _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
-                            "panel.setting_updated",
-                        )
+            await callback.answer(
+                _plain(
+                    await at(
+                        _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
+                        "panel.setting_updated",
                     )
                 )
+            )
             kb = await reminders_menu_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            try:
-                await callback.message.edit_reply_markup(reply_markup=kb)
-            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
-                pass
-            except FloodWait as e:
-                await asyncio.sleep(e.value + 1)
-                return await on_toggle_reminder(_, callback, ap_ctx)
+            await callback.message.edit_reply_markup(reply_markup=kb)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:delete_reminder:(\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_delete_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -278,29 +254,23 @@ async def on_delete_reminder(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
             from src.plugins.scheduler.manager import SchedulerManager
 
             await SchedulerManager.sync_group(ctx, chat_id)
-            with contextlib.suppress(QueryIdInvalid):
-                await callback.answer(
-                    _plain(
-                        await at(
-                            _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
-                            "panel.setting_updated",
-                        )
+            await callback.answer(
+                _plain(
+                    await at(
+                        _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
+                        "panel.setting_updated",
                     )
                 )
+            )
             kb = await reminders_menu_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            try:
-                await callback.message.edit_reply_markup(reply_markup=kb)
-            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
-                pass
-            except FloodWait as e:
-                await asyncio.sleep(e.value + 1)
-                return await on_delete_reminder(_, callback, ap_ctx)
+            await callback.message.edit_reply_markup(reply_markup=kb)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_chatnightlock$"))
 @admin_panel_context
+@safe_callback
 async def on_toggle_nightlock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -319,29 +289,23 @@ async def on_toggle_nightlock(_: Client, callback: CallbackQuery, ap_ctx: AdminP
             from src.plugins.scheduler.manager import SchedulerManager
 
             await SchedulerManager.sync_group(ctx, chat_id)
-            with contextlib.suppress(QueryIdInvalid):
-                await callback.answer(
-                    _plain(
-                        await at(
-                            _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
-                            "panel.setting_updated",
-                        )
+            await callback.answer(
+                _plain(
+                    await at(
+                        _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
+                        "panel.setting_updated",
                     )
                 )
+            )
             kb = await chatnightlock_menu_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            try:
-                await callback.message.edit_reply_markup(reply_markup=kb)
-            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
-                pass
-            except FloodWait as e:
-                await asyncio.sleep(e.value + 1)
-                return await on_toggle_nightlock(_, callback, ap_ctx)
+            await callback.message.edit_reply_markup(reply_markup=kb)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_cleaner:(\w+)$"))
 @admin_panel_context
+@safe_callback
 async def on_toggle_cleaner(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -364,29 +328,23 @@ async def on_toggle_cleaner(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
             from src.plugins.scheduler.manager import SchedulerManager
 
             await SchedulerManager.sync_group(ctx, chat_id)
-            with contextlib.suppress(QueryIdInvalid):
-                await callback.answer(
-                    _plain(
-                        await at(
-                            _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
-                            "panel.setting_updated",
-                        )
+            await callback.answer(
+                _plain(
+                    await at(
+                        _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id),
+                        "panel.setting_updated",
                     )
                 )
+            )
             kb = await cleaner_menu_kb(
                 ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
             )
-            try:
-                await callback.message.edit_reply_markup(reply_markup=kb)
-            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
-                pass
-            except FloodWait as e:
-                await asyncio.sleep(e.value + 1)
-                return await on_toggle_cleaner(_, callback, ap_ctx)
+            await callback.message.edit_reply_markup(reply_markup=kb)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:timezone:?(\d+)?$"))
 @admin_panel_context
+@safe_callback
 async def on_timezone_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     page = int(callback.matches[0].group(1)) if callback.matches[0].group(1) else 0
     chat_id = ap_ctx.chat_id
@@ -405,6 +363,7 @@ async def on_timezone_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPan
 
 @bot.on_callback_query(filters.regex(r"^panel:timezone_region:(\w+):(\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_timezone_region(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     region = callback.matches[0].group(1)
     page = int(callback.matches[0].group(2))
@@ -426,6 +385,7 @@ async def on_timezone_region(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
 
 @bot.on_callback_query(filters.regex(r"^panel:timezone_filter:(.*):(\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_timezone_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     q = callback.matches[0].group(1)
     page = int(callback.matches[0].group(2))
@@ -447,6 +407,7 @@ async def on_timezone_filter(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
 
 @bot.on_callback_query(filters.regex(r"^panel:timezone_search$"))
 @admin_panel_context
+@safe_callback
 async def on_timezone_search_prompt(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     from src.utils.input import capture_next_input
 
@@ -459,6 +420,7 @@ async def on_timezone_search_prompt(_: Client, callback: CallbackQuery, ap_ctx: 
 
 @bot.on_callback_query(filters.regex(r"^panel:set_tz:(.*)$"))
 @admin_panel_context
+@safe_callback
 async def on_set_timezone(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -491,6 +453,7 @@ async def on_set_timezone(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
 
 @bot.on_callback_query(filters.regex(r"^panel:toggle_private_rules$"))
 @admin_panel_context
+@safe_callback
 async def on_toggle_private_rules(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     if not await check_user_permission(
         _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
@@ -519,6 +482,7 @@ async def on_toggle_private_rules(_: Client, callback: CallbackQuery, ap_ctx: Ad
 
 @bot.on_callback_query(filters.regex(r"^panel:svc:(\w+)$"))
 @admin_panel_context
+@safe_callback
 async def on_service_cleaner_main(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
@@ -540,6 +504,7 @@ async def on_service_cleaner_main(_: Client, callback: CallbackQuery, ap_ctx: Ad
 
 @bot.on_callback_query(filters.regex(r"^panel:svc_toggle:(\w+):(\w+)$"))
 @admin_panel_context
+@safe_callback
 async def on_service_cleaner_toggle_master(
     _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
 ):
@@ -574,6 +539,7 @@ async def on_service_cleaner_toggle_master(
 
 @bot.on_callback_query(filters.regex(r"^panel:svc_types:(\d+):(\w+)$"))
 @admin_panel_context
+@safe_callback
 async def on_service_cleaner_view_types(
     _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
 ):
@@ -615,6 +581,7 @@ async def on_service_cleaner_view_types(
 
 @bot.on_callback_query(filters.regex(r"^panel:svc_type_toggle:(\w+):(\w+):(\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_service_cleaner_toggle_type(
     _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
 ):
@@ -661,6 +628,7 @@ async def on_service_cleaner_toggle_type(
 
 
 @admin_panel_context
+@safe_callback
 async def on_toggle_service_type_general(
     _: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext
 ):

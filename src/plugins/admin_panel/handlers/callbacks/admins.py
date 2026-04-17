@@ -4,7 +4,11 @@ from pyrogram.types import CallbackQuery
 from src.core.bot import bot
 from src.db.repositories.admins import get_admins_for_chat
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
-from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, safe_edit
+from src.plugins.admin_panel.handlers.callbacks.common import (
+    _panel_lang_id,
+    safe_callback,
+    safe_edit,
+)
 from src.plugins.admin_panel.handlers.keyboards import admins_management_kb
 from src.utils.admin_cache import force_refresh
 from src.utils.i18n import at
@@ -12,6 +16,7 @@ from src.utils.i18n import at
 
 @bot.on_callback_query(filters.regex(r"^panel:admins_mgmt$"))
 @admin_panel_context
+@safe_callback
 async def on_admins_management(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = ap_ctx.chat_id
@@ -20,12 +25,9 @@ async def on_admins_management(_: Client, callback: CallbackQuery, ap_ctx: Admin
 
     from src.utils.admin_cache import get_chat_admins
 
-    # Ensure admins are cached/synced
     await get_chat_admins(bot, chat_id)
     admins = await get_admins_for_chat(ctx, chat_id)
 
-    # Format the table
-    # NAME | ROLE
     header = "`" + "NAME".ljust(15) + " | " + "ROLE".ljust(12) + "`\n"
     divider = "`" + "-" * 15 + " | " + "-" * 12 + "`\n"
 
@@ -56,6 +58,7 @@ async def on_admins_management(_: Client, callback: CallbackQuery, ap_ctx: Admin
 
 @bot.on_callback_query(filters.regex(r"^panel:admins_refresh:(-?\d+)$"))
 @admin_panel_context
+@safe_callback
 async def on_admins_refresh(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
     user_id = callback.from_user.id
     chat_id = int(callback.matches[0].group(1))
