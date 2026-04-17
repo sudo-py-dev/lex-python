@@ -665,17 +665,41 @@ class ChannelsPlugin(Plugin):
             await self._react_method_limiter.penalize(chat_key, seconds)
 
     async def _run_with_retry(
-        self, chat_id: int, method: str, op: Callable[[], Awaitable[None]]
+        self, chat_id: int, method: str, op: Callable[[], Awaitable[None]], max_retries: int = 3
     ) -> None:
-        """Throttle operation, retry once on FloodWait."""
-        await self._throttle_operation(chat_id, method)
-        try:
-            await op()
-        except FloodWait as e:
-            await self._on_floodwait(chat_id, method, float(e.value))
-            await asyncio.sleep(float(e.value) + 0.2)
+        """Throttle operation, retry on FloodWait and network timeouts with exponential backoff."""
+        import asyncio
+
+        from pyrogram.errors import TimeoutError
+
+        for attempt in range(max_retries):
             await self._throttle_operation(chat_id, method)
-            await op()
+            try:
+                await op()
+                return
+            except FloodWait as e:
+                await self._on_floodwait(chat_id, method, float(e.value))
+                await asyncio.sleep(float(e.value) + 0.2)
+                # Continue to next attempt (will throttle again)
+            except TimeoutError as e:
+                # Network timeout - retry with exponential backoff
+                if attempt < max_retries - 1:
+                    wait_time = (2**attempt) * 5  # 5s, 10s, 20s
+                    logger.warning(
+                        f"Network timeout on attempt {attempt + 1}/{max_retries}, waiting {wait_time}s: {e}"
+                    )
+                    await asyncio.sleep(wait_time)
+                else:
+                    raise
+            except Exception:
+                if attempt < max_retries - 1:
+                    wait_time = (2**attempt) * 2
+                    logger.warning(
+                        f"Error on attempt {attempt + 1}/{max_retries}, retrying in {wait_time}s"
+                    )
+                    await asyncio.sleep(wait_time)
+                else:
+                    raise
 
     def _is_real_image(self, path: str) -> bool:
         """Validate file exists and can be decoded as an image."""

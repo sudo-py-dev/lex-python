@@ -145,7 +145,9 @@ async def ai_message_handler(client: Client, message: Message):
                 if re.search(r"in ([\d\.]+)s", str(e))
                 else await at(cid, "ai.few")
             )
-            err = (await at(cid, "ai.rate_limit", seconds=f"{await at(cid, 'ai.latency_fmt_short', duration=w)}"))
+            err = await at(
+                cid, "ai.rate_limit", seconds=f"{await at(cid, 'ai.latency_fmt_short', duration=w)}"
+            )
         elif _is_request_too_large_error(e):
             await AIRepository.clear_context(ctx, cid)
             err = await at(cid, "ai.error_entity_too_large")

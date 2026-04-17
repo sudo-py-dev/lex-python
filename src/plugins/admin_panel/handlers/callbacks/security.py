@@ -99,7 +99,7 @@ async def on_captcha_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
             at_id,
             "panel.captcha_text",
             status=status,
-            mode=await at(at_id, f"mode.{s.captchaMode.lower()}"),
+            mode=await at(at_id, f"mode.{(s.captchaMode or 'button').lower()}"),
             timeout=s.captchaTimeout,
             action=await at(at_id, "action.ban"),
         ),
@@ -250,7 +250,7 @@ async def on_security_tgs(_: Client, callback: CallbackQuery, ap_ctx: AdminPanel
                 at_id,
                 "panel.captcha_text",
                 status=status,
-                mode=await at(at_id, f"mode.{s.captchaMode.lower()}"),
+                mode=await at(at_id, f"mode.{(s.captchaMode or 'button').lower()}"),
                 timeout=s.captchaTimeout,
                 action=await at(at_id, "action.ban"),
             ),
@@ -344,7 +344,8 @@ async def on_cycle_captcha_mode(_: Client, callback: CallbackQuery, ap_ctx: Admi
 
     async with ctx.db() as session:
         s = await get_chat_settings(ctx, chat_id)
-        s.captchaMode = cycle_action(s.captchaMode, CAPTCHA_MODES, default_action="button")
+        current_mode = s.captchaMode or "button"
+        s.captchaMode = cycle_action(current_mode, CAPTCHA_MODES, default_action="button")
         session.add(s)
         await session.commit()
     kb = await captcha_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)

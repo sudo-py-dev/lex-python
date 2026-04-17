@@ -57,14 +57,14 @@ async def ai_guard_handler(client: Client, message: Message):
             await asyncio.sleep(1.0)
 
             resp = await AIService.call_ai(
-            "groq",
-            s.apiKey,
-            config.AI_GUARD_MODEL,
-            AI_GUARD_SYSTEM_PROMPT,
-            None,
-            [{"role": "user", "content": AI_GUARD_TASK_PROMPT.format(user_input=text)}],
-            {"type": "json_object"},
-        )
+                "groq",
+                s.apiKey,
+                config.AI_GUARD_MODEL,
+                AI_GUARD_SYSTEM_PROMPT,
+                None,
+                [{"role": "user", "content": AI_GUARD_TASK_PROMPT.format(user_input=text)}],
+                {"type": "json_object"},
+            )
         res = json.loads(resp)
         cls, conf, rea = (
             str(res.get("classification", "HAM")).upper(),
@@ -119,27 +119,27 @@ async def ai_image_guard_handler(client: Client, message: Message):
             bio = io.BytesIO()
             await message.download(file_name=bio)
             resp = await AIService.call_ai(
-            "groq",
-            s.apiKey,
-            config.AI_GUARD_VISION_MODEL,
-            AI_IMAGE_GUARD_SYSTEM_PROMPT,
-            None,
-            [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": AI_IMAGE_GUARD_TASK_PROMPT},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{encode_image_to_base64(bio)}"
+                "groq",
+                s.apiKey,
+                config.AI_GUARD_VISION_MODEL,
+                AI_IMAGE_GUARD_SYSTEM_PROMPT,
+                None,
+                [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": AI_IMAGE_GUARD_TASK_PROMPT},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{encode_image_to_base64(bio)}"
+                                },
                             },
-                        },
-                    ],
-                }
-            ],
-            {"type": "json_object"},
-        )
+                        ],
+                    }
+                ],
+                {"type": "json_object"},
+            )
         res = json.loads(resp)
         cls, conf, rea = (
             str(res.get("classification", "HAM")).upper(),

@@ -68,8 +68,8 @@ def safe_callback(func):
             await asyncio.sleep(e.value + 1)
             return await wrapper(client, callback, *args, **kwargs)
         except (RPCError, Exception) as e:
-            # Log other errors and answer with a generic error if possible
-            logger.error(f"Error in {func.__name__}: {e}")
+            # Log other errors with full traceback and answer with a generic error if possible
+            logger.opt(exception=True).error(f"Error in {func.__name__}: {e}")
             with contextlib.suppress(Exception):
                 await callback.answer(
                     _plain(await at(callback.from_user.id, "panel.error_generic")), show_alert=True

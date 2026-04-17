@@ -488,8 +488,12 @@ async def on_moderation_cycle(c: Client, callback: CallbackQuery, ap_ctx: AdminP
     async with ctx.db() as session:
         s = await get_chat_settings(ctx, chat_id)
 
+        current_warn_action = s.warnAction or "kick"
+        current_warn_expiry = s.warnExpiry or "never"
+        current_warn_limit = s.warnLimit or 3
+
         if field == "warnAction":
-            nxt = cycle_action(s.warnAction, PUNISHMENT_ACTIONS, default_action="kick")
+            nxt = cycle_action(current_warn_action, PUNISHMENT_ACTIONS, default_action="kick")
             s.warnAction = nxt
             session.add(s)
             await session.commit()
@@ -501,14 +505,14 @@ async def on_moderation_cycle(c: Client, callback: CallbackQuery, ap_ctx: AdminP
                 await at(
                     at_id,
                     "panel.warns_text",
-                    limit=s.warnLimit,
+                    limit=current_warn_limit,
                     action=await at(at_id, f"action.{nxt}"),
-                    expiry=await at(at_id, f"expiry.{s.warnExpiry.lower()}"),
+                    expiry=await at(at_id, f"expiry.{current_warn_expiry.lower()}"),
                 ),
                 reply_markup=kb,
             )
         elif field == "warnExpiry":
-            nxt = cycle_action(s.warnExpiry, WARN_EXPIRY_OPTIONS, default_action="never")
+            nxt = cycle_action(current_warn_expiry, WARN_EXPIRY_OPTIONS, default_action="never")
             s.warnExpiry = nxt
             session.add(s)
             await session.commit()
@@ -520,8 +524,8 @@ async def on_moderation_cycle(c: Client, callback: CallbackQuery, ap_ctx: AdminP
                 await at(
                     at_id,
                     "panel.warns_text",
-                    limit=s.warnLimit,
-                    action=await at(at_id, f"action.{s.warnAction.lower()}"),
+                    limit=current_warn_limit,
+                    action=await at(at_id, f"action.{current_warn_action.lower()}"),
                     expiry=await at(at_id, f"expiry.{nxt}"),
                 ),
                 reply_markup=kb,

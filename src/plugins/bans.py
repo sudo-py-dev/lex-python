@@ -55,6 +55,7 @@ async def _execute_restriction(
 
     # Safety Check: Do not moderate self or other admins
     from src.utils.permissions import is_admin
+
     if uid == client.me.id:
         return await message.reply(await at(cid, "error.cant_restrict_self"))
     if await is_admin(client, cid, uid):

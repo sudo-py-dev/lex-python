@@ -187,6 +187,7 @@ async def run_group_cleaner(chat_id: int) -> None:
 
         try:
             from src.utils.local_cache import get_cache
+
             cache = get_cache()
             scan_key = f"cleaner_scan:{chat_id}"
             if await cache.exists(scan_key):

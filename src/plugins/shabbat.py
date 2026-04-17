@@ -34,7 +34,9 @@ async def shabbat_command(client, message: Message):
 
     if message.chat.type == filters.ChatType.PRIVATE:
         # For debug/sudo testing in PM
-        await message.reply("💡 Shabbat command works. It is intended for groups with a configured timezone.")
+        await message.reply(
+            "💡 Shabbat command works. It is intended for groups with a configured timezone."
+        )
         return
 
     settings = await get_chat_settings(ctx, chat_id)
@@ -57,9 +59,13 @@ async def shabbat_command(client, message: Message):
 
         fmt = "%H:%M"
         if is_active:
-            text = await at(chat_id, "shabbat.status_active", unlock_time=end.strftime(fmt), timezone=tzid)
+            text = await at(
+                chat_id, "shabbat.status_active", unlock_time=end.strftime(fmt), timezone=tzid
+            )
         else:
-            text = await at(chat_id, "shabbat.status_inactive", lock_time=start.strftime(fmt), timezone=tzid)
+            text = await at(
+                chat_id, "shabbat.status_inactive", lock_time=start.strftime(fmt), timezone=tzid
+            )
 
         await temp.edit(text)
         logger.info(f"SHABBAT: Command completed for chat {chat_id}")

@@ -24,6 +24,7 @@ from pyrogram.types import CallbackQuery, Message
 from src.utils.i18n import at
 from src.utils.permissions import Permission, check_user_permission, is_admin
 
+
 def get_sender_id(message: Message) -> int | None:
     """Resolve the effective user/chat ID of the message sender."""
     if message.from_user:

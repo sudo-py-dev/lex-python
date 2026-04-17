@@ -17,6 +17,10 @@ async def upsert_admin(
     privileges: dict[str, bool] | None = None,
 ) -> None:
     """Add or update an admin in the database."""
+    from src.db.repositories.chats import get_chat_settings
+
+    await get_chat_settings(ctx, chat_id)
+
     async with ctx.db() as session:
         admin = await session.get(ChatAdmin, (chat_id, user_id))
         if not admin:

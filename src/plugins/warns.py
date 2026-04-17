@@ -41,6 +41,7 @@ async def warn_handler(client: Client, message: Message, target_user: User) -> N
 
     # Safety Check: Do not moderate self or other admins
     from src.utils.permissions import is_admin
+
     if target_user.id == client.me.id:
         return await message.reply(await at(message.chat.id, "error.cant_restrict_self"))
     if await is_admin(client, message.chat.id, target_user.id):
