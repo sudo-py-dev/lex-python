@@ -74,5 +74,3 @@ logs/
 # UV
 .python-version
 .uv/
-
-alembic/
