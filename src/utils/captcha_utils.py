@@ -88,7 +88,7 @@ def generate_image_captcha(lang: str = "en"):
 
         localized_name = t(lang, f"captcha.object.{name}")
         if emoji_font:
-            draw.text(final_pos, emoji, font=emoji_font, embedded_color=True)
+            draw.text(final_pos, emoji, font=emoji_font)
         else:
             draw.text(final_pos, localized_name.upper(), font=text_font, fill=(0, 0, 0))
 

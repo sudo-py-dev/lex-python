@@ -65,6 +65,9 @@ class ChatSettings(TimestampMixin, Base):
         String(50), default="button", server_default=sa_text("'button'")
     )
     captchaTimeout: Mapped[int] = mapped_column(default=120, server_default=sa_text("120"))
+    captchaAction: Mapped[str] = mapped_column(
+        String(50), default="ban", server_default=sa_text("'ban'")
+    )
     logChannelId: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     logChannelName: Mapped[str | None] = mapped_column(Text, nullable=True)
     language: Mapped[str] = mapped_column(String(10), default="en", server_default=sa_text("'en'"))

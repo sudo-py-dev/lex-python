@@ -139,13 +139,17 @@ class TestCaptchaCycleHandler:
         )
 
         # Mock dependencies
-        with patch(
-            "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
-            return_value=True,
-        ), patch(
-            "src.plugins.admin_panel.handlers.callbacks.security.captcha_kb",
-            return_value=MagicMock(),
-        ), patch("src.utils.i18n.at", return_value="test"):
+        with (
+            patch(
+                "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
+                return_value=True,
+            ),
+            patch(
+                "src.plugins.admin_panel.handlers.callbacks.security.captcha_kb",
+                return_value=MagicMock(),
+            ),
+            patch("src.utils.i18n.at", return_value="test"),
+        ):
             await on_cycle_captcha_mode(mock_client, mock_callback, ap_ctx)
 
         # Verify mode was updated to math
@@ -174,13 +178,17 @@ class TestCaptchaCycleHandler:
             chat_title=None,
         )
 
-        with patch(
-            "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
-            return_value=True,
-        ), patch(
-            "src.plugins.admin_panel.handlers.callbacks.security.captcha_kb",
-            return_value=MagicMock(),
-        ), patch("src.utils.i18n.at", return_value="test"):
+        with (
+            patch(
+                "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
+                return_value=True,
+            ),
+            patch(
+                "src.plugins.admin_panel.handlers.callbacks.security.captcha_kb",
+                return_value=MagicMock(),
+            ),
+            patch("src.utils.i18n.at", return_value="test"),
+        ):
             await on_cycle_captcha_mode(mock_client, mock_callback, ap_ctx)
 
         # Verify chat was created and mode set to math (default button -> next is math)
@@ -219,13 +227,17 @@ class TestCaptchaCycleHandler:
             chat_title=None,
         )
 
-        with patch(
-            "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
-            return_value=True,
-        ), patch(
-            "src.plugins.admin_panel.handlers.callbacks.security.captcha_kb",
-            return_value=MagicMock(),
-        ), patch("src.utils.i18n.at", return_value="test"):
+        with (
+            patch(
+                "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
+                return_value=True,
+            ),
+            patch(
+                "src.plugins.admin_panel.handlers.callbacks.security.captcha_kb",
+                return_value=MagicMock(),
+            ),
+            patch("src.utils.i18n.at", return_value="test"),
+        ):
             await on_cycle_captcha_mode(mock_client, mock_callback, ap_ctx)
 
         # Verify mode wrapped to button
@@ -233,9 +245,7 @@ class TestCaptchaCycleHandler:
         assert result.captchaMode == "button"
 
     @pytest.mark.asyncio
-    async def test_captcha_cycle_handles_none_mode(
-        self, mock_client, mock_callback, db_session
-    ):
+    async def test_captcha_cycle_handles_none_mode(self, mock_client, mock_callback, db_session):
         """Test handling when captchaMode is None in database."""
         # Setup chat with None captchaMode
         chat = ChatSettings(
@@ -263,13 +273,17 @@ class TestCaptchaCycleHandler:
             chat_title=None,
         )
 
-        with patch(
-            "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
-            return_value=True,
-        ), patch(
-            "src.plugins.admin_panel.handlers.callbacks.security.captcha_kb",
-            return_value=MagicMock(),
-        ), patch("src.utils.i18n.at", return_value="test"):
+        with (
+            patch(
+                "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
+                return_value=True,
+            ),
+            patch(
+                "src.plugins.admin_panel.handlers.callbacks.security.captcha_kb",
+                return_value=MagicMock(),
+            ),
+            patch("src.utils.i18n.at", return_value="test"),
+        ):
             await on_cycle_captcha_mode(mock_client, mock_callback, ap_ctx)
 
         # Verify mode set to math (default button -> next is math)
@@ -277,9 +291,7 @@ class TestCaptchaCycleHandler:
         assert result.captchaMode == "math"
 
     @pytest.mark.asyncio
-    async def test_captcha_cycle_no_permission_denied(
-        self, mock_client, mock_callback, db_session
-    ):
+    async def test_captcha_cycle_no_permission_denied(self, mock_client, mock_callback, db_session):
         """Test that users without permission are denied."""
         # Setup existing chat
         chat = ChatSettings(
@@ -307,10 +319,13 @@ class TestCaptchaCycleHandler:
         )
 
         # Mock permission check to return False
-        with patch(
-            "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
-            return_value=False,
-        ), patch("src.utils.i18n.at", return_value="No permission"):
+        with (
+            patch(
+                "src.plugins.admin_panel.handlers.callbacks.security.check_user_permission",
+                return_value=False,
+            ),
+            patch("src.utils.i18n.at", return_value="No permission"),
+        ):
             await on_cycle_captcha_mode(mock_client, mock_callback, ap_ctx)
 
         # Verify mode was NOT changed

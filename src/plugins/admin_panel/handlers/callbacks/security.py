@@ -14,6 +14,7 @@ from src.plugins.admin_panel.handlers.keyboards import flood_kb
 from src.plugins.admin_panel.handlers.security_kbs import captcha_kb, raid_kb, url_scanner_kb
 from src.plugins.admin_panel.repository import get_chat_settings, toggle_setting
 from src.utils.actions import (
+    CAPTCHA_ACTIONS,
     CAPTCHA_MODES,
     FLOOD_ACTIONS,
     RAID_ACTIONS,
@@ -360,7 +361,52 @@ async def on_cycle_captcha_mode(_: Client, callback: CallbackQuery, ap_ctx: Admi
             status=status,
             mode=await at(at_id, f"mode.{s.captchaMode.lower()}"),
             timeout=s.captchaTimeout,
-            action=await at(at_id, "action.ban"),
+            action=await at(at_id, f"action.{(s.captchaAction or 'ban').lower()}"),
+        ),
+        reply_markup=kb,
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:cycle:captchaAction$"))
+@admin_panel_context
+@safe_callback
+async def on_cycle_captcha_action(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
+    chat_id = ap_ctx.chat_id
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+    ctx = ap_ctx.ctx
+
+    async with ctx.db() as session:
+        from src.db.models import ChatSettings
+
+        s = await session.get(ChatSettings, chat_id)
+        if not s:
+            s = ChatSettings(id=chat_id)
+            session.add(s)
+
+        current_action = s.captchaAction or "ban"
+        s.captchaAction = cycle_action(current_action, CAPTCHA_ACTIONS, default_action="ban")
+        await session.commit()
+        await session.refresh(s)
+    kb = await captcha_kb(ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None)
+    status = await at(
+        at_id, "panel.status_enabled" if s.captchaEnabled else "panel.status_disabled"
+    )
+    await safe_edit(
+        callback,
+        await at(
+            at_id,
+            "panel.captcha_text",
+            status=status,
+            mode=await at(at_id, f"mode.{(s.captchaMode or 'button').lower()}"),
+            timeout=s.captchaTimeout,
+            action=await at(at_id, f"action.{(s.captchaAction or 'ban').lower()}"),
         ),
         reply_markup=kb,
     )

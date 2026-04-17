@@ -32,6 +32,7 @@ from src.utils.captcha_utils import (
 from src.utils.decorators import safe_handler
 from src.utils.i18n import at, resolve_lang
 from src.utils.input import finalize_input_capture, is_waiting_for_input
+from src.utils.moderation import _apply_punishment
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
     UNRESTRICTED_PERMISSIONS,
@@ -139,6 +140,8 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
                     "first_name": m.first_name,
                     "username": m.username,
                     "chat_title": message.chat.title,
+                    "timeout": s.captchaTimeout,
+                    "action": s.captchaAction or "ban",
                 }
                 if ans is not None:
                     d["answer"] = ans
@@ -233,13 +236,25 @@ async def captcha_img_choice_handler(client: Client, callback: CallbackQuery) ->
     if not (raw := await ctx.cache.get(CacheKeys.captcha(cid, tuid))):
         return await callback.answer(await at(cid, "captcha.expired"), show_alert=True)
     d = json.loads(raw)
+
+    if d.get("failed"):
+        return await callback.answer(await at(cid, "captcha.locked"), show_alert=True)
+
     if d.get("id_map", {}).get(choice, "").upper() == d.get("answer", "").upper():
         await _handle_captcha_success(
             client, cid, callback.from_user, d["msg_id"], d.get("chat_title", "")
         )
         await callback.answer(await at(cid, "captcha.success"))
     else:
-        await callback.answer(await at(cid, "captcha.wrong_choice"), show_alert=True)
+        # Mark as failed and apply configured action after 1 wrong attempt
+        d["failed"] = True
+        await ctx.cache.set(CacheKeys.captcha(cid, tuid), json.dumps(d), ttl=d.get("timeout", 120))
+
+        action = d.get("action", "ban")
+        await callback.answer(await at(cid, f"captcha.wrong_choice_{action}"), show_alert=True)
+
+        with contextlib.suppress(Exception):
+            await _apply_punishment(client, cid, tuid, action)
 
 
 @bot.on_raw_update(group=-100)
@@ -275,9 +290,9 @@ async def _handle_captcha_success(client: Client, cid: int, user, mid: int, titl
     try:
         await client.restrict_chat_member(cid, user.id, UNRESTRICTED_PERMISSIONS)
         await client.delete_messages(cid, mid)
-        from src.plugins.welcome import send_welcome
+        from src.plugins.welcome import send_welcome_goodbye
 
-        await send_welcome(client, cid, title, user)
+        await send_welcome_goodbye(client, cid, title, user, is_welcome=True)
     except (BadRequest, Forbidden):
         pass
     except FloodWait as e:

@@ -176,6 +176,12 @@ CAPTCHA_MODES = [
     CaptchaMode.IMAGE,
 ]
 
+CAPTCHA_ACTIONS = [
+    ModerationAction.BAN,
+    ModerationAction.KICK,
+    ModerationAction.MUTE,
+]
+
 FLOOD_ACTIONS = PUNISHMENT_ACTIONS
 
 REACTION_MODES = [

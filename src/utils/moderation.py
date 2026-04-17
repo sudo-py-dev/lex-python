@@ -98,14 +98,8 @@ async def execute_moderation_action(
         else:
             apply_punishment = action
 
-        if apply_punishment == ModerationAction.BAN:
-            await client.ban_chat_member(message.chat.id, user_id)
-        elif apply_punishment == ModerationAction.KICK:
-            await client.ban_chat_member(
-                message.chat.id, user_id, until_date=datetime.now() + timedelta(minutes=1)
-            )
-        elif apply_punishment == ModerationAction.MUTE:
-            await client.restrict_chat_member(message.chat.id, user_id, RESTRICTED_PERMISSIONS)
+        if apply_punishment:
+            await _apply_punishment(client, message.chat.id, user_id, apply_punishment)
 
         warn_msg = await client.send_message(
             message.chat.id,
@@ -142,3 +136,22 @@ async def _delete_after(msg: Message, delay: int) -> None:
     await asyncio.sleep(delay)
     with contextlib.suppress(RPCError, Exception):
         await msg.delete()
+
+
+async def _apply_punishment(
+    client: Client,
+    chat_id: int,
+    user_id: int,
+    action: str,
+) -> None:
+    """Apply a punishment action (ban, kick, mute) to a user."""
+    action = action.lower()
+
+    if action == ModerationAction.BAN:
+        await client.ban_chat_member(chat_id, user_id)
+    elif action == ModerationAction.KICK:
+        await client.ban_chat_member(
+            chat_id, user_id, until_date=datetime.now() + timedelta(minutes=1)
+        )
+    elif action == ModerationAction.MUTE:
+        await client.restrict_chat_member(chat_id, user_id, RESTRICTED_PERMISSIONS)

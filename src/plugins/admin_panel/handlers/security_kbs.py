@@ -87,6 +87,18 @@ async def captcha_kb(ctx, chat_id: int, user_id: int | None = None) -> InlineKey
             ],
             [
                 InlineKeyboardButton(
+                    await at(
+                        at_id,
+                        "common.btn_action",
+                        action=await at(
+                            at_id, f"action.{(settings.captchaAction or 'ban').lower()}"
+                        ),
+                    ),
+                    callback_data="panel:cycle:captchaAction",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     await at(at_id, "panel.btn_back"), callback_data="panel:category:security"
                 )
             ],
