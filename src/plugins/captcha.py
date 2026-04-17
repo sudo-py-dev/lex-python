@@ -110,10 +110,16 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
                         for x in (0, 2)
                     ]
                 )
+                target_emoji = CAPTCHA_OBJECTS.get(ans, "")
                 msg = await client.send_photo(
                     message.chat.id,
                     img,
-                    caption=await at(message.chat.id, "captcha.image_prompt", mention=m.mention),
+                    caption=await at(
+                        message.chat.id,
+                        "captcha.image_prompt",
+                        mention=m.mention,
+                        target=target_emoji,
+                    ),
                     reply_markup=kb,
                 )
                 m_id = msg.id

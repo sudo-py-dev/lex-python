@@ -56,7 +56,7 @@
   "captcha.button": "✅ I am human",
   "captcha.error": "❌ An error occurred during verification.",
   "captcha.expired": "❌ CAPTCHA expired or already verified.",
-  "captcha.image_prompt": "Hello {mention}, please tap the icon that is circled in the image below:",
+  "captcha.image_prompt": "Hello {mention}, please tap the {target} icon that is circled in the image below:",
   "captcha.locked": "❌ You already failed this captcha. You cannot try again.",
   "captcha.math_prompt": "Hello {mention}, please solve this problem to get write permission:\n\n`{problem}`",
   "captcha.message": "🚨 **CAPTCHA Verification** 🚨\n\nWelcome {mention}! Please verify that you are human before you can speak.",

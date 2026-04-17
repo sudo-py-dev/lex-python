@@ -56,7 +56,7 @@
   "captcha.button": "✅ אני אנושי",
   "captcha.error": "❌ אירעה שגיאה במהלך האימות.",
   "captcha.expired": "❌ CAPTCHA פג או כבר אומת.",
-  "captcha.image_prompt": "שלום {mention}, אנא הקש על הסמל שמוקף בתמונה למטה:",
+  "captcha.image_prompt": "שלום {mention}, אנא הקש על הסמל {target} שמוקף בתמונה למטה:",
   "captcha.locked": "❌ כבר נכשלת בקאפצ'ה הזה. אינך יכול לנסות שוב.",
   "captcha.math_prompt": "שלום {mention}, אנא פתור את הבעיה הזו כדי לקבל הרשאת כתיבה:\n\n`{problem}`",
   "captcha.message": "🚨 **אימות CAPTCHA** 🚨\n\nברוך הבא {mention}! אנא ודא שאתה אנושי לפני שאתה יכול לדבר.",
