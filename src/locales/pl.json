@@ -630,6 +630,7 @@
   "panel.pick_chat": "🏙️ **Wybierz czat**\nWybierz czat, aby rozpocząć konfigurowanie jego ustawień.",
   "panel.pick_group": "🏙️ **Wybierz grupę**\nWybierz grupę, aby rozpocząć konfigurowanie jej ustawień.",
   "panel.picker_header": "🕒 **Wybierz strefę czasową (strona {page}/{total})**",
+  "panel.promotion_notify": "🎊 **Gratulacje!** Jesteś teraz administratorem **{title}**.\n\nMożesz użyć poniższego pulpitu nawigacyjnego, aby zarządzać ustawieniami tego czatu bezpośrednio tutaj:",
   "panel.purge_in_progress": "🧹 **Polecenie administratora**: Czyszczenie w toku...",
   "panel.raid_text": "🚨 **Ustawienia trybu szturmu**\nAutomatycznie chroń czat przed masowymi przyłączami do botnetu.\n\nWłączono: {status}\nPróg: {threshold} przyłącza na {window}s\nAkcja: {action}",
   "panel.redirect_pm_text": "⚙️ **Panel administracyjny**\nKliknij poniższy przycisk, aby bezpiecznie zarządzać ustawieniami tej grupy na prywatnym czacie.",

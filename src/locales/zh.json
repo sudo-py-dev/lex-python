@@ -630,6 +630,7 @@
   "panel.pick_chat": "🏙️ **选择聊天**\n请选择一个聊天以开始配置其设置。",
   "panel.pick_group": "🏙️ **Select a Group**\n请选择一个组以开始配置其设置。",
   "panel.picker_header": "🕒 **选择时区（页面 {page}/{total}）**",
+  "panel.promotion_notify": "🎊 **恭喜！** 您现在是 **{title}** 的管理员。\n\n您可以使用下面的仪表板直接从此处管理此聊天的设置：",
   "panel.purge_in_progress": "🧹 **管理命令**：清除正在进行中...",
   "panel.raid_text": "🚨 **突袭模式设置**\n自动保护聊天免受大规模僵尸网络加入的影响。\n\n启用：{status}\n阈值：每 {window} 秒加入 {threshold} 次\n行动：{action}",
   "panel.redirect_pm_text": "⚙️ **管理面板**\n单击下面的按钮可在您的私人聊天中安全地管理该群组的设置。",

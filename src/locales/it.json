@@ -630,6 +630,7 @@
   "panel.pick_chat": "🏙️ **Seleziona una chat**\nSeleziona una chat per iniziare a configurarne le impostazioni.",
   "panel.pick_group": "🏙️ **Seleziona un gruppo**\nSeleziona un gruppo per iniziare a configurarne le impostazioni.",
   "panel.picker_header": "🕒 **Seleziona fuso orario (Pagina {page}/{total})**",
+  "panel.promotion_notify": "🎊 **Congratulazioni!** Ora sei un amministratore di **{title}**.\n\nPuoi utilizzare la dashboard qui sotto per gestire le impostazioni di questa chat direttamente da qui:",
   "panel.purge_in_progress": "🧹 **Comando amministratore**: Eliminazione in corso...",
   "panel.raid_text": "🚨 **Impostazioni modalità Raid**\nProteggi automaticamente la chat da massicce connessioni a botnet.\n\nAbilitato: {status}\nSoglia: {threshold} join ogni {window}s\nAzione: {action}",
   "panel.redirect_pm_text": "⚙️ **Pannello di amministrazione**\nFai clic sul pulsante in basso per gestire le impostazioni di questo gruppo in modo sicuro nella tua chat privata.",

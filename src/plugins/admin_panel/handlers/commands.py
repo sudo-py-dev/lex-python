@@ -52,6 +52,19 @@ async def open_settings_panel(
             await message.reply(await at(user_id, "panel.my_groups_title"), reply_markup=kb)
         return
 
+    await send_admin_dashboard(client, user_id, chat_id, chat_type=chat_type, is_pm=is_pm)
+
+
+async def send_admin_dashboard(
+    client: Client,
+    user_id: int,
+    chat_id: int,
+    chat_type: ChatType | str | None = None,
+    is_pm: bool = True,
+    text_key: str | None = None,
+) -> None:
+    """Send the main admin dashboard to a user in private chat."""
+    ctx = get_context()
     from ..repository import get_chat_info
 
     chat_type_obj, chat_title = await get_chat_info(ctx, chat_id)
@@ -62,13 +75,14 @@ async def open_settings_panel(
         from .keyboards import channel_settings_kb
 
         kb = await channel_settings_kb(ctx, chat_id, user_id if is_pm else None)
-        main_text_key = "panel.main_text_channel"
+        main_text_key = text_key or "panel.main_text_channel"
     else:
         kb = await main_menu_kb(chat_id, user_id if is_pm else None, chat_type=chat_type)
-        main_text_key = "panel.main_text"
+        main_text_key = text_key or "panel.main_text"
 
     await client.send_message(
         user_id,
         await at(user_id if is_pm else chat_id, main_text_key, title=chat_title),
         reply_markup=kb,
     )
+

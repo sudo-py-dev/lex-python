@@ -629,6 +629,7 @@
   "panel.not_set": "Not Set",
   "panel.pick_chat": "🏙️ **Select a Chat**\nPlease select a chat to begin configuring its settings.",
   "panel.pick_group": "🏙️ **Select a Group**\nPlease select a group to begin configuring its settings.",
+  "panel.promotion_notify": "🎊 **Congratulations!** You are now an administrator of **{title}**.\n\nYou can use the dashboard below to manage settings for this chat directly from here:",
   "panel.picker_header": "🕒 **Select Timezone (Page {page}/{total})**",
   "panel.purge_in_progress": "🧹 **Admin Command**: Purge in progress...",
   "panel.raid_text": "🛡 **AntiRaid Settings**\n\n**Status:** {status}\n**Threshold:** {threshold} joins/min\n**Active Duration:** {time}\n**Punishment:** {action} for {actiontime}\n\nConfigure how the bot handles join spam.",

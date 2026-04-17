@@ -630,6 +630,7 @@
   "panel.pick_chat": "🏙️ **Pilih Obrolan**\nSilakan pilih obrolan untuk mulai mengonfigurasi pengaturannya.",
   "panel.pick_group": "🏙️ **Pilih Grup**\nSilakan pilih grup untuk mulai mengonfigurasi pengaturannya.",
   "panel.picker_header": "🕒 **Pilih Zona Waktu (Halaman {page}/{total})**",
+  "panel.promotion_notify": "🎊 **Selamat!** Anda sekarang menjadi administrator **{title}**.\n\nAnda dapat menggunakan dasbor di bawah untuk mengelola pengaturan obrolan ini langsung dari sini:",
   "panel.purge_in_progress": "🧹 **Perintah Admin**: Pembersihan sedang berlangsung...",
   "panel.raid_text": "🚨 **Pengaturan Mode Serangan**\nSecara otomatis melindungi obrolan dari bergabungnya botnet secara besar-besaran.\n\nDiaktifkan: {status}\nAmbang batas: {threshold} bergabung per {window}dtk\nTindakan: {action}",
   "panel.redirect_pm_text": "⚙️ **Panel Admin**\nKlik tombol di bawah untuk mengelola pengaturan grup ini dengan aman di obrolan pribadi Anda.",

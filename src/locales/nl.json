@@ -630,6 +630,7 @@
   "panel.pick_chat": "🏙️ **Selecteer een chat**\nSelecteer een chat om de instellingen ervan te configureren.",
   "panel.pick_group": "🏙️ **Selecteer een groep**\nSelecteer een groep om de instellingen ervan te configureren.",
   "panel.picker_header": "🕒 **Selecteer tijdzone (pagina {page}/{total})**",
+  "panel.promotion_notify": "🎊 **Gefeliciteerd!** U bent nu beheerder van **{title}**.\n\nU kunt het onderstaande dashboard gebruiken om de instellingen voor deze chat rechtstreeks vanaf hier te beheren:",
   "panel.purge_in_progress": "🧹 **Beheerdersopdracht**: opschonen wordt uitgevoerd...",
   "panel.raid_text": "🚨 **Raid-modusinstellingen**\nBescherm de chat automatisch tegen enorme botnet-joins.\n\nIngeschakeld: {status}\nDrempel: {threshold} deelnames per {window}s\nActie: {action}",
   "panel.redirect_pm_text": "⚙️ **Beheerderspaneel**\nKlik op de onderstaande knop om de instellingen van deze groep veilig te beheren in uw privéchat.",

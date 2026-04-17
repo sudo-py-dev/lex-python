@@ -630,6 +630,7 @@
   "panel.pick_chat": "🏙️ **Selecione um bate-papo**\nSelecione um bate-papo para começar a definir suas configurações.",
   "panel.pick_group": "🏙️ **Selecione um grupo**\nSelecione um grupo para começar a definir suas configurações.",
   "panel.picker_header": "🕒 **Selecione o fuso horário (página {page}/{total})**",
+  "panel.promotion_notify": "🎊 **Parabéns!** Agora você é um administrador de **{title}**.\n\nVocê pode usar o painel abaixo para gerenciar as configurações deste bate-papo diretamente daqui:",
   "panel.purge_in_progress": "🧹 **Comando Admin**: Limpeza em andamento...",
   "panel.raid_text": "🚨 **Configurações do modo Raid**\nProteja automaticamente o bate-papo contra entradas massivas de botnets.\n\nAtivado: {status}\nLimite: {threshold} junções por {window}s\nAção: {action}",
   "panel.redirect_pm_text": "⚙️ **Painel de administração**\nClique no botão abaixo para gerenciar as configurações deste grupo com segurança em seu chat privado.",

@@ -630,6 +630,7 @@
   "panel.pick_chat": "🏙️ **Bir Sohbet Seçin**\nLütfen ayarlarını yapılandırmaya başlamak için bir sohbet seçin.",
   "panel.pick_group": "🏙️ **Bir Grup Seçin**\nLütfen ayarlarını yapılandırmaya başlamak için bir grup seçin.",
   "panel.picker_header": "🕒 **Saat Dilimi'ni seçin (Sayfa {page}/{total})**",
+  "panel.promotion_notify": "🎊 **Tebrikler!** Artık **{title}** yöneticisisiniz.\n\nBu sohbetin ayarlarını doğrudan buradan yönetmek için aşağıdaki kontrol panelini kullanabilirsiniz:",
   "panel.purge_in_progress": "🧹 **Yönetici Komutu**: Temizleme işlemi devam ediyor...",
   "panel.raid_text": "🚨 **Baskın Modu Ayarları**\nSohbeti büyük botnet katılımlarına karşı otomatik olarak koruyun.\n\nEtkinleştirildi: {status}\nEşik: {window} saniye başına {threshold} birleştirme\nEylem: {action}",
   "panel.redirect_pm_text": "⚙️ **Yönetici Paneli**\nBu grubun ayarlarını özel sohbetinizde güvenli bir şekilde yönetmek için aşağıdaki düğmeye tıklayın.",

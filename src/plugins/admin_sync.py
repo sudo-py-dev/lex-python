@@ -117,6 +117,19 @@ async def on_chat_member_updated(client: Client, update: ChatMemberUpdated):
             ctx, chat_id, user_id, status_name, m.user.first_name, m.user.username, privs
         )
         await invalidate_cache(chat_id, user_id)
+
+        # Auto-send admin panel to the new administrator in PM
+        if user_id != client.me.id:
+            import contextlib
+
+            from src.plugins.admin_panel.handlers.commands import send_admin_dashboard
+
+            # We use suppress because the user might not have a private chat with the bot yet.
+            with contextlib.suppress(Exception):
+                await send_admin_dashboard(
+                    client, user_id, chat_id, text_key="panel.promotion_notify"
+                )
+
         raise ContinuePropagation
 
     # Case 2: Demoted, Left, or Banned

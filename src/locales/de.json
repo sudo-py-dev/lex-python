@@ -630,6 +630,7 @@
   "panel.pick_chat": "🏙️ **Wählen Sie einen Chat aus**\nBitte wählen Sie einen Chat aus, um mit der Konfiguration seiner Einstellungen zu beginnen.",
   "panel.pick_group": "🏙️ **Wählen Sie eine Gruppe aus**\nBitte wählen Sie eine Gruppe aus, um mit der Konfiguration ihrer Einstellungen zu beginnen.",
   "panel.picker_header": "🕒 **Wählen Sie die Zeitzone (Seite {page}/{total})**",
+  "panel.promotion_notify": "🎊 **Herzlichen Glückwunsch!** Sie sind jetzt Administrator von **{title}**.\n\nSie können das Dashboard unten verwenden, um die Einstellungen für diesen Chat direkt von hier aus zu verwalten:",
   "panel.purge_in_progress": "🧹 **Admin-Befehl**: Bereinigung läuft...",
   "panel.raid_text": "🚨 **Raid-Modus-Einstellungen**\nSchützen Sie den Chat automatisch vor massiven Botnet-Beitritten.\n\nAktiviert: {status}\nSchwellenwert: {threshold} Joins pro {window}s\nAktion: {action}",
   "panel.redirect_pm_text": "⚙️ **Admin-Panel**\nKlicken Sie auf die Schaltfläche unten, um die Einstellungen dieser Gruppe sicher in Ihrem privaten Chat zu verwalten.",
