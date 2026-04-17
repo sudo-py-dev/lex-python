@@ -45,6 +45,14 @@ class SchedulerRepository:
             return result.scalars().all()
 
     @staticmethod
+    async def get_active_night_locks(ctx: AppContext):
+        """Fetch all enabled night locks."""
+        async with ctx.db() as session:
+            stmt = select(ChatNightLock).where(ChatNightLock.isEnabled)
+            result = await session.execute(stmt)
+            return result.scalars().all()
+
+    @staticmethod
     async def get_active_group_cleaners(ctx: AppContext):
         """Fetch all group cleaners (currently all are active if they exist)."""
         async with ctx.db() as session:
