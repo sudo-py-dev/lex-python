@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ הוסף שפה",
   "panel.btn_add_reminder": "➕ הוסף תזכורת",
   "panel.btn_add_sticker": "➕ חסימת חבילת מדבקות",
+  "panel.btn_add_to_channel": "➕ הוסף לערוץ חדש",
+  "panel.btn_add_to_group": "➕ הוסף לקבוצה חדשה",
   "panel.btn_admins_mgmt": "ניהול מנהלים 👮",
   "panel.btn_ai_clear_ctx": "🧹 ניקוי היסטוריית AI",
   "panel.btn_ai_custom_model": "✏️ מזהה דגם אישי",

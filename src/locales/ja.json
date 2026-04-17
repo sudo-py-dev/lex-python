@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ 言語を追加",
   "panel.btn_add_reminder": "➕ リマインダーを追加",
   "panel.btn_add_sticker": "➕ ステッカーを追加",
+  "panel.btn_add_to_channel": "➕ 新しいチャンネルに追加",
+  "panel.btn_add_to_group": "➕ 新しいグループに追加",
   "panel.btn_admins_mgmt": "管理者管理 👮",
   "panel.btn_ai_clear_ctx": "🧹 記憶をクリア",
   "panel.btn_ai_custom_model": "✏️ カスタム モデル ID",

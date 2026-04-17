@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ Taal toevoegen",
   "panel.btn_add_reminder": "➕ Herinnering toevoegen",
   "panel.btn_add_sticker": "➕ Sticker toevoegen",
+  "panel.btn_add_to_channel": "➕ Toevoegen aan een nieuw kanaal",
+  "panel.btn_add_to_group": "➕ Toevoegen aan een nieuwe groep",
   "panel.btn_admins_mgmt": "Beheerdersbeheer 👮",
   "panel.btn_ai_clear_ctx": "🧹 Geheugen wissen",
   "panel.btn_ai_custom_model": "✏️ Aangepaste model-ID",

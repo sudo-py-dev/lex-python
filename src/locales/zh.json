@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ 添加语言",
   "panel.btn_add_reminder": "➕ 添加提醒",
   "panel.btn_add_sticker": "➕ 添加贴纸",
+  "panel.btn_add_to_channel": "➕ 添加到新频道",
+  "panel.btn_add_to_group": "➕ 添加到新组",
   "panel.btn_admins_mgmt": "管理员管理 👮",
   "panel.btn_ai_clear_ctx": "🧹清除内存",
   "panel.btn_ai_custom_model": "✏️ 自定义模型 ID",

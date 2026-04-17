@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ 언어 추가",
   "panel.btn_add_reminder": "➕ 알림 추가",
   "panel.btn_add_sticker": "➕ 스티커 추가",
+  "panel.btn_add_to_channel": "➕ 새 채널에 추가",
+  "panel.btn_add_to_group": "➕ 새 그룹에 추가",
   "panel.btn_admins_mgmt": "관리자 관리 👮",
   "panel.btn_ai_clear_ctx": "🧹 기억 지우기",
   "panel.btn_ai_custom_model": "✏️ 맞춤 모델 ID",

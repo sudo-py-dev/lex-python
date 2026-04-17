@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ Dil Ekle",
   "panel.btn_add_reminder": "➕ Hatırlatıcı Ekle",
   "panel.btn_add_sticker": "➕ Çıkartma Ekle",
+  "panel.btn_add_to_channel": "➕ Yeni Bir Kanala Ekle",
+  "panel.btn_add_to_group": "➕ Yeni Bir Gruba Ekle",
   "panel.btn_admins_mgmt": "Yönetici Yönetimi 👮",
   "panel.btn_ai_clear_ctx": "🧹 Belleği Temizle",
   "panel.btn_ai_custom_model": "✏️ Özel Model Kimliği",

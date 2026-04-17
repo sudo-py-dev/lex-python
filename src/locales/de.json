@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ Sprache hinzufügen",
   "panel.btn_add_reminder": "➕ Erinnerung hinzufügen",
   "panel.btn_add_sticker": "➕ Aufkleber hinzufügen",
+  "panel.btn_add_to_channel": "➕ Zu einem neuen Kanal hinzufügen",
+  "panel.btn_add_to_group": "➕ Zu einer neuen Gruppe hinzufügen",
   "panel.btn_admins_mgmt": "Admins-Management 👮",
   "panel.btn_ai_clear_ctx": "🧹 Speicher löschen",
   "panel.btn_ai_custom_model": "✏️ Benutzerdefinierte Modell-ID",

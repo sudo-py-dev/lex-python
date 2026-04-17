@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ भाषा जोड़ें",
   "panel.btn_add_reminder": "➕ अनुस्मारक जोड़ें",
   "panel.btn_add_sticker": "➕ स्टिकर जोड़ें",
+  "panel.btn_add_to_channel": "➕ एक नए चैनल में जोड़ें",
+  "panel.btn_add_to_group": "➕ एक नए समूह में जोड़ें",
   "panel.btn_admins_mgmt": "व्यवस्थापक प्रबंधन 👮",
   "panel.btn_ai_clear_ctx": "🧹 मेमोरी साफ़ करें",
   "panel.btn_ai_custom_model": "✏️ कस्टम मॉडल आईडी",

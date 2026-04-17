@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ Tambahkan Bahasa",
   "panel.btn_add_reminder": "➕ Tambahkan Pengingat",
   "panel.btn_add_sticker": "➕ Tambahkan Stiker",
+  "panel.btn_add_to_channel": "➕ Tambahkan ke Saluran Baru",
+  "panel.btn_add_to_group": "➕ Tambahkan ke Grup Baru",
   "panel.btn_admins_mgmt": "Manajemen Admin 👮",
   "panel.btn_ai_clear_ctx": "🧹 Hapus Memori",
   "panel.btn_ai_custom_model": "✏️ ID Model Khusus",

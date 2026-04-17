@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ إضافة لغة",
   "panel.btn_add_reminder": "➕ إضافة تذكير",
   "panel.btn_add_sticker": "➕ إضافة ملصق",
+  "panel.btn_add_to_channel": "➕ إضافة إلى قناة جديدة",
+  "panel.btn_add_to_group": "➕ إضافة إلى مجموعة جديدة",
   "panel.btn_admins_mgmt": "إدارة المشرفين 👮",
   "panel.btn_ai_clear_ctx": "🧹 مسح الذاكرة",
   "panel.btn_ai_custom_model": "✏️ معرف النموذج المخصص",

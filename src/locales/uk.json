@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ Додати мову",
   "panel.btn_add_reminder": "➕ Додати нагадування",
   "panel.btn_add_sticker": "➕ Додати стікер",
+  "panel.btn_add_to_channel": "➕ Додати до нового каналу",
+  "panel.btn_add_to_group": "➕ Додати до нової групи",
   "panel.btn_admins_mgmt": "Керування адміністраторами 👮",
   "panel.btn_ai_clear_ctx": "🧹 Очистити пам'ять",
   "panel.btn_ai_custom_model": "✏️ Спеціальний ідентифікатор моделі",

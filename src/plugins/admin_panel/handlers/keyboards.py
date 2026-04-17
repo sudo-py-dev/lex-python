@@ -349,12 +349,21 @@ async def my_groups_kb(ctx, client, user_id: int) -> InlineKeyboardMarkup:
     buttons = [
         [
             InlineKeyboardButton(
+                await at(user_id, "panel.btn_add_to_group"),
+                url=f"https://t.me/{client.me.username}?startgroup=true",
+            )
+        ]
+    ]
+
+    buttons.extend(
+        [
+            InlineKeyboardButton(
                 await at(user_id, "panel.chat_list_item", title=title),
                 callback_data=f"panel:select_chat:{chat_id}",
             )
         ]
         for chat_id, title in groups
-    ]
+    )
     buttons.append(
         [
             InlineKeyboardButton(
@@ -956,7 +965,15 @@ async def get_pager(
 async def channels_menu_kb(ctx, client, user_id: int) -> InlineKeyboardMarkup:
     """List of channels where both user and bot are admins."""
     channels = await get_user_admin_chats(ctx, client, user_id, chat_type=[ChatType.CHANNEL])
-    buttons = []
+    buttons = [
+        [
+            InlineKeyboardButton(
+                await at(user_id, "panel.btn_add_to_channel"),
+                url=f"https://t.me/{client.me.username}?startchannel=true",
+            )
+        ]
+    ]
+
     for ch_id, title in channels:
         buttons.append(
             [

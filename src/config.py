@@ -33,7 +33,7 @@ class Config:
     DEV_NAME: str = "sudo-py-dev"
     DEV_URL: str = "https://github.com/sudo-py-dev"
     VERSION: str = "0.0.1"
-    SUPPORT_URL: str = "https://www.buymeacoffee.com/sudo-py-dev"
+    SUPPORT_URL: str = "https://www.buymeacoffee.com/chatmagen"
     GITHUB_SPONSORS_URL: str = "https://github.com/sponsors/sudo-py-dev"
 
     # Feature Flags and Limits

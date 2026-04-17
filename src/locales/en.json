@@ -405,6 +405,8 @@
   "panel.btn_add_langblock": "➕ Add Language",
   "panel.btn_add_reminder": "➕ Add Reminder",
   "panel.btn_add_sticker": "➕ Block a Sticker Set",
+  "panel.btn_add_to_channel": "➕ Add to a New Channel",
+  "panel.btn_add_to_group": "➕ Add to a New Group",
   "panel.btn_admins_mgmt": "Admins Management 👮",
   "panel.btn_ai_clear_ctx": "🧹 Clear Memory",
   "panel.btn_ai_custom_model": "✏️ Custom Model ID",
