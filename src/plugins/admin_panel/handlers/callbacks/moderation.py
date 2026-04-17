@@ -289,7 +289,7 @@ async def on_chat_language_search(_: Client, callback: CallbackQuery, ap_ctx: Ad
     await callback.answer()
 
 
-@bot.on_callback_query(filters.regex(r"^panel:set_lang:chat:(-?\d+):(.*)$"))
+@bot.on_callback_query(filters.regex(r"^panel:set_lang:chat:(-?\d+):([^:]+)(?::(.*))?$"))
 @admin_panel_context
 @safe_callback
 async def on_chat_language_set(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):

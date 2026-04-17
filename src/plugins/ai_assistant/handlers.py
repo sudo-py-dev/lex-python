@@ -43,7 +43,7 @@ def _compact_history(msgs, max_m, max_c):
 
 def _is_request_too_large_error(err):
     e = str(err).lower()
-    return any(x in e for x in ("request_too_large", "413", "request entity too large"))
+    return any(x in e for x in ("request_too_large", "413", "entity too large"))
 
 
 def _trim_text(v, max_c):
@@ -143,12 +143,12 @@ async def ai_message_handler(client: Client, message: Message):
             w = (
                 re.search(r"in ([\d\.]+)s", str(e)).group(1)
                 if re.search(r"in ([\d\.]+)s", str(e))
-                else "a few"
+                else await at(cid, "ai.few")
             )
-            err = (await at(cid, "ai.rate_limit")).format(seconds=w)
+            err = (await at(cid, "ai.rate_limit", seconds=f"{await at(cid, 'ai.latency_fmt_short', duration=w)}"))
         elif _is_request_too_large_error(e):
             await AIRepository.clear_context(ctx, cid)
-            err = await at(cid, "ai.context_too_large")
+            err = await at(cid, "ai.error_entity_too_large")
         import contextlib
 
         with contextlib.suppress(Exception):

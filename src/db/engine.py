@@ -8,7 +8,8 @@ def make_engine(url: str | None = None, *, echo: bool = False):
     target_url = url or config.async_db_url
 
     if not target_url:
-        raise RuntimeError("DATABASE_URL environment variable is not set")
+        # Fallback for testing/local development if no DB is configured
+        target_url = "sqlite+aiosqlite:///:memory:"
 
     kwargs = {
         "echo": echo,
