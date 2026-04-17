@@ -79,7 +79,7 @@ def upgrade() -> None:
     sa.Column('floodWindow', sa.Integer(), server_default=sa.text('5'), nullable=False),
     sa.Column('floodAction', sa.String(length=50), server_default=sa.text("'mute'"), nullable=False),
     sa.Column('raidEnabled', sa.Boolean(), server_default=sa.text('false'), nullable=False),
-    sa.Column('raidThreshold', sa.Integer(), server_default=sa.text('false'), nullable=False),
+    sa.Column('raidThreshold', sa.Integer(), server_default=sa.text('0'), nullable=False),
     sa.Column('raidWindow', sa.Integer(), server_default=sa.text('(60)'), nullable=False),
     sa.Column('raidTime', sa.String(length=20), server_default=sa.text("'6h'"), nullable=False),
     sa.Column('raidActionTime', sa.String(length=20), server_default=sa.text("'1h'"), nullable=False),
@@ -174,7 +174,7 @@ def upgrade() -> None:
 
     op.create_table('slowmodesetting',
     sa.Column('chatId', sa.BigInteger(), nullable=False),
-    sa.Column('interval', sa.Integer(), server_default=sa.text('false'), nullable=False),
+    sa.Column('interval', sa.Integer(), server_default=sa.text('0'), nullable=False),
     sa.Column('updatedAt', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.PrimaryKeyConstraint('chatId', name=op.f('pk_slowmodesetting'))
     )
@@ -300,7 +300,7 @@ def upgrade() -> None:
     sa.Column('chatId', sa.BigInteger(), nullable=False),
     sa.Column('cleanDeleted', sa.Boolean(), server_default=sa.text('false'), nullable=False),
     sa.Column('cleanFake', sa.Boolean(), server_default=sa.text('false'), nullable=False),
-    sa.Column('cleanInactiveDays', sa.Integer(), server_default=sa.text('false'), nullable=False),
+    sa.Column('cleanInactiveDays', sa.Integer(), server_default=sa.text('0'), nullable=False),
     sa.Column('cleanerRunTime', sa.String(length=5), server_default=sa.text("'04:00'"), nullable=False),
     sa.Column('cleanerTimeChangedAt', sa.DateTime(timezone=True), nullable=True),
     sa.Column('lastRunDate', sa.DateTime(timezone=True), nullable=True),
