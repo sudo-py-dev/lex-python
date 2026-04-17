@@ -3,6 +3,7 @@ import contextlib
 import functools
 
 from loguru import logger
+from pyrogram import ContinuePropagation
 from pyrogram.errors import (
     FloodWait,
     MessageNotModified,
@@ -61,11 +62,14 @@ def safe_callback(func):
         try:
             return await func(client, callback, *args, **kwargs)
         except (QueryIdInvalid, MessageNotModified):
-            # Silence error if callback became stale (e.g. user clicked twice)
+            # Silence expected errors
             pass
+        except ContinuePropagation:
+            # Re-raise to let other handlers process this event
+            raise
         except FloodWait as e:
             # Auto-retry on flood wait
-            await asyncio.sleep(e.value + 1)
+            await asyncio.sleep(int(e.value) + 1)
             return await wrapper(client, callback, *args, **kwargs)
         except (RPCError, Exception) as e:
             # Log other errors with full traceback and answer with a generic error if possible
