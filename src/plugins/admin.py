@@ -89,7 +89,8 @@ async def send_start_message(client: Client, message: Message, edit: bool = Fals
             [InlineKeyboardButton(await at(cid, "donate.btn"), callback_data="donate:main")],
         ]
     )
-    await (message.edit_text if edit else message.reply)(txt, reply_markup=kb)
+    with contextlib.suppress(Exception):
+        await (message.edit_text if edit else message.reply)(txt, reply_markup=kb)
 
 
 @bot.on_message(filters.command("ping") & filters.group)

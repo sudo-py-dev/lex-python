@@ -71,10 +71,11 @@ async def donate_callback_handler(client: Client, callback_query: CallbackQuery)
     user_id = callback_query.from_user.id
 
     if data == "donate:main":
-        await callback_query.message.edit_text(
-            await at(chat_id, "donate.text", bot_name=config.BOT_NAME),
-            reply_markup=await get_donate_kb(chat_id),
-        )
+        with contextlib.suppress(Exception):
+            await callback_query.message.edit_text(
+                await at(chat_id, "donate.text", bot_name=config.BOT_NAME),
+                reply_markup=await get_donate_kb(chat_id),
+            )
 
     elif data == "donate:stars":
         kb = InlineKeyboardMarkup(
@@ -102,10 +103,11 @@ async def donate_callback_handler(client: Client, callback_query: CallbackQuery)
                 ],
             ]
         )
-        await callback_query.message.edit_text(
-            await at(chat_id, "donate.stars_select_text"),
-            reply_markup=kb,
-        )
+        with contextlib.suppress(Exception):
+            await callback_query.message.edit_text(
+                await at(chat_id, "donate.stars_select_text"),
+                reply_markup=kb,
+            )
 
     elif data.startswith("donate:pay:"):
         amount = int(data.split(":")[-1])

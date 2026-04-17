@@ -355,15 +355,15 @@ async def my_groups_kb(ctx, client, user_id: int) -> InlineKeyboardMarkup:
         ]
     ]
 
-    buttons.extend(
-        [
-            InlineKeyboardButton(
-                await at(user_id, "panel.chat_list_item", title=title),
-                callback_data=f"panel:select_chat:{chat_id}",
-            )
-        ]
-        for chat_id, title in groups
-    )
+    for chat_id, title in groups:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    await at(user_id, "panel.chat_list_item", title=title),
+                    callback_data=f"panel:select_chat:{chat_id}",
+                )
+            ]
+        )
     buttons.append(
         [
             InlineKeyboardButton(

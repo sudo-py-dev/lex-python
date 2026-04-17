@@ -1,3 +1,5 @@
+import contextlib
+
 from pyrogram import Client, filters
 from pyrogram.types import (
     CallbackQuery,
@@ -100,9 +102,10 @@ async def help_callback_handler(client: Client, callback_query: CallbackQuery) -
         return
 
     if data == "help:main":
-        await callback_query.message.edit_text(
-            await at(chat_id, "help.main_text"), reply_markup=await get_help_kb(chat_id)
-        )
+        with contextlib.suppress(Exception):
+            await callback_query.message.edit_text(
+                await at(chat_id, "help.main_text"), reply_markup=await get_help_kb(chat_id)
+            )
         return
 
     if data.startswith("help:cat:"):
@@ -120,7 +123,10 @@ async def help_callback_handler(client: Client, callback_query: CallbackQuery) -
         kb = InlineKeyboardMarkup(
             [[InlineKeyboardButton(await at(chat_id, "help.back_btn"), callback_data=back_target)]]
         )
-        await callback_query.message.edit_text(text, reply_markup=kb, link_preview_options=options)
+        with contextlib.suppress(Exception):
+            await callback_query.message.edit_text(
+                text, reply_markup=kb, link_preview_options=options
+            )
 
 
 register(HelpPlugin())
