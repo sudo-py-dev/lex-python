@@ -52,6 +52,14 @@ async def _execute_restriction(
     aid = message.from_user.id
     if not await has_permission(client, cid, p):
         return await message.reply(await at(cid, "error.bot_no_permission"))
+
+    # Safety Check: Do not moderate self or other admins
+    from src.utils.permissions import is_admin
+    if uid == client.me.id:
+        return await message.reply(await at(cid, "error.cant_restrict_self"))
+    if await is_admin(client, cid, uid):
+        return await message.reply(await at(cid, "error.target_is_admin"))
+
     ctx = get_context()
     try:
         if action in ("ban", "tban", "kick"):

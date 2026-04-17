@@ -133,7 +133,7 @@ async def clear_all_disabled(ctx, chat_id: int) -> int:
         return count
 
 
-NON_DISABLEABLE = {"enable", "disable", "disabled", "settings", "start", "help"}
+NON_DISABLEABLE = {"enable", "disable", "disabled", "settings", "start", "help", "shabbat"}
 
 
 @bot.on_message(filters.command("disable") & filters.group)

@@ -34,6 +34,10 @@ async def is_admin(client: Client, chat_id: int | None, user_id: int | None) -> 
     if user_id == chat_id:
         return True
 
+    # The bot itself is always an admin
+    if user_id == client.me.id:
+        return True
+
     return await fast_is_admin(client, chat_id, user_id)
 
 
@@ -43,6 +47,10 @@ async def is_whitelisted(client: Client, chat_id: int | None, user_id: int | Non
         return False
 
     if user_id == chat_id:
+        return True
+
+    # The bot itself is always whitelisted
+    if user_id == client.me.id:
         return True
 
     if await is_admin(client, chat_id, user_id):

@@ -1,6 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from loguru import logger
 from pyrogram import filters
 from pyrogram.types import Message
 
@@ -23,10 +24,11 @@ class ShabbatPlugin(Plugin):
         pass
 
 
-@bot.on_message(filters.command("shabbat") & filters.group)
+@bot.on_message(filters.command("shabbat") & filters.group, group=0)
 @admin_only
 @safe_handler
 async def shabbat_command(client, message: Message):
+    logger.debug(f"/shabbat command received in chat {message.chat.id}")
     chat_id = message.chat.id
     ctx = get_context()
     settings = await get_chat_settings(ctx, chat_id)

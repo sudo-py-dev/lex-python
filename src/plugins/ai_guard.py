@@ -1,5 +1,7 @@
+import asyncio
 import io
 import json
+from collections import defaultdict
 
 from loguru import logger
 from pyrogram import Client, filters
@@ -24,6 +26,9 @@ from src.utils.input import finalize_input_capture, is_waiting_for_input
 from src.utils.media import encode_image_to_base64
 from src.utils.moderation import execute_moderation_action, resolve_sender
 
+# Per-chat locks to prevent concurrent AI Guard scans from hitting rate limits
+ai_guard_locks = defaultdict(asyncio.Lock)
+
 
 class AIGuardPlugin(Plugin):
     name, priority = "ai_guard", 80
@@ -47,7 +52,11 @@ async def ai_guard_handler(client: Client, message: Message):
         return
 
     try:
-        resp = await AIService.call_ai(
+        async with ai_guard_locks[message.chat.id]:
+            # Mandatory delay to prevent hitting provider rate limits (e.g. Groq) on high traffic
+            await asyncio.sleep(1.0)
+
+            resp = await AIService.call_ai(
             "groq",
             s.apiKey,
             config.AI_GUARD_MODEL,
@@ -103,9 +112,13 @@ async def ai_image_guard_handler(client: Client, message: Message):
         return
 
     try:
-        bio = io.BytesIO()
-        await message.download(file_name=bio)
-        resp = await AIService.call_ai(
+        async with ai_guard_locks[message.chat.id]:
+            # Mandatory delay for vision processing
+            await asyncio.sleep(1.0)
+
+            bio = io.BytesIO()
+            await message.download(file_name=bio)
+            resp = await AIService.call_ai(
             "groq",
             s.apiKey,
             config.AI_GUARD_VISION_MODEL,

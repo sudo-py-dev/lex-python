@@ -38,6 +38,14 @@ class WarnsPlugin(Plugin):
 async def warn_handler(client: Client, message: Message, target_user: User) -> None:
     if not await has_permission(client, message.chat.id, Permission.CAN_RESTRICT):
         return await message.reply(await at(message.chat.id, "error.bot_no_permission"))
+
+    # Safety Check: Do not moderate self or other admins
+    from src.utils.permissions import is_admin
+    if target_user.id == client.me.id:
+        return await message.reply(await at(message.chat.id, "error.cant_restrict_self"))
+    if await is_admin(client, message.chat.id, target_user.id):
+        return await message.reply(await at(message.chat.id, "error.target_is_admin"))
+
     ctx, off = get_context(), 1 if message.reply_to_message else 2
     res = " ".join(message.command[off:]) if len(message.command) > off else None
     count = await add_warn(ctx, message.chat.id, target_user.id, message.from_user.id, res)

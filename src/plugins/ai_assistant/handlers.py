@@ -1,5 +1,7 @@
+import asyncio
 import re
 import time
+from collections import defaultdict
 
 from loguru import logger
 from pyrogram import Client, filters
@@ -16,6 +18,9 @@ from src.utils.input import finalize_input_capture, is_waiting_for_input
 from .repository import AIRepository
 from .service import AIService
 from .telegram_markdown import render_pyrogram_html
+
+# Per-chat locks to prevent concurrent AI requests from hitting rate limits
+ai_locks = defaultdict(asyncio.Lock)
 
 
 def _compact_history(msgs, max_m, max_c):
@@ -84,10 +89,14 @@ async def ai_message_handler(client: Client, message: Message):
     lim = {"m": 12, "c": 5000} if pvd == "groq" else {"m": 24, "c": 12000}
 
     try:
-        await client.send_chat_action(cid, ChatAction.TYPING)
-        sys_p = (s.systemPrompt or BASE_PROMPT).format(
-            bot_name=client.me.first_name, bot_username=client.me.username
-        )
+        async with ai_locks[cid]:
+            # Mandatory delay to prevent hitting provider rate limits (e.g. Groq)
+            await asyncio.sleep(2.0)
+
+            await client.send_chat_action(cid, ChatAction.TYPING)
+            sys_p = (s.systemPrompt or BASE_PROMPT).format(
+                bot_name=client.me.first_name, bot_username=client.me.username
+            )
         sys_p = f"IDENTITY: You are @{client.me.username} ({client.me.first_name})\n\n{sys_p}"
         if s.systemPrompt:
             sys_p += OPERATIONAL_RULES
