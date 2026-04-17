@@ -17,14 +17,31 @@ class Config(BaseSettings):
     VERSION: str = "0.0.1"
     SUPPORT_URL: str = "https://www.buymeacoffee.com/sudo-py-dev"
     GITHUB_SPONSORS_URL: str = "https://github.com/sponsors/sudo-py-dev"
-    ENABLE_VIDEO_WATERMARK: bool
-    VIDEO_WATERMARK_MAX_SIZE_MB: int
+    ENABLE_VIDEO_WATERMARK: bool = False
+    VIDEO_WATERMARK_MAX_SIZE_MB: int = 50
     AI_GUARD_MODEL: str = "llama-3.1-8b-instant"
     AI_GUARD_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     AI_GUARD_MAX_IMAGE_SIZE_MB: int = 10
 
 
-config = Config()
+try:
+    config = Config()
+except Exception as e:
+    print("\n" + "="*50)
+    print("❌ CONFIGURATION ERROR")
+    print("="*50)
+    print("One or more required environment variables are missing.")
+    print("Please check your Railway dashboard and ensure these are set:")
+    print(" - API_ID")
+    print(" - API_HASH")
+    print(" - BOT_TOKEN")
+    print(" - DATABASE_URL")
+    print(" - OWNER_ID")
+    print("\nMore details:")
+    print(e)
+    print("="*50 + "\n")
+    import sys
+    sys.exit(1)
 
 TECH_STACK = {
     "engine": "[Kurigram](https://github.com/KurimuzonAkuma/kurigram) (Pyrogram Fork)",

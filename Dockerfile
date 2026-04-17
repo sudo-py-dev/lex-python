@@ -43,7 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-privileged user and group
-RUN groupadd -r bot && useradd -r -g bot -u 1000 -d /app bot
+RUN groupadd bot && useradd -g bot -u 1000 -d /app bot
 
 # Create directories for persistent data and set ownership
 RUN mkdir -p /app/data /app/sessions /app/logs /app/backups \
