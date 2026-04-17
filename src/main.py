@@ -7,10 +7,6 @@ import sys
 import time
 from pathlib import Path
 
-from alembic.config import Config
-
-from alembic import command
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -28,20 +24,9 @@ from src.config import config
 from src.core.context import AppContext, set_context
 from src.core.plugin import autodiscover, get_plugins
 from src.db.client import AsyncSessionLocal, disconnect_db
+from src.db.engine import create_db_tables
 from src.utils.local_cache import get_cache
 from src.utils.logger import setup_logger
-
-
-def run_migrations() -> None:
-    """Run database migrations."""
-    logger.info("🔄 Running database migrations...")
-    try:
-        alembic_cfg = Config("alembic.ini")
-        alembic_cfg.set_main_option("sqlalchemy.url", config.async_db_url)
-        command.upgrade(alembic_cfg, "head")
-        logger.info("✅ Migrations completed successfully.")
-    except Exception as e:
-        logger.error(f"❌ Migration failed: {e}")
 
 
 async def wait_for_db(host: str = "db", port: int = 5432, timeout: int = 30) -> bool:
@@ -81,7 +66,6 @@ def run() -> None:
             asyncio.run(wait_for_db(host, port))
         except Exception:
             asyncio.run(wait_for_db())
-    run_migrations()
 
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(main())
@@ -89,6 +73,14 @@ def run() -> None:
 
 async def main() -> None:
     from src.core.bot import bot
+
+    # Initialize database tables
+    logger.info("🔄 Initializing database...")
+    try:
+        await create_db_tables()
+        logger.info("✅ Database initialized successfully.")
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {e}")
 
     logger.info(f"Starting {config.BOT_NAME}...")
 
