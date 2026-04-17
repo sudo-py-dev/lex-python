@@ -385,7 +385,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "sqlalchemy" },
     { name = "tgcrypto" },
-    { name = "uvloop" },
+    { name = "uvloop", marker = "sys_platform != 'win32'" },
 ]
 
 [package.dev-dependencies]
@@ -416,7 +416,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "tgcrypto", specifier = ">=1.2.5" },
-    { name = "uvloop" },
+    { name = "uvloop", marker = "sys_platform != 'win32'" },
 ]
 
 [package.metadata.requires-dev]

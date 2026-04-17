@@ -25,8 +25,8 @@
 | שכבה                    | טכנולוגיה                                                                                |
 | :---------------------- | :--------------------------------------------------------------------------------------- |
 | **לקוח ליבה**           | [Pyrogram](https://docs.pyrogram.org/) (Async MTProto)                                   |
-| **בסיס נתונים**         | [SQLAlchemy 2.0](https://www.sqlalchemy.org/) (ORM מודרני עם טיפוסיות חזקה)              |
-| **מערכת מטמון (Cache)** | [AsyncSnapshotCache](src/cache/local_cache.py) (מטמון מקומי סופר-מהיר, ללא תלות ב-Redis) |
+| **בסיס נתונים**         | [PostgreSQL](https://www.postgresql.org/) (דרך [asyncpg](https://github.com/MagicStack/asyncpg))                |
+| **מערכת מיגרציות**      | [Alembic](https://alembic.sqlalchemy.org/) (מעברי סכמה אסינכרוניים)                     |
 | **ניהול חבילות**        | [uv](https://astral.sh/uv/) (מהירות שיא ובידוד סביבות עבודה)                             |
 | **בטיחות טיפוסים**      | [Mypy](https://mypy-lang.org/) (אכיפת סוגים קפדנית ללא פשרות)                            |
 
@@ -60,6 +60,27 @@ cp .env.example .env
 uv run bot
 ```
 
+## 🛳️ פריסה (Deployment)
+
+### אפשרות 1: Railway (מומלץ)
+הדרך הקלה ביותר להריץ את הבוט 24/7.
+1. לחצו על **New Project** בלוח הבקרה של Railway.
+2. בחרו את המאגר (Repository) שלכם.
+3. הוסיפו בסיס נתונים **PostgreSQL**.
+4. עקבו אחר המדריך ב-[RAILWAY_GUIDE.md](RAILWAY_GUIDE.md) להגדרת משתנים ו-Volumes.
+
+### אפשרות 2: Docker (עצמאי)
+ודאו שמותקנים אצלכם Docker ו-Docker Compose בשרת (VPS).
+
+1. **הגדרה**:
+   ```bash
+   bash scripts/deploy_vps.sh
+   ```
+2. **ניהול**:
+   - צפייה בלוגים: `docker compose logs -f`
+   - עצירת הבוט: `docker compose down`
+   - הפעלת הבוט: `docker compose up -d`
+
 ---
 
 ## 🏗️ פיתוח ובקרת איכות
@@ -86,6 +107,12 @@ uv run translate    # עדכון כל קבצי השפות מתוך en.json
 
 ```bash
 uv run test         # הרצת סוויטת בדיקות מלאה (pytest-asyncio)
+```
+
+### 🗄️ מיגרציות בסיס נתונים
+ודאו תמיד שסכמת בסיס הנתונים שלכם מעודכנת:
+```bash
+uv run migrate      # עדכון לגרסת הסכמה האחרונה (alembic)
 ```
 
 ---

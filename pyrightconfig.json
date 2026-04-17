@@ -1,5 +1,8 @@
 {
     "venvPath": ".",
     "venv": ".venv",
-    "include": ["src"]
+    "include": ["src", "alembic", "scripts"],
+    "typeCheckingMode": "basic",
+    "reportMissingImports": true,
+    "extraPaths": ["."]
 }

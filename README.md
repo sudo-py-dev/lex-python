@@ -25,8 +25,8 @@
 | Layer | Technology |
 | :--- | :--- |
 | **Core Client** | [Pyrogram](https://docs.pyrogram.org/) (Async MTProto) |
-| **Database** | [SQLAlchemy 2.0](https://www.sqlalchemy.org/) (Modern ORM with strict typing) |
-| **Caching** | [AsyncSnapshotCache](src/cache/local_cache.py) (High-speed, Redis-less local cache) |
+| **Database** | [PostgreSQL](https://www.postgresql.org/) (via [asyncpg](https://github.com/MagicStack/asyncpg)) |
+| **Migrations** | [Alembic](https://alembic.sqlalchemy.org/) (Asynchronous automation) |
 | **Package Manager** | [uv](https://astral.sh/uv/) (Extreme performance & isolation) |
 | **Type Safety** | [Mypy](https://mypy-lang.org/) (Strict null-safety & guard patterns) |
 
@@ -58,7 +58,14 @@ uv run bot
 
 ## 🛳️ Deployment (Running 24/7)
 
-### Option 1: Docker (Recommended for DigitalOcean)
+### Option 1: Railway (Recommended)
+The easiest way to deploy Lex.
+1. Click **New Project** on Railway.
+2. Select your repository.
+3. Add a **PostgreSQL** database.
+4. Follow the [RAILWAY_GUIDE.md](RAILWAY_GUIDE.md) for environment variables and volumes.
+
+### Option 2: Docker (Self-Hosted)
 Ensure you have Docker and Docker Compose installed on your VPS.
 
 1. **Setup**:
@@ -107,6 +114,12 @@ uv run translate    # Sync all locales from en.json
 ### 🧪 Automated Testing
 ```bash
 uv run test         # Comprehensive pytest-asyncio suite
+```
+
+### 🗄️ Database Migrations
+Always ensure your database schema is up-to-date:
+```bash
+uv run migrate      # Upgrade to the latest schema (alembic)
 ```
 
 ---

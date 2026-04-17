@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "kurigram",
-    "uvloop",
+    "uvloop; sys_platform != 'win32'",
     "sqlalchemy>=2.0",
     "asyncpg",
     "alembic",
