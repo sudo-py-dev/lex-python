@@ -134,6 +134,9 @@ class ChatSettings(TimestampMixin, Base):
     aiGuardSettings: Mapped[Optional["AIGuardSettings"]] = relationship(
         back_populates="chat", uselist=False, lazy="selectin"
     )
+    shabbatLock: Mapped[Optional["ChatShabbatLock"]] = relationship(
+        back_populates="chat", uselist=False, lazy="selectin"
+    )
 
 
 class ChatRules(Base):
@@ -197,6 +200,23 @@ class ChatNightLock(Base):
     )
 
     chat: Mapped["ChatSettings"] = relationship(back_populates="nightLock", lazy="raise")
+
+
+class ChatShabbatLock(Base):
+    __tablename__ = "chatshabbatlock"
+
+    chatId: Mapped[int] = mapped_column(BigInteger, ForeignKey("chatsettings.id"), primary_key=True)
+    isEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
+    lastPermissions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updatedAt: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    chat: Mapped["ChatSettings"] = relationship(back_populates="shabbatLock", lazy="raise")
 
 
 class AllowedChannel(Base):

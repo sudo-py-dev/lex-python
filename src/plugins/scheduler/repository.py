@@ -1,7 +1,14 @@
 from sqlalchemy import select
 
 from src.core.context import AppContext
-from src.db.models import ChatCleaner, ChatNightLock, ChatSettings, Reminder, TimedAction
+from src.db.models import (
+    ChatCleaner,
+    ChatNightLock,
+    ChatSettings,
+    ChatShabbatLock,
+    Reminder,
+    TimedAction,
+)
 
 
 class SchedulerRepository:
@@ -30,10 +37,10 @@ class SchedulerRepository:
             return result.scalars().all()
 
     @staticmethod
-    async def get_active_night_locks(ctx: AppContext):
-        """Fetch all enabled night locks."""
+    async def get_active_shabbat_locks(ctx: AppContext):
+        """Fetch all enabled Shabbat locks."""
         async with ctx.db() as session:
-            stmt = select(ChatNightLock).where(ChatNightLock.isEnabled)
+            stmt = select(ChatShabbatLock).where(ChatShabbatLock.isEnabled)
             result = await session.execute(stmt)
             return result.scalars().all()
 
@@ -61,7 +68,18 @@ class SchedulerRepository:
             )
             night_lock = (await session.execute(stmt)).scalars().first()
 
+            stmt = select(ChatShabbatLock).where(
+                ChatShabbatLock.chatId == chat_id, ChatShabbatLock.isEnabled
+            )
+            shabbat_lock = (await session.execute(stmt)).scalars().first()
+
             stmt = select(ChatCleaner).where(ChatCleaner.chatId == chat_id)
             cleaner = (await session.execute(stmt)).scalars().first()
 
-            return settings.timezone or "UTC", reminders, night_lock, cleaner
+            return (
+                settings.timezone or "UTC",
+                reminders,
+                night_lock,
+                shabbat_lock,
+                cleaner,
+            )

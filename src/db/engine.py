@@ -10,15 +10,22 @@ def make_engine(url: str | None = None, *, echo: bool = False):
     if not target_url:
         raise RuntimeError("DATABASE_URL environment variable is not set")
 
-    return create_async_engine(
-        target_url,
-        pool_size=10,
-        max_overflow=20,
-        pool_pre_ping=True,
-        pool_recycle=3600,
-        echo=echo,
-        future=True,
-    )
+    kwargs = {
+        "echo": echo,
+        "future": True,
+    }
+
+    if target_url and not target_url.startswith("sqlite"):
+        kwargs.update(
+            {
+                "pool_size": 10,
+                "max_overflow": 20,
+                "pool_pre_ping": True,
+                "pool_recycle": 3600,
+            }
+        )
+
+    return create_async_engine(target_url, **kwargs)
 
 
 engine = make_engine()

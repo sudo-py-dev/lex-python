@@ -5,7 +5,7 @@ from pyrogram.enums import ChatMemberStatus
 from sqlalchemy import select
 
 from src.core.bot import bot
-from src.db.models import ChatCleaner, ChatNightLock, Reminder, TimedAction
+from src.db.models import ChatCleaner, ChatNightLock, ChatShabbatLock, Reminder, TimedAction
 from src.utils.i18n import at
 from src.utils.permissions import (
     RESTRICTED_PERMISSIONS,
@@ -109,6 +109,73 @@ async def lift_night_lock(chat_id: int) -> None:
             logger.error("Failed to lift night lock in {}: {}", chat_id, e)
 
 
+async def apply_shabbat_lock(chat_id: int) -> None:
+    from src.core.context import get_context
+
+    ctx = get_context()
+    async with ctx.db() as session:
+        lock = await session.get(ChatShabbatLock, chat_id)
+        if not lock or not lock.isEnabled:
+            return
+
+        try:
+            chat = await bot.get_chat(chat_id)
+            if hasattr(chat, "permissions") and chat.permissions:
+                lock.lastPermissions = serialize_permissions(chat.permissions)
+                session.add(lock)
+                await session.commit()
+
+            await bot.set_chat_permissions(chat_id, RESTRICTED_PERMISSIONS)
+            await bot.send_message(chat_id, await at(chat_id, "scheduler.shabbat_lock_engaged"))
+        except Exception as e:
+            logger.error("Failed to apply Shabbat lock in {}: {}", chat_id, e)
+
+
+async def lift_shabbat_lock(chat_id: int) -> None:
+    from src.core.context import get_context
+
+    ctx = get_context()
+    async with ctx.db() as session:
+        lock = await session.get(ChatShabbatLock, chat_id)
+        if not lock or not lock.isEnabled:
+            return
+
+        try:
+            if lock.lastPermissions:
+                perms = deserialize_permissions(lock.lastPermissions)
+            else:
+                perms = UNRESTRICTED_PERMISSIONS
+
+            await bot.set_chat_permissions(chat_id, perms)
+            await bot.send_message(chat_id, await at(chat_id, "scheduler.shabbat_lock_lifted"))
+        except Exception as e:
+            logger.error("Failed to lift Shabbat lock in {}: {}", chat_id, e)
+
+
+async def sync_shabbat_times_task() -> None:
+    from src.core.context import get_context
+    from src.utils.hebcal import get_shabbat_events
+
+    from .manager import SchedulerManager
+    from .repository import SchedulerRepository
+
+    ctx = get_context()
+    logger.info("Scheduler: Syncing Shabbat times for all chats...")
+
+    locks = await SchedulerRepository.get_active_shabbat_locks(ctx)
+    tz_map = await SchedulerRepository.get_all_group_settings(ctx)
+
+    for lock in locks:
+        chat_id = lock.chatId
+        tz = tz_map.get(chat_id, "UTC")
+        try:
+            start, end, _ = await get_shabbat_events(tz)
+            if start and end:
+                SchedulerManager.schedule_shabbat_events(ctx, chat_id, start, end)
+        except Exception as e:
+            logger.error("Failed to sync Shabbat times for chat {}: {}", chat_id, e)
+
+
 async def run_group_cleaner(chat_id: int) -> None:
     from src.core.context import get_context
 
@@ -179,7 +246,6 @@ async def run_group_cleaner(chat_id: int) -> None:
 
 
 async def invalidate_all_admins_task() -> None:
-    """Scheduled task to invalidate admin caches for all active chats."""
     from src.core.context import get_context
     from src.db.models import ChatSettings
     from src.db.repositories.admins import clear_chat_admins

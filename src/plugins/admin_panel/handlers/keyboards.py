@@ -552,7 +552,17 @@ async def automation_category_kb(
     if row1:
         buttons.append(row1)
 
-    # Row 2: Group Cleaner
+    # Row 2: Shabbat Lock
+    if is_setting_allowed("chatshabbatlock", chat_type):
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_shabbatlock"), callback_data="panel:chatshabbatlock"
+                )
+            ]
+        )
+
+    # Row 3: Group Cleaner
     if is_setting_allowed("cleaner", chat_type):
         buttons.append(
             [
@@ -768,6 +778,34 @@ async def chatnightlock_menu_kb(
                     await at(at_id, "panel.btn_nightlock_end", time=lock.endTime),
                     callback_data="panel:input:chatnightlockEnd",
                 ),
+            ],
+            [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data=back_callback)],
+        ]
+    )
+
+
+async def chatshabbatlock_menu_kb(
+    ctx, chat_id: int, user_id: int | None = None, back_callback: str = "panel:category:automation"
+) -> InlineKeyboardMarkup:
+    at_id = user_id or chat_id
+    from src.db.models import ChatShabbatLock
+
+    async with ctx.db() as session:
+        lock = await session.get(ChatShabbatLock, chat_id)
+        if not lock:
+            lock = ChatShabbatLock(chatId=chat_id)
+            session.add(lock)
+            await session.commit()
+
+    status = await at(at_id, "panel.status_enabled" if lock.isEnabled else "panel.status_disabled")
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    await at(at_id, "panel.btn_shabbatlock_toggle", status=status),
+                    callback_data="panel:toggle_chatshabbatlock",
+                )
             ],
             [InlineKeyboardButton(await at(at_id, "panel.btn_back"), callback_data=back_callback)],
         ]

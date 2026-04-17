@@ -10,9 +10,12 @@ from .repository import SchedulerRepository
 from .service import (
     _execute_lift_action,
     apply_night_lock,
+    apply_shabbat_lock,
     execute_reminder,
     lift_night_lock,
+    lift_shabbat_lock,
     run_group_cleaner,
+    sync_shabbat_times_task,
 )
 
 
@@ -28,29 +31,48 @@ class SchedulerManager:
 
             tz_map = await SchedulerRepository.get_all_group_settings(ctx)
 
-            # 1. Timed Actions (Temp bans/mutes)
             actions = await SchedulerRepository.get_active_timed_actions(ctx, now)
             for action in actions:
                 delay = (action.expiresAt - now).total_seconds()
                 cls.schedule_timed_action(ctx, action.chatId, action.userId, action.action, delay)
 
-            # 2. Reminders
             reminders = await SchedulerRepository.get_active_reminders(ctx)
             for rem in reminders:
                 tz = tz_map.get(rem.chatId, "UTC")
                 cls.schedule_reminder(ctx, rem.chatId, rem.id, rem.sendTime, tz)
 
-            # 3. Night Locks
             locks = await SchedulerRepository.get_active_night_locks(ctx)
             for lock in locks:
                 tz = tz_map.get(lock.chatId, "UTC")
                 cls.schedule_night_lock(ctx, lock.chatId, lock.startTime, lock.endTime, tz)
 
-            # 4. Group Cleaners
             cleaners = await SchedulerRepository.get_active_group_cleaners(ctx)
             for cleaner in cleaners:
                 tz = tz_map.get(cleaner.chatId, "UTC")
                 cls.schedule_cleaner(ctx, cleaner.chatId, tz, cleaner.cleanerRunTime)
+
+            shabbat_locks = await SchedulerRepository.get_active_shabbat_locks(ctx)
+            for lock in shabbat_locks:
+                # For Shabbat, we schedule a daily sync task that calculates exact dates
+                tz = tz_map.get(lock.chatId, "UTC")
+                # But we also run an immediate sync to schedule the next upcoming events
+                from .service import sync_shabbat_times_task as sync_shabbat
+
+                ctx.scheduler.add_job(
+                    sync_shabbat,
+                    trigger="date",
+                    run_date=datetime.now(UTC).replace(tzinfo=None),
+                    id=f"shabbat_initial_sync:{lock.chatId}",
+                )
+
+            ctx.scheduler.add_job(
+                sync_shabbat_times_task,
+                trigger="cron",
+                hour=2,
+                minute=0,
+                id="global_shabbat_sync",
+                replace_existing=True,
+            )
 
             from .service import invalidate_all_admins_task
 
@@ -69,7 +91,9 @@ class SchedulerManager:
     @classmethod
     async def sync_group(cls, ctx: AppContext, chat_id: int) -> None:
         """Reload all jobs for a specific chat (e.g., after timezone or settings change)."""
-        tz, reminders, night_lock, cleaner = await SchedulerRepository.get_group_data(ctx, chat_id)
+        tz, reminders, night_lock, shabbat_lock, cleaner = await SchedulerRepository.get_group_data(
+            ctx, chat_id
+        )
         if tz is None:
             return
 
@@ -81,6 +105,17 @@ class SchedulerManager:
 
         if night_lock:
             cls.schedule_night_lock(ctx, chat_id, night_lock.startTime, night_lock.endTime, tz)
+
+        if shabbat_lock:
+            from .service import sync_shabbat_times_task as sync_shabbat
+
+            # Schedule immediate sync to set up upcoming events
+            ctx.scheduler.add_job(
+                sync_shabbat,
+                trigger="date",
+                run_date=datetime.now(UTC).replace(tzinfo=None),
+                id=f"shabbat_sync:{chat_id}",
+            )
 
         if cleaner:
             cls.schedule_cleaner(ctx, chat_id, tz, cleaner.cleanerRunTime)
@@ -163,6 +198,34 @@ class SchedulerManager:
             logger.error("Scheduler: Failed to schedule night lock for {}: {}", chat_id, e)
 
     @classmethod
+    def schedule_shabbat_events(
+        cls, ctx: AppContext, chat_id: int, start_date: datetime, end_date: datetime
+    ) -> None:
+        """Schedules one-off lock and unlock tasks for a specific Shabbat/Holiday instance."""
+        try:
+            ctx.scheduler.add_job(
+                apply_shabbat_lock,
+                trigger="date",
+                run_date=start_date,
+                args=[chat_id],
+                id=f"shabbat_lock:{chat_id}:{start_date.timestamp()}",
+                replace_existing=True,
+            )
+            ctx.scheduler.add_job(
+                lift_shabbat_lock,
+                trigger="date",
+                run_date=end_date,
+                args=[chat_id],
+                id=f"shabbat_unlock:{chat_id}:{end_date.timestamp()}",
+                replace_existing=True,
+            )
+            logger.debug(
+                f"Scheduler: Scheduled Shabbat events for {chat_id}: {start_date} - {end_date}"
+            )
+        except Exception as e:
+            logger.error("Scheduler: Failed to schedule Shabbat events for {}: {}", chat_id, e)
+
+    @classmethod
     def schedule_cleaner(
         cls, ctx: AppContext, chat_id: int, tz: str, run_time: str | None = None
     ) -> None:
@@ -192,6 +255,9 @@ class SchedulerManager:
                 f":{chat_id}" in job.id
                 or job.id.startswith(f"chatnightlock_on:{chat_id}")
                 or job.id.startswith(f"chatnightlock_off:{chat_id}")
+                or job.id.startswith(f"shabbat_lock:{chat_id}")
+                or job.id.startswith(f"shabbat_unlock:{chat_id}")
+                or job.id.startswith(f"shabbat_sync:{chat_id}")
                 or job.id.startswith(f"cleaner:{chat_id}")
             ):
                 target_ids.append(job.id)

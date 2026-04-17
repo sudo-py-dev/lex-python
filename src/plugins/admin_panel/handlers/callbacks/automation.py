@@ -12,11 +12,12 @@ from pyrogram.errors import (
 from pyrogram.types import CallbackQuery
 
 from src.core.bot import bot
-from src.db.models import ChatCleaner, ChatNightLock, Reminder
+from src.db.models import ChatCleaner, ChatNightLock, ChatShabbatLock, Reminder
 from src.plugins.admin_panel.decorators import AdminPanelContext, admin_panel_context
 from src.plugins.admin_panel.handlers.callbacks.common import _panel_lang_id, _plain
 from src.plugins.admin_panel.handlers.keyboards import (
     chatnightlock_menu_kb,
+    chatshabbatlock_menu_kb,
     cleaner_menu_kb,
     reminders_menu_kb,
     rules_kb,
@@ -40,7 +41,6 @@ async def on_welcome_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPane
     kb = await welcome_kb(
         ap_ctx.ctx, ap_ctx.chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
     )
-    # The rules and welcome keyboards have back buttons to panel:category:general
     try:
         await callback.message.edit_text(await at(at_id, "panel.welcome_text"), reply_markup=kb)
     except MessageNotModified:
@@ -100,6 +100,79 @@ async def on_nightlock_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPa
     )
     await callback.message.edit_text(await at(at_id, "panel.nightlock_text"), reply_markup=kb)
     await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:chatshabbatlock$"))
+@admin_panel_context
+async def on_shabbatlock_panel(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, ap_ctx.chat_id)
+    kb = await chatshabbatlock_menu_kb(
+        ap_ctx.ctx,
+        ap_ctx.chat_id,
+        user_id=callback.from_user.id if ap_ctx.is_pm else None,
+        back_callback="panel:category:automation",
+    )
+    from src.plugins.admin_panel.repository import get_chat_settings
+
+    settings = await get_chat_settings(ap_ctx.ctx, ap_ctx.chat_id)
+    async with ap_ctx.ctx.db() as session:
+        lock = await session.get(ChatShabbatLock, ap_ctx.chat_id)
+        if not lock:
+            lock = ChatShabbatLock(chatId=ap_ctx.chat_id)
+            session.add(lock)
+            await session.commit()
+
+    status = await at(at_id, "panel.status_enabled" if lock.isEnabled else "panel.status_disabled")
+    await callback.message.edit_text(
+        await at(at_id, "panel.shabbat_text", status=status, timezone=settings.timezone),
+        reply_markup=kb,
+    )
+    await callback.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^panel:toggle_chatshabbatlock$"))
+@admin_panel_context
+async def on_toggle_shabbatlock(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
+    if not await check_user_permission(
+        _, ap_ctx.chat_id, callback.from_user.id, Permission.CAN_BAN
+    ):
+        await callback.answer(await at(ap_ctx.at_id, "error.admin_no_permission"), show_alert=True)
+        return
+
+    chat_id = ap_ctx.chat_id
+    ctx = ap_ctx.ctx
+    async with ctx.db() as session:
+        lock = await session.get(ChatShabbatLock, chat_id)
+        if lock:
+            lock.isEnabled = not lock.isEnabled
+            session.add(lock)
+            await session.commit()
+            from src.plugins.scheduler.manager import SchedulerManager
+
+            await SchedulerManager.sync_group(ctx, chat_id)
+            at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
+            with contextlib.suppress(QueryIdInvalid):
+                await callback.answer(_plain(await at(at_id, "panel.setting_updated")))
+
+            kb = await chatshabbatlock_menu_kb(
+                ctx, chat_id, user_id=callback.from_user.id if ap_ctx.is_pm else None
+            )
+            settings = await get_chat_settings(ctx, chat_id)
+            status = await at(
+                at_id, "panel.status_enabled" if lock.isEnabled else "panel.status_disabled"
+            )
+            try:
+                await callback.message.edit_text(
+                    await at(
+                        at_id, "panel.shabbat_text", status=status, timezone=settings.timezone
+                    ),
+                    reply_markup=kb,
+                )
+            except (MessageNotModified, MessageIdInvalid, QueryIdInvalid):
+                pass
+            except FloodWait as e:
+                await asyncio.sleep(e.value + 1)
+                return await on_toggle_shabbatlock(_, callback, ap_ctx)
 
 
 @bot.on_callback_query(filters.regex(r"^panel:cleaner$"))
@@ -441,9 +514,6 @@ async def on_toggle_private_rules(_: Client, callback: CallbackQuery, ap_ctx: Ad
     )
 
 
-# --- Service Cleaner ---
-
-
 @bot.on_callback_query(filters.regex(r"^panel:svc:(\w+)$"))
 @admin_panel_context
 async def on_service_cleaner_main(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelContext):
@@ -563,7 +633,6 @@ async def on_service_cleaner_toggle_type(
 
     at_id = _panel_lang_id(ap_ctx.is_pm, callback.from_user.id, chat_id)
 
-    # Re-render types page
     kb = await service_cleaner_types_kb(
         ctx,
         chat_id,
