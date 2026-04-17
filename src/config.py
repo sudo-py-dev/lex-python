@@ -87,7 +87,7 @@ class Config:
             print("Required variables are missing or invalid:")
             for key, val in missing_data:
                 print(f" - {key}: {val or 'NOT FOUND'}")
-            
+
             print("\nCheck Railway Variables (remove quotes and ensure drafts are deployed).")
             print("=" * 50 + "\n")
             sys.exit(1)
