@@ -27,6 +27,13 @@ __all__ = [
 
 async def is_admin(client: Client, chat_id: int | None, user_id: int | None) -> bool:
     """Check if user is admin. Redirects to unified 3-tier cache."""
+    if chat_id is None or user_id is None:
+        return False
+
+    # Anonymous admins or users posting as the group
+    if user_id == chat_id:
+        return True
+
     return await fast_is_admin(client, chat_id, user_id)
 
 

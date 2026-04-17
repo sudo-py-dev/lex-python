@@ -24,6 +24,15 @@ from pyrogram.types import CallbackQuery, Message
 from src.utils.i18n import at
 from src.utils.permissions import Permission, check_user_permission, is_admin
 
+def get_sender_id(message: Message) -> int | None:
+    """Resolve the effective user/chat ID of the message sender."""
+    if message.from_user:
+        return message.from_user.id
+    if message.sender_chat:
+        return message.sender_chat.id
+    return None
+
+
 Handler = Callable[..., Awaitable[None]]
 
 
@@ -32,13 +41,17 @@ def admin_only(func: Handler) -> Handler:
 
     @functools.wraps(func)
     async def wrapper(client: Client, message: Message, *args: Any, **kwargs: Any) -> None:
-        if not message.from_user:
+        sender_id = get_sender_id(message)
+        if sender_id is None:
             return
+
         if message.chat.type == ChatType.PRIVATE:
             await func(client, message, *args, **kwargs)
             return
-        if not await is_admin(client, message.chat.id, message.from_user.id):
+
+        if not await is_admin(client, message.chat.id, sender_id):
             return
+
         await func(client, message, *args, **kwargs)
 
     return wrapper
@@ -50,20 +63,20 @@ def admin_permission_required(permission: Permission) -> Callable[[Handler], Han
     def decorator(func: Handler) -> Handler:
         @functools.wraps(func)
         async def wrapper(client: Client, message: Message, *args: Any, **kwargs: Any) -> None:
-            if not message.from_user:
+            sender_id = get_sender_id(message)
+            if sender_id is None:
                 return
+
             if message.chat.type == ChatType.PRIVATE:
                 await func(client, message, *args, **kwargs)
                 return
 
             # 1. First check if user is admin at all (uses local cache)
-            if not await is_admin(client, message.chat.id, message.from_user.id):
+            if not await is_admin(client, message.chat.id, sender_id):
                 return
 
             # 2. Then check for specific privilege (API call)
-            if not await check_user_permission(
-                client, message.chat.id, message.from_user.id, permission
-            ):
+            if not await check_user_permission(client, message.chat.id, sender_id, permission):
                 await message.reply(await at(message.chat.id, "error.admin_no_permission"))
                 return
 
@@ -184,15 +197,15 @@ def sudo_only(func: Handler) -> Handler:
 
     @functools.wraps(func)
     async def wrapper(client: Client, message: Message, *args: Any, **kwargs: Any) -> None:
-        if not message.from_user:
+        sender_id = get_sender_id(message)
+        if sender_id is None:
             return
 
-        user_id = message.from_user.id
-        if user_id == config.OWNER_ID:
+        if sender_id == config.OWNER_ID:
             await func(client, message, *args, **kwargs)
             return
 
-        if await is_sudo(get_context(), user_id):
+        if await is_sudo(get_context(), sender_id):
             await func(client, message, *args, **kwargs)
             return
 
