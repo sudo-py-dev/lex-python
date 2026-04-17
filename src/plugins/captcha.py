@@ -84,7 +84,7 @@ async def captcha_join_handler(client: Client, message: Message) -> None:
                 )
                 ans, m_id = str(cidx), msg.id
                 await ctx.cache.set(
-                    CacheKeys.poll(str(msg.poll.id)),
+                    CacheKeys.captcha_poll(str(msg.poll.id)),
                     json.dumps({"chat_id": message.chat.id, "user_id": m.id}),
                     ttl=s.captchaTimeout,
                 )
@@ -271,7 +271,7 @@ async def captcha_poll_handler(
     if not isinstance(update, raw_types.UpdateMessagePollVote):
         return
     ctx, pid = get_context(), str(update.poll_id)
-    if not (raw_p := await ctx.cache.get(CacheKeys.poll(pid))):
+    if not (raw_p := await ctx.cache.get(CacheKeys.captcha_poll(pid))):
         return
     pi = json.loads(raw_p)
     cid, uid = pi["chat_id"], pi["user_id"]
@@ -288,7 +288,7 @@ async def captcha_poll_handler(
             client=client,
         )
         await _handle_captcha_success(client, cid, u, ud["msg_id"], ud.get("chat_title", ""))
-        await ctx.cache.delete(CacheKeys.poll(pid))
+        await ctx.cache.delete(CacheKeys.captcha_poll(pid))
 
 
 async def _handle_captcha_success(client: Client, cid: int, user, mid: int, title: str) -> None:

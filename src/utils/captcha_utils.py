@@ -59,15 +59,9 @@ def generate_image_captcha(lang: str = "en"):
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     assets_dir = os.path.join(base_dir, "assets")
-    emoji_font_path = os.path.join(assets_dir, "fonts", "NotoColorEmoji.ttf")
     text_font_path = os.path.join(assets_dir, "fonts", "DejaVuSans.ttf")
 
-    emoji_font = None
     text_font = None
-
-    if os.path.exists(emoji_font_path):
-        with contextlib.suppress(Exception):
-            emoji_font = ImageFont.truetype(emoji_font_path, 109)
 
     if os.path.exists(text_font_path):
         with contextlib.suppress(Exception):
@@ -83,14 +77,11 @@ def generate_image_captcha(lang: str = "en"):
     target_pos = None
 
     for name, pos in zip(selected_names, positions, strict=True):
-        emoji = CAPTCHA_OBJECTS[name]
         final_pos = (pos[0] + random.randint(-10, 10), pos[1] + random.randint(-5, 5))
 
         localized_name = t(lang, f"captcha.object.{name}")
-        if emoji_font:
-            draw.text(final_pos, emoji, font=emoji_font)
-        else:
-            draw.text(final_pos, localized_name.upper(), font=text_font, fill=(0, 0, 0))
+        # Always use text labels - PIL doesn't support color emoji fonts
+        draw.text(final_pos, localized_name.upper(), font=text_font, fill=(0, 0, 0))
 
         if name == target_name:
             target_pos = final_pos
