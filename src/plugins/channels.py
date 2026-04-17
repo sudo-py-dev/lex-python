@@ -670,8 +670,6 @@ class ChannelsPlugin(Plugin):
         """Throttle operation, retry on FloodWait and network timeouts with exponential backoff."""
         import asyncio
 
-        from pyrogram.errors import TimeoutError
-
         for attempt in range(max_retries):
             await self._throttle_operation(chat_id, method)
             try:
