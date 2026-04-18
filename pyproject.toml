@@ -21,6 +21,7 @@ dependencies = [
     "Pillow",
     "httpx>=0.28.1",
     "hebcal-api>=0.2.0",
+    "edge-tts>=7.2.8",
 ]
 
 [project.scripts]
