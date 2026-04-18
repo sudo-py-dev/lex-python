@@ -16,7 +16,6 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 # 3. Copy source code and sync project (Rebuilds only on code changes)
 COPY src ./src
-COPY scripts ./scripts
 COPY README.md ./
 COPY alembic.ini ./
 COPY alembic ./alembic

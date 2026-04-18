@@ -66,10 +66,18 @@ async def on_list_channels(client: Client, callback: CallbackQuery):
 
 @bot.on_callback_query(filters.regex(r"^panel:select_chat:(-?\d+)$"))
 @safe_callback
-async def on_select_chat(_: Client, callback: CallbackQuery):
+async def on_select_chat(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
     new_chat_id = int(callback.matches[0].group(1))
+
+    from src.utils.admin_cache import is_admin
+
+    if not await is_admin(client, new_chat_id, user_id):
+        await callback.answer(
+            await at(user_id, "error.no_membership_admin"), show_alert=True
+        )
+        return
 
     is_pm = callback.message.chat.type == ChatType.PRIVATE
     at_id = _panel_lang_id(is_pm, user_id, new_chat_id)
@@ -94,6 +102,14 @@ async def on_select_channel(client: Client, callback: CallbackQuery):
     ctx = get_context()
     user_id = callback.from_user.id
     channel_id = int(callback.matches[0].group(1))
+
+    from src.utils.admin_cache import is_admin
+
+    if not await is_admin(client, channel_id, user_id):
+        await callback.answer(
+            await at(user_id, "error.no_membership_admin"), show_alert=True
+        )
+        return
 
     from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb
 

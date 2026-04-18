@@ -1,37 +1,37 @@
 import contextlib
 import os
 import random
+from functools import lru_cache
 from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from src.utils.i18n import at, t
 
+P = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+F = os.path.join(P, "assets", "fonts")
+
+
+@lru_cache(maxsize=4)
+def get_font(n, s):
+    path = os.path.join(F, n)
+    with contextlib.suppress(Exception):
+        return ImageFont.truetype(path, s) if os.path.exists(path) else None
+
 
 def generate_math_captcha():
-    """Generates a simple math problem and its answer."""
-    a = random.randint(1, 20)
-    b = random.randint(1, 20)
-    ops = [("+", a + b), ("-", max(a, b) - min(a, b))]
-    op_char, result = random.choice(ops)
-    problem = f"{max(a, b)} - {min(a, b)} = ?" if op_char == "-" else f"{a} + {b} = ?"
-    return problem, str(result)
+    a, b = random.randint(1, 20), random.randint(1, 20)
+    mx, mn = max(a, b), min(a, b)
+    op, res = random.choice([("+", a + b), ("-", mx - mn)])
+    return (f"{mx} - {mn} = ?" if op == "-" else f"{a} + {b} = ?"), str(res)
 
 
-async def generate_poll_captcha(chat_id: int):
-    """Generates a simple poll question for captcha."""
-    a = random.randint(1, 10)
-    b = random.randint(1, 10)
-    correct = a + b
-    options = [
-        str(correct),
-        str(correct + random.randint(1, 3)),
-        str(correct - random.randint(1, 3)),
-    ]
-    random.shuffle(options)
-    correct_index = options.index(str(correct))
-    question = await at(chat_id, "captcha.what_is", a=a, b=b)
-    return question, options, correct_index
+async def generate_poll_captcha(c_id):
+    a, b = random.randint(1, 10), random.randint(1, 10)
+    cor = a + b
+    opts = [str(cor), str(cor + random.randint(1, 3)), str(cor - random.randint(1, 3))]
+    random.shuffle(opts)
+    return await at(c_id, "captcha.what_is", a=a, b=b), opts, opts.index(str(cor))
 
 
 CAPTCHA_OBJECTS = {
@@ -47,78 +47,79 @@ CAPTCHA_OBJECTS = {
     "tree": "🌳",
     "house": "🏠",
     "sun": "☀️",
+    "butterfly": "🦋",
+    "pizza": "🍕",
+    "cactus": "🌵",
+    "umbrella": "☂️",
+    "diamond": "💎",
+    "duck": "🦆",
+    "fire": "🔥",
+    "cloud": "☁️",
+    "rocket": "🚀",
+    "crown": "👑",
+    "key": "🔑",
+    "bell": "🔔",
+    "cupcake": "🧁",
+    "heart": "❤️",
+    "ghost": "👻",
+    "alien": "👽",
+    "mushroom": "🍄",
+    "snowflake": "❄️",
+    "balloon": "🎈",
+    "gift": "🎁",
 }
 
 
-def generate_image_captcha(lang: str = "en"):
-    """Generates a Multi-Modal Logic Challenge CAPTCHA image with random emojis and a target marker."""
-    width, height = 400, 150
-    bg_color = (random.randint(230, 255), random.randint(230, 255), random.randint(230, 255))
-    image = Image.new("RGB", (width, height), color=bg_color)
-    draw = ImageDraw.Draw(image)
+def generate_image_captcha(lang="en"):
+    w, h = 400, 150
+    img = Image.new("RGB", (w, h), (random.randint(230, 255),) * 3)
+    draw, tx_f, em_f = (
+        ImageDraw.Draw(img),
+        get_font("DejaVuSans.ttf", 80),
+        get_font("NotoColorEmoji.ttf", 109),
+    )
+    names = list(CAPTCHA_OBJECTS.keys())
+    sel = random.sample(names, 3)
+    tar = random.choice(sel)
+    pos = [(20, 15), (145, 15), (270, 15)]
+    random.shuffle(pos)
+    t_pos = None
 
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    assets_dir = os.path.join(base_dir, "assets")
-    text_font_path = os.path.join(assets_dir, "fonts", "DejaVuSans.ttf")
+    for n, p in zip(sel, pos, strict=True):
+        fp = (p[0] + random.randint(-5, 5), p[1] + random.randint(-5, 5))
+        if em_f:
+            draw.text(fp, CAPTCHA_OBJECTS[n], font=em_f, embedded_color=True)
+        else:
+            draw.text(fp, t(lang, f"captcha.object.{n}").upper(), font=tx_f, fill=(0, 0, 0))
+        if n == tar:
+            t_pos = fp
 
-    text_font = None
-
-    if os.path.exists(text_font_path):
-        with contextlib.suppress(Exception):
-            text_font = ImageFont.truetype(text_font_path, 80)
-
-    all_names = list(CAPTCHA_OBJECTS.keys())
-    selected_names = random.sample(all_names, 3)
-    target_name = random.choice(selected_names)
-
-    positions = [(40, 20), (160, 20), (280, 20)]
-    random.shuffle(positions)
-
-    target_pos = None
-
-    for name, pos in zip(selected_names, positions, strict=True):
-        final_pos = (pos[0] + random.randint(-10, 10), pos[1] + random.randint(-5, 5))
-
-        localized_name = t(lang, f"captcha.object.{name}")
-        # Always use text labels - PIL doesn't support color emoji fonts
-        draw.text(final_pos, localized_name.upper(), font=text_font, fill=(0, 0, 0))
-
-        if name == target_name:
-            target_pos = final_pos
-
-    if target_pos:
-        r = 55
-        cx, cy = target_pos[0] + 50, target_pos[1] + 55
+    if t_pos:
+        cx, cy, r = t_pos[0] + 55, t_pos[1] + 60, 65
         draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline="red", width=5)
 
     for _ in range(random.randint(8, 12)):
-        line_color = (random.randint(100, 200), random.randint(100, 200), random.randint(100, 200))
         draw.line(
             [
-                random.randint(0, width),
-                random.randint(0, height),
-                random.randint(0, width),
-                random.randint(0, height),
+                random.randint(0, w),
+                random.randint(0, h),
+                random.randint(0, w),
+                random.randint(0, h),
             ],
-            fill=line_color,
+            fill=(random.randint(100, 200),) * 3,
             width=random.randint(1, 3),
         )
 
     for _ in range(random.randint(500, 1000)):
-        dot_color = (random.randint(150, 220), random.randint(150, 220), random.randint(150, 220))
-        draw.point([random.randint(0, width), random.randint(0, height)], fill=dot_color)
+        draw.point(
+            [random.randint(0, w), random.randint(0, h)], fill=(random.randint(150, 220),) * 3
+        )
 
-    image = image.filter(ImageFilter.SMOOTH)
+    b_io = BytesIO()
+    img.filter(ImageFilter.SMOOTH).save(b_io, "PNG")
+    b_io.seek(0)
 
-    byte_io = BytesIO()
-    image.save(byte_io, "PNG")
-    byte_io.seek(0)
-
-    options = set(selected_names)
-    while len(options) < 4:
-        options.add(random.choice(all_names))
-
-    all_options = list(options)
-    random.shuffle(all_options)
-
-    return byte_io, target_name, all_options
+    opts = set(sel)
+    while len(opts) < 4:
+        opts.add(random.choice(names))
+    return b_io, tar, sorted(list(opts), key=lambda _: random.random())

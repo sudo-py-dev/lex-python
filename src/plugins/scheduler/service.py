@@ -154,7 +154,7 @@ async def lift_shabbat_lock(chat_id: int) -> None:
 
 async def sync_shabbat_times_task() -> None:
     from src.core.context import get_context
-    from src.utils.hebcal import get_shabbat_events
+    from src.utils.hebcal import get_shabbat_events_batch
 
     from .manager import SchedulerManager
     from .repository import SchedulerRepository
@@ -165,15 +165,37 @@ async def sync_shabbat_times_task() -> None:
     locks = await SchedulerRepository.get_active_shabbat_locks(ctx)
     tz_map = await SchedulerRepository.get_all_group_settings(ctx)
 
+    unique_timezones = set()
+    lock_tz_map = {}
     for lock in locks:
         chat_id = lock.chatId
         tz = tz_map.get(chat_id, "UTC")
-        try:
-            start, end, _ = await get_shabbat_events(tz)
-            if start and end:
+        unique_timezones.add(tz)
+        lock_tz_map[chat_id] = tz
+
+    if not unique_timezones:
+        logger.info("Scheduler: No active Shabbat locks found")
+        return
+
+    logger.info(f"Scheduler: Fetching Shabbat times for {len(unique_timezones)} unique timezones...")
+    shabbat_times = await get_shabbat_events_batch(list(unique_timezones))
+
+    scheduled_count = 0
+    for lock in locks:
+        chat_id = lock.chatId
+        tz = lock_tz_map[chat_id]
+        start, end, _ = shabbat_times.get(tz, (None, None, False))
+
+        if start and end:
+            try:
                 SchedulerManager.schedule_shabbat_events(ctx, chat_id, start, end)
-        except Exception as e:
-            logger.error("Failed to sync Shabbat times for chat {}: {}", chat_id, e)
+                scheduled_count += 1
+            except Exception as e:
+                logger.error("Failed to schedule Shabbat events for chat {}: {}", chat_id, e)
+        else:
+            logger.warning("No Shabbat times found for chat {} (timezone: {})", chat_id, tz)
+
+    logger.info(f"Scheduler: Successfully scheduled Shabbat events for {scheduled_count} chats")
 
 
 async def run_group_cleaner(chat_id: int) -> None:

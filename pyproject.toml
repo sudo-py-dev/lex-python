@@ -17,7 +17,6 @@ dependencies = [
     "deep-translator>=1.11.4",
     "python-dotenv>=1.2.2",
     "langdetect>=1.0.9",
-    "colorama>=0.4.6",
     "emoji>=2.15.0",
     "Pillow",
     "httpx>=0.28.1",
@@ -26,7 +25,7 @@ dependencies = [
 
 [project.scripts]
 bot = "src.main:run"
-translate = "scripts.translate_locales:main"
+translate = "scripts.translate:main"
 lint = "scripts.dev:lint"
 fmt = "scripts.dev:fmt"
 typecheck = "scripts.dev:check"
@@ -54,6 +53,7 @@ dev = [
     "ruff",
     "pylint",
     "aiosqlite>=0.22.1",
+    "rich>=13.0.0",
 ]
 
 [tool.ruff]

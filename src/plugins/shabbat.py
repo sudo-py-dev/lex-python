@@ -2,7 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from loguru import logger
-from pyrogram import filters
+from pyrogram import enums, filters
 from pyrogram.types import Message
 
 from src.core.bot import bot
@@ -32,7 +32,7 @@ async def shabbat_command(client, message: Message):
     chat_id = message.chat.id
     ctx = get_context()
 
-    if message.chat.type == filters.ChatType.PRIVATE:
+    if message.chat.type == enums.ChatType.PRIVATE:
         # For debug/sudo testing in PM
         await message.reply(
             "💡 Shabbat command works. It is intended for groups with a configured timezone."

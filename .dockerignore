@@ -10,4 +10,5 @@ sessions/
 data/
 Dockerfile
 docker-compose.yml
-.antigravity/
+scripts/
+tests/

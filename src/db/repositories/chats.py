@@ -12,7 +12,6 @@ from sqlalchemy.exc import IntegrityError
 from src.core.context import AppContext
 from src.db.models import ChatSettings
 from src.utils.i18n import at
-from src.utils.permissions import is_admin
 
 
 async def _get_or_create_settings(ctx: AppContext, chat_id: int, session) -> ChatSettings:
@@ -110,8 +109,15 @@ async def get_user_admin_chats(
     client: Client,
     user_id: int,
     chat_type: ChatType | list[ChatType] | None = None,
+    check_admin: bool = False,
 ) -> list[tuple[int, str]]:
-    """Get active chats where user is admin, optionally filtered by type."""
+    """Get active chats where user is admin, optionally filtered by type.
+
+    Args:
+        check_admin: If True, verify admin status via API (slow, causes rate limits).
+                     If False, return all matching chats from DB (fast, for menu listing).
+                     Admin check should be done when selecting a specific chat, not when listing.
+    """
     async with ctx.db() as session:
         stmt = select(ChatSettings).where(and_(ChatSettings.isActive, ChatSettings.id < 0))
         if chat_type:
@@ -129,8 +135,11 @@ async def get_user_admin_chats(
     async def check(s: ChatSettings):
         async with sem:
             cid = int(s.id)
-            if not await is_admin(client, cid, user_id):
-                return
+            if check_admin:
+                from src.utils.admin_cache import is_admin as cached_is_admin
+
+                if not await cached_is_admin(client, cid, user_id):
+                    return
             if s.title:
                 return results.append((cid, s.title))
             try:
