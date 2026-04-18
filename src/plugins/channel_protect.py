@@ -21,7 +21,7 @@ from src.utils.allowlist_cache import (
 )
 from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
-from src.utils.permissions import Permission
+from src.utils.permissions import Permission, is_admin
 
 
 class ChannelProtectPlugin(Plugin):
@@ -158,8 +158,20 @@ async def channel_protect_interceptor(client: Client, message: Message) -> None:
         and await cached_is_channel_allowed(message.chat.id, message.sender_chat.id)
     ):
         return
-    if not (cp := await get_channel_protect(get_context(), message.chat.id)):
+    ctx = get_context()
+    if not (cp := await get_channel_protect(ctx, message.chat.id)):
         return
+
+    from src.db.repositories.chats import get_chat_settings
+
+    settings = await get_chat_settings(ctx, message.chat.id)
+    if (
+        message.sender_chat
+        and message.sender_chat.id == settings.linkedChatId
+        and await is_admin(client, message.sender_chat.id, client.me.id)
+    ):
+        return
+
     if (
         cp.antiChannel and message.sender_chat and message.sender_chat.type == ChatType.CHANNEL
     ) or (

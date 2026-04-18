@@ -21,9 +21,15 @@ async def _ensure_chat_identity(ctx, chat):
     raw_type = chat.type.name.lower()
     chat_type = "group" if raw_type in ("group", "supergroup") else "channel"
 
-    # Update if identity changed
-    if settings.chatType != chat_type or settings.title != chat.title:
-        await update_settings(ctx, chat.id, chatType=chat_type, title=chat.title)
+    linked_id = getattr(chat, "linked_chat_id", None)
+    if (
+        settings.chatType != chat_type
+        or settings.title != chat.title
+        or settings.linkedChatId != linked_id
+    ):
+        await update_settings(
+            ctx, chat.id, chatType=chat_type, title=chat.title, linkedChatId=linked_id
+        )
 
     _REGISTERED_CHATS.add(chat.id)
 
