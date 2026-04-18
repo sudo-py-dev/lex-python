@@ -10,6 +10,7 @@ from src.core.plugin import Plugin, register
 from src.config import config
 from src.utils.decorators import safe_handler
 from src.plugins.admin_sync import ensure_chat_identity
+from src.db.repositories.chats import get_all_active_chats
 
 class OwnerPlugin(Plugin):
     """Plugin for bot owner maintenance and debug commands."""
@@ -29,26 +30,29 @@ async def sync_all_links_handler(client: Client, message: Message):
     errors = 0
     
     try:
-        async for dialog in client.get_dialogs():
-            if dialog.chat.type in (ChatType.GROUP, ChatType.SUPERGROUP):
-                try:
-                    # ensure_chat_identity handles identity and linked channel
-                    await ensure_chat_identity(ctx, dialog.chat)
+        active_chats = await get_all_active_chats(ctx)
+        total_to_sync = len(active_chats)
+        
+        for s in active_chats:
+            try:
+                chat = await client.get_chat(s.id)
+                if chat.type in (ChatType.GROUP, ChatType.SUPERGROUP):
+                    await ensure_chat_identity(ctx, chat)
                     synced += 1
-                    
-                    if synced % 5 == 0:
-                        await status_msg.edit_text(f"⏳ Syncing... {synced} chats processed.")
-                    
-                    # Small delay to avoid FloodWait during intensive DB/API operations
-                    await asyncio.sleep(0.05)
-                except Exception:
-                    errors += 1
-                    continue
+                
+                if synced % 5 == 0:
+                    await status_msg.edit_text(f"⏳ Syncing... {synced}/{total_to_sync} chats processed.")
+                
+                await asyncio.sleep(0.1)
+            except Exception:
+                errors += 1
+                continue
                     
         await status_msg.edit_text(
             f"✅ **Sync complete!**\n\n"
-            f"• Total Synced: `{synced}`\n"
-            f"• Errors: `{errors}`\n"
+            f"• Total Processed: `{total_to_sync}`\n"
+            f"• Successfully Synced: `{synced}`\n"
+            f"• Errors/Skipped: `{errors}`\n"
             f"\nLinked channels are now tracked for all active groups."
         )
     except Exception as e:

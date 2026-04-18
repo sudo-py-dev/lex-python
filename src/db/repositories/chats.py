@@ -23,7 +23,6 @@ async def _get_or_create_settings(ctx: AppContext, chat_id: int, session) -> Cha
                 session.add(settings)
             await session.commit()
         except IntegrityError:
-            # Race condition: another task created it. Rollback the savepoint and fetch.
             await session.rollback()
             settings = await session.get(ChatSettings, chat_id)
     return settings
@@ -222,3 +221,11 @@ async def set_chat_active_status(ctx: AppContext, chat_id: int, is_active: bool)
             settings.isActive = is_active
             session.add(settings)
             await session.commit()
+
+
+async def get_all_active_chats(ctx: AppContext) -> list[ChatSettings]:
+    """Retrieve all chats marked as active in the database."""
+    async with ctx.db() as session:
+        stmt = select(ChatSettings).where(ChatSettings.isActive)
+        res = await session.execute(stmt)
+        return list(res.scalars().all())
