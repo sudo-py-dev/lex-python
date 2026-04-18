@@ -7,7 +7,7 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.core.plugin import Plugin, register
 from src.db.repositories.chats import get_chat_settings as get_settings
-from src.db.repositories.chats import update_settings
+from src.db.repositories.chats import set_chat_active_status, update_settings
 from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.formatters import TelegramFormatter
 from src.utils.i18n import at
@@ -48,6 +48,11 @@ async def send_welcome_goodbye(
 @bot.on_message(filters.new_chat_members & filters.group, group=-40)
 @safe_handler
 async def welcome_handler(client: Client, message: Message) -> None:
+    for m in message.new_chat_members:
+        if m.id == client.me.id:
+            await set_chat_active_status(get_context(), message.chat.id, True)
+            break
+
     settings = await get_settings(get_context(), message.chat.id)
     if settings.cleanJoin:
         with contextlib.suppress(Exception):

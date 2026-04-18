@@ -13,6 +13,7 @@ from pyrogram import Client, ContinuePropagation, StopPropagation
 from pyrogram.enums import ChatType
 from pyrogram.errors import (
     FloodWait,
+    Forbidden,
     PeerIdInvalid,
     RPCError,
     UserIdInvalid,
@@ -97,6 +98,29 @@ def safe_handler(func: Handler) -> Handler:
             await func(*args, **kwargs)
         except (StopPropagation, ContinuePropagation):
             raise
+        except Forbidden as e:
+            # Handle cases where the bot was kicked, blocked, or lacks permissions
+            chat_id = None
+            # Attempt to extract chat_id from common argument patterns
+            for arg in args:
+                if hasattr(arg, "chat") and hasattr(arg.chat, "id"):
+                    chat_id = arg.chat.id
+                    break
+                if hasattr(arg, "message") and hasattr(arg.message, "chat") and hasattr(arg.message.chat, "id"):
+                    chat_id = arg.message.chat.id
+                    break
+
+            handler_name = func.__name__
+            if chat_id:
+                from src.core.context import get_context
+                from src.db.repositories.chats import set_chat_active_status
+
+                logger.warning(f"Forbidden in {handler_name} for chat {chat_id}: {e}")
+                # We use create_task to avoid blocking the handler worker
+                asyncio.create_task(set_chat_active_status(get_context(), chat_id, False))
+            else:
+                logger.warning(f"Forbidden in {handler_name}: {e}")
+
         except Exception as e:
             logger.exception(f"Unhandled error in {func.__name__}: {e}")
 

@@ -14,9 +14,9 @@ from src.db.models import (
 class SchedulerRepository:
     @staticmethod
     async def get_all_group_settings(ctx: AppContext) -> dict[int, str]:
-        """Fetch all chat IDs and their timezones."""
+        """Fetch all active chat IDs and their timezones."""
         async with ctx.db() as session:
-            stmt = select(ChatSettings.id, ChatSettings.timezone)
+            stmt = select(ChatSettings.id, ChatSettings.timezone).where(ChatSettings.isActive)
             result = await session.execute(stmt)
             return {row[0]: row[1] or "UTC" for row in result.all()}
 
@@ -30,33 +30,49 @@ class SchedulerRepository:
 
     @staticmethod
     async def get_active_reminders(ctx: AppContext):
-        """Fetch all active reminders."""
+        """Fetch all active reminders for active chats."""
         async with ctx.db() as session:
-            stmt = select(Reminder).where(Reminder.isActive)
+            stmt = (
+                select(Reminder)
+                .join(ChatSettings, Reminder.chatId == ChatSettings.id)
+                .where(Reminder.isActive, ChatSettings.isActive)
+            )
             result = await session.execute(stmt)
             return result.scalars().all()
 
     @staticmethod
     async def get_active_shabbat_locks(ctx: AppContext):
-        """Fetch all enabled Shabbat locks."""
+        """Fetch all enabled Shabbat locks for active chats."""
         async with ctx.db() as session:
-            stmt = select(ChatShabbatLock).where(ChatShabbatLock.isEnabled)
+            stmt = (
+                select(ChatShabbatLock)
+                .join(ChatSettings, ChatShabbatLock.chatId == ChatSettings.id)
+                .where(ChatShabbatLock.isEnabled, ChatSettings.isActive)
+            )
             result = await session.execute(stmt)
             return result.scalars().all()
 
     @staticmethod
     async def get_active_night_locks(ctx: AppContext):
-        """Fetch all enabled night locks."""
+        """Fetch all enabled night locks for active chats."""
         async with ctx.db() as session:
-            stmt = select(ChatNightLock).where(ChatNightLock.isEnabled)
+            stmt = (
+                select(ChatNightLock)
+                .join(ChatSettings, ChatNightLock.chatId == ChatSettings.id)
+                .where(ChatNightLock.isEnabled, ChatSettings.isActive)
+            )
             result = await session.execute(stmt)
             return result.scalars().all()
 
     @staticmethod
     async def get_active_group_cleaners(ctx: AppContext):
-        """Fetch all group cleaners (currently all are active if they exist)."""
+        """Fetch all group cleaners for active chats."""
         async with ctx.db() as session:
-            stmt = select(ChatCleaner)
+            stmt = (
+                select(ChatCleaner)
+                .join(ChatSettings, ChatCleaner.chatId == ChatSettings.id)
+                .where(ChatSettings.isActive)
+            )
             result = await session.execute(stmt)
             return result.scalars().all()
 
