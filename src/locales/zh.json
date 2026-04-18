@@ -483,6 +483,7 @@
   "panel.btn_clean_time": "🕒 运行时间：{time}",
   "panel.btn_cleaner": "🧹 服务清洁工",
   "panel.btn_clear_filters": "🧹 重置所有过滤器",
+  "panel.btn_clear_text": "🧹 清晰的文字",
   "panel.btn_close": "❌ 关闭",
   "panel.btn_disabling": "🔕 禁用",
   "panel.btn_edit_emojis": "✏️ 编辑表情符号",

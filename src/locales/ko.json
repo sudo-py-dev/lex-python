@@ -483,6 +483,7 @@
   "panel.btn_clean_time": "🕒 실행 시간: {time}",
   "panel.btn_cleaner": "🧹 서비스 클리너",
   "panel.btn_clear_filters": "🧹 모든 필터 재설정",
+  "panel.btn_clear_text": "🧹 텍스트 지우기",
   "panel.btn_close": "❌ 닫기",
   "panel.btn_disabling": "🔕 비활성화",
   "panel.btn_edit_emojis": "✏️ 이모티콘 편집",

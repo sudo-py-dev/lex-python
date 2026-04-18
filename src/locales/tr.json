@@ -483,6 +483,7 @@
   "panel.btn_clean_time": "🕒 Çalışma Süresi: {time}",
   "panel.btn_cleaner": "🧹 Servis Temizleyici",
   "panel.btn_clear_filters": "🧹 Tüm Filtreleri Sıfırla",
+  "panel.btn_clear_text": "🧹 Metni Temizle",
   "panel.btn_close": "❌ Kapat",
   "panel.btn_disabling": "🔕",
   "panel.btn_edit_emojis": "✏️ Emojileri Düzenle",

@@ -483,6 +483,7 @@
   "panel.btn_clean_time": "🕒 Время выполнения: {time}",
   "panel.btn_cleaner": "🧹 Сервисный уборщик",
   "panel.btn_clear_filters": "🧹 Сбросить все фильтры",
+  "panel.btn_clear_text": "🧹 Очистить текст",
   "panel.btn_close": "❌ Закрыть",
   "panel.btn_disabling": "🔕 Отключение",
   "panel.btn_edit_emojis": "✏️ Редактировать смайлы",

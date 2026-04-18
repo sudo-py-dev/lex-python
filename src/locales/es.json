@@ -483,6 +483,7 @@
   "panel.btn_clean_time": "🕒 Tiempo de ejecución: {time}",
   "panel.btn_cleaner": "🧹 Servicio de limpieza",
   "panel.btn_clear_filters": "🧹 Restablecer todos los filtros",
+  "panel.btn_clear_text": "🧹 Texto claro",
   "panel.btn_close": "❌ Cerrar",
   "panel.btn_disabling": "🔕 Deshabilitar",
   "panel.btn_edit_emojis": "✏️ Editar emojis",

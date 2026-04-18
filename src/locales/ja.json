@@ -483,6 +483,7 @@
   "panel.btn_clean_time": "🕒 実行時間: {time}",
   "panel.btn_cleaner": "🧹 サービスクリーナー",
   "panel.btn_clear_filters": "🧹 すべてのフィルターをリセット",
+  "panel.btn_clear_text": "🧹 クリアテキスト",
   "panel.btn_close": "❌ 閉じる",
   "panel.btn_disabling": "🔕 無効にする",
   "panel.btn_edit_emojis": "✏️ 絵文字を編集",

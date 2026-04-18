@@ -361,6 +361,10 @@ async def on_channel_toggle_wm_image(client: Client, callback: CallbackQuery):
     await callback.answer(await at(user_id, "panel.setting_updated"))
 
 
+    await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, user_id)
+    await callback.answer(await at(user_id, "panel.setting_updated"))
+
+
 @bot.on_callback_query(filters.regex(r"^panel:toggle_wm_video:(-?\d+)$"))
 @safe_callback
 async def on_channel_toggle_wm_video(client: Client, callback: CallbackQuery):
@@ -396,6 +400,39 @@ async def on_channel_toggle_wm_video(client: Client, callback: CallbackQuery):
     )
     await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, user_id)
     await callback.answer(await at(user_id, "panel.setting_updated"))
+
+
+@bot.on_callback_query(filters.regex(r"^panel:clear_wm_text:(-?\d+)$"))
+@safe_callback
+async def on_channel_clear_watermark_text(client: Client, callback: CallbackQuery):
+    ctx = get_context()
+    user_id = callback.from_user.id
+    channel_id = int(callback.matches[0].group(1))
+
+    if not await is_admin(client, channel_id, user_id):
+        await callback.answer(await at(user_id, "error.no_membership_admin"), show_alert=True)
+        return
+
+    s = await get_chat_settings(ctx, channel_id)
+    cfg = parse_watermark_config(s.watermarkText)
+    cfg.text = ""
+
+    await update_chat_setting(
+        ctx,
+        channel_id,
+        "watermarkText",
+        build_watermark_config(
+            cfg.text,
+            color=cfg.color,
+            style=cfg.style,
+            image_enabled=cfg.image_enabled,
+            video_enabled=cfg.video_enabled,
+            video_quality=cfg.video_quality,
+            video_motion=cfg.video_motion,
+        ),
+    )
+    await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, user_id)
+    await callback.answer(_plain(await at(user_id, "panel.watermark_cleared")))
 
 
 @bot.on_callback_query(filters.regex(r"^panel:channel_buttons:(-?\d+)$"))

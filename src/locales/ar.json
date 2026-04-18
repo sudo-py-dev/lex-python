@@ -483,6 +483,7 @@
   "panel.btn_clean_time": "🕒 مدة التشغيل: {time}",
   "panel.btn_cleaner": "🧹منظف الخدمة",
   "panel.btn_clear_filters": "🧹 إعادة ضبط جميع المرشحات",
+  "panel.btn_clear_text": "🧹 مسح النص",
   "panel.btn_close": "❌ إغلاق",
   "panel.btn_disabling": "🔕 تعطيل",
   "panel.btn_edit_emojis": "✏️ تعديل الرموز التعبيرية",

@@ -1192,7 +1192,11 @@ async def channel_watermark_kb(ctx, channel_id: int, user_id: int) -> InlineKeyb
                 InlineKeyboardButton(
                     await at(user_id, "panel.btn_set_watermark"),
                     callback_data=f"panel:input:watermarkText:{channel_id}",
-                )
+                ),
+                InlineKeyboardButton(
+                    await at(user_id, "panel.btn_clear_text"),
+                    callback_data=f"panel:clear_wm_text:{channel_id}",
+                ),
             ],
             # Color & Style
             [
