@@ -10,7 +10,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 
 from src.core.context import AppContext
-from src.db.models import ChatSettings
+from src.db.models import ChatAdmin, ChatSettings
 from src.utils.i18n import at
 
 
@@ -119,7 +119,18 @@ async def get_user_admin_chats(
                      Admin check should be done when selecting a specific chat, not when listing.
     """
     async with ctx.db() as session:
-        stmt = select(ChatSettings).where(and_(ChatSettings.isActive, ChatSettings.id < 0))
+        stmt = (
+            select(ChatSettings)
+            .join(ChatAdmin, ChatSettings.id == ChatAdmin.chatId)
+            .where(
+                and_(
+                    ChatSettings.isActive,
+                    ChatSettings.id < 0,
+                    ChatAdmin.userId == user_id,
+                )
+            )
+        )
+
         if chat_type:
             types = (
                 [ct.name.lower() for ct in chat_type]
