@@ -30,11 +30,9 @@ async def is_admin(client: Client, chat_id: int | None, user_id: int | None) -> 
     if chat_id is None or user_id is None:
         return False
 
-    # Anonymous admins or users posting as the group
     if user_id == chat_id:
         return True
 
-    # The bot itself is always an admin
     if user_id == client.me.id:
         return True
 
@@ -49,14 +47,21 @@ async def is_whitelisted(client: Client, chat_id: int | None, user_id: int | Non
     if user_id == chat_id:
         return True
 
-    # The bot itself is always whitelisted
     if user_id == client.me.id:
         return True
 
     if await is_admin(client, chat_id, user_id):
         return True
 
-    # Check approved cache (separate system)
+    if chat_id and user_id and chat_id < 0 and user_id < 0:
+        from src.core.context import get_context
+        from src.db.repositories.chats import get_chat_settings
+
+        settings = await get_chat_settings(get_context(), chat_id)
+        if settings and settings.linkedChatId == user_id:
+            if await is_admin(client, user_id, client.me.id):
+                return True
+
     from .approved_cache import is_approved as cached_is_approved
 
     return await cached_is_approved(chat_id, user_id)

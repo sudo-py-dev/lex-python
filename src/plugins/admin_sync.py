@@ -1,4 +1,4 @@
-from pyrogram import Client, ContinuePropagation, filters
+from pyrogram import Client, ContinuePropagation, StopPropagation, filters
 from pyrogram.enums import ChatMemberStatus, ChatType
 from pyrogram.types import ChatMemberUpdated, Message
 
@@ -6,11 +6,12 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.db.repositories.admins import remove_admin, upsert_admin
 from src.utils.admin_cache import invalidate_cache
+from src.utils.decorators import safe_handler
 
 _REGISTERED_CHATS = set()
 
 
-async def _ensure_chat_identity(ctx, chat):
+async def ensure_chat_identity(ctx, chat):
     """Ensure the chat type and title are correctly persisted in the database."""
     if chat.id in _REGISTERED_CHATS:
         return
@@ -37,7 +38,7 @@ async def _ensure_chat_identity(ctx, chat):
 @bot.on_message(filters.group | filters.channel, group=-90)
 async def auto_register_chat(client: Client, message: Message):
     """Automatically register chat identity on any incoming message."""
-    await _ensure_chat_identity(get_context(), message.chat)
+    await ensure_chat_identity(get_context(), message.chat)
     raise ContinuePropagation
 
 
