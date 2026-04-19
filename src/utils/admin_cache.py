@@ -142,7 +142,9 @@ async def sync_admins_from_telegram(client: Client, chat_id: int, force: bool = 
             # Update lastAdminsUpdate timestamp
             from src.db.repositories.chats import update_chat_setting
 
-            await update_chat_setting(ctx, chat_id, "lastAdminsUpdate", datetime.now(UTC))
+            await update_chat_setting(
+                ctx, chat_id, "lastAdminsUpdate", datetime.now(UTC).replace(tzinfo=None)
+            )
 
             # Update global list cache
             await cache.set(CacheKeys.admins(chat_id), json.dumps(list(admin_ids)), ttl=_TTL)
@@ -161,7 +163,8 @@ async def _ensure_synced(client: Client, chat_id: int) -> None:
 
     settings = await get_chat_settings(get_context(), chat_id)
     if not settings.lastAdminsUpdate or (
-        settings.lastAdminsUpdate < datetime.now(UTC) - timedelta(hours=24)
+        settings.lastAdminsUpdate.replace(tzinfo=None)
+        < datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)
     ):
         await sync_admins_from_telegram(client, chat_id, force=True)
 

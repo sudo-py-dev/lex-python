@@ -38,7 +38,7 @@ async def upsert_admin(
             admin.firstName = first_name
             admin.username = username
             admin.privileges = json.dumps(privileges) if privileges else None
-            admin.updatedAt = datetime.now(UTC)
+            admin.updatedAt = datetime.now(UTC).replace(tzinfo=None)
             session.add(admin)
         await session.commit()
 

@@ -10,7 +10,7 @@ from pyrogram.errors import (
     QueryIdInvalid,
     RPCError,
 )
-from pyrogram.types import CallbackQuery
+from pyrogram.types import CallbackQuery, Message
 
 from src.config import config
 from src.plugins.admin_panel.handlers.ai_kbs import ai_menu_kb
@@ -82,17 +82,19 @@ def safe_callback(func):
     return wrapper
 
 
-async def safe_edit(callback: CallbackQuery, text: str = None, reply_markup=None, **kwargs):
+async def safe_edit(event: CallbackQuery | Message, text: str = None, reply_markup=None, **kwargs):
     """
-    Safely edit message text or reply_markup while ignoring MessageNotModified errors.
-    If text is None, only the reply_markup is edited.
-    Additional kwargs are passed to the underlying edit method.
+    Safely edit message text or reply_markup while ignoring common errors.
+    Supports both CallbackQuery (event.message) and direct Message objects.
     """
+
+    msg = event.message if not isinstance(event, Message) else event
+
     with contextlib.suppress(MessageNotModified, RPCError):
         if text:
-            await callback.message.edit_text(text, reply_markup=reply_markup, **kwargs)
+            await msg.edit_text(text, reply_markup=reply_markup, **kwargs)
         else:
-            await callback.message.edit_reply_markup(reply_markup=reply_markup)
+            await msg.edit_reply_markup(reply_markup=reply_markup)
 
 
 async def _render_ai_panel(
@@ -167,6 +169,14 @@ async def _render_channel_watermark_panel(
             image_status=await at(
                 ui_id, "panel.status_enabled" if cfg.image_enabled else "panel.status_disabled"
             ),
+            has_image=await at(ui_id, "common.yes" if settings.watermarkImage else "common.no"),
+            location=await at(
+                ui_id, f"panel.wm_location_{settings.watermarkPosition or 'bottom_right'}"
+            ),
+            opacity=int(
+                (settings.watermarkOpacity if settings.watermarkOpacity is not None else 0.7) * 100
+            ),
+            size=settings.watermarkSize or 10,
             text=cfg.text or "-",
             color=await at(ui_id, f"panel.wm_color_{cfg.color}"),
             style=await at(ui_id, f"panel.wm_style_{cfg.style}"),

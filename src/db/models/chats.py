@@ -15,7 +15,9 @@ if TYPE_CHECKING:
 from sqlalchemy import (
     BigInteger,
     DateTime,
+    Float,
     ForeignKey,
+    Integer,
     String,
     Text,
     false,
@@ -112,6 +114,15 @@ class ChatSettings(TimestampMixin, Base):
     reactionMode: Mapped[str] = mapped_column(Text, default="all", server_default=sa_text("'all'"))
     watermarkEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
     watermarkText: Mapped[str | None] = mapped_column(Text, nullable=True)
+    watermarkImage: Mapped[str | None] = mapped_column(Text, nullable=True)
+    watermarkPosition: Mapped[str] = mapped_column(
+        String(20), default="bottom_right", server_default=sa_text("'bottom_right'")
+    )
+    watermarkOpacity: Mapped[float] = mapped_column(
+        Float, default=0.7, server_default=sa_text("0.7")
+    )
+    watermarkSize: Mapped[int] = mapped_column(Integer, default=10, server_default=sa_text("10"))
+
     signatureEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
     signatureText: Mapped[str | None] = mapped_column(Text, nullable=True)
     buttons: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -324,7 +324,7 @@ async def cleaner_time_input_handler(client: Client, message: Message) -> None:
             cleaner = ChatCleaner(chatId=chat_id)
 
         # Enforce once-per-day change limit
-        now = datetime.now(UTC)
+        now = datetime.now(UTC).replace(tzinfo=None)
         if cleaner.cleanerTimeChangedAt and cleaner.cleanerTimeChangedAt.date() == now.date():
             await message.reply(await at(user_id, "panel.error_cleaner_time_cooldown"))
             return

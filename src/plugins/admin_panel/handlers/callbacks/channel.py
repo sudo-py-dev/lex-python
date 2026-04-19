@@ -34,12 +34,14 @@ from src.utils.actions import (
     VIDEO_MOTIONS,
     VIDEO_QUALITIES,
     WATERMARK_COLORS,
+    WATERMARK_POSITIONS,
     WATERMARK_STYLES,
     ButtonStyle,
     ReactionMode,
     VideoMotion,
     VideoQuality,
     WatermarkColor,
+    WatermarkPosition,
     WatermarkStyle,
     cycle_action,
 )
@@ -305,6 +307,15 @@ async def on_channel_cycle_watermark(client: Client, callback: CallbackQuery):
         cfg.video_motion = cycle_action(
             cfg.video_motion, VIDEO_MOTIONS, default_action=VideoMotion.STATIC
         )
+    elif mode == "position":
+        cfg_pos = s.watermarkPosition or WatermarkPosition.BOTTOM_RIGHT
+        new_pos = cycle_action(
+            cfg_pos, WATERMARK_POSITIONS, default_action=WatermarkPosition.BOTTOM_RIGHT
+        )
+        await update_chat_setting(ctx, channel_id, "watermarkPosition", new_pos)
+        await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, user_id)
+        await callback.answer()
+        return
     else:
         cfg.style = cycle_action(
             cfg.style, WATERMARK_STYLES, default_action=WatermarkStyle.SOFT_SHADOW
@@ -432,6 +443,22 @@ async def on_channel_clear_watermark_text(client: Client, callback: CallbackQuer
     )
     await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, user_id)
     await callback.answer(_plain(await at(user_id, "panel.watermark_cleared")))
+
+
+@bot.on_callback_query(filters.regex(r"^panel:clear_wm_image:(-?\d+)$"))
+@safe_callback
+async def on_channel_clear_watermark_image(client: Client, callback: CallbackQuery):
+    ctx = get_context()
+    user_id = callback.from_user.id
+    channel_id = int(callback.matches[0].group(1))
+
+    if not await is_admin(client, channel_id, user_id):
+        await callback.answer(await at(user_id, "error.no_membership_admin"), show_alert=True)
+        return
+
+    await update_chat_setting(ctx, channel_id, "watermarkImage", None)
+    await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, user_id)
+    await callback.answer(_plain(await at(user_id, "panel.setting_updated")))
 
 
 @bot.on_callback_query(filters.regex(r"^panel:channel_buttons:(-?\d+)$"))

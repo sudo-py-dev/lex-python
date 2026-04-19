@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -282,12 +283,22 @@ def apply_watermark(
     output_path: str,
     color: str = DEFAULT_WATERMARK_COLOR,
     style: str = DEFAULT_WATERMARK_STYLE,
+    image_wm_path: str | None = None,
+    position: str = "bottom_right",
+    opacity: float = 0.7,
+    scale: int = 10,
 ) -> bool:
     """
-    Apply a text watermark to an image.
+    Apply a text or image watermark to an image.
     :param image_path: Path to the source image.
     :param text: Watermark text (e.g., '@MyChannel').
     :param output_path: Path to save the watermarked image.
+    :param color: Text color.
+    :param style: Text style.
+    :param image_wm_path: Path to the watermark image (optional).
+    :param position: Watermark position.
+    :param opacity: Watermark opacity (0.0 to 1.0).
+    :param scale: Watermark size as percentage of source image width.
     :return: True if successful, False otherwise.
     """
     try:
@@ -296,79 +307,148 @@ def apply_watermark(
                 img = img.convert("RGBA")
 
             width, height = img.size
-
-            font_size = max(20, int(width * 0.04))
-
-            try:
-                script = _detect_script(text)
-                font_paths = _font_candidates(script)
-                font = None
-                for path in font_paths:
-                    if path.exists():
-                        font = ImageFont.truetype(str(path), font_size)
-                        break
-                if not font:
-                    font = ImageFont.load_default()
-            except Exception:
-                font = ImageFont.load_default()
-
-            measure_draw = ImageDraw.Draw(img)
-            left, top, right, bottom = measure_draw.textbbox((0, 0), text, font=font)
-            text_width = max(1, right - left)
-            text_height = max(1, bottom - top)
-
-            margin = int(width * 0.02)
-            x = width - text_width - margin
-            y = height - text_height - margin
-
-            palette = {
-                "white": (255, 255, 255),
-                "black": (0, 0, 0),
-                "red": (255, 60, 60),
-                "blue": (80, 160, 255),
-                "gold": (255, 200, 60),
-            }
-            fill_color = palette.get(color, palette["white"])
-            shadow_offset = max(1, int(font_size * 0.05))
             overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
             draw = ImageDraw.Draw(overlay)
-            main_fill = (*fill_color, 190)
-            shadow_fill = (0, 0, 0, 145)
 
-            def draw_text_effect(
-                target_draw: ImageDraw.ImageDraw, px: int, py: int, st: str
-            ) -> None:
-                if st in ("soft_shadow", "pattern_grid", "pattern_diagonal", "outline"):
-                    target_draw.text(
-                        (px + shadow_offset, py + shadow_offset), text, font=font, fill=shadow_fill
-                    )
-                if st == "outline":
-                    target_draw.text((px - shadow_offset, py), text, font=font, fill=shadow_fill)
-                    target_draw.text((px + shadow_offset, py), text, font=font, fill=shadow_fill)
-                    target_draw.text((px, py - shadow_offset), text, font=font, fill=shadow_fill)
-                    target_draw.text((px, py + shadow_offset), text, font=font, fill=shadow_fill)
-                target_draw.text((px, py), text, font=font, fill=main_fill)
+            # --- Handle Image Watermark ---
+            if image_wm_path and os.path.exists(image_wm_path):
+                try:
+                    with Image.open(image_wm_path) as wm_img:
+                        if wm_img.mode != "RGBA":
+                            wm_img = wm_img.convert("RGBA")
 
-            if style in ("pattern_grid", "pattern_diagonal"):
-                step_x = max(text_width + margin * 2, int(width * 0.2))
-                step_y = max(text_height + margin * 2, int(height * 0.15))
-                offset = step_x // 2 if style == "pattern_diagonal" else 0
-                yy = -step_y
-                row = 0
-                while yy < height + step_y:
-                    xx = -step_x + (offset if row % 2 else 0)
-                    while xx < width + step_x:
-                        draw_text_effect(draw, xx, yy, style)
-                        xx += step_x
-                    yy += step_y
-                    row += 1
-            else:
-                draw_text_effect(
-                    draw,
-                    x,
-                    y,
-                    style if style in ("soft_shadow", "outline", "clean") else "soft_shadow",
+                        # Resize watermark based on scale percentage
+                        wm_width = int(width * (scale / 100))
+                        aspect_ratio = wm_img.height / wm_img.width
+                        wm_height = int(wm_width * aspect_ratio)
+                        wm_img = wm_img.resize((wm_width, wm_height), Image.Resampling.LANCZOS)
+
+                        # Apply opacity
+                        if opacity < 1.0:
+                            alpha = wm_img.split()[3]
+                            alpha = alpha.point(lambda p: int(p * opacity))
+                            wm_img.putalpha(alpha)
+
+                        # Calculate position
+                        margin = int(width * 0.02)
+                        if position == "top_left":
+                            pos = (margin, margin)
+                        elif position == "top_right":
+                            pos = (width - wm_width - margin, margin)
+                        elif position == "bottom_left":
+                            pos = (margin, height - wm_height - margin)
+                        elif position == "center":
+                            pos = ((width - wm_width) // 2, (height - wm_height) // 2)
+                        else:  # bottom_right
+                            pos = (width - wm_width - margin, height - wm_height - margin)
+
+                        overlay.paste(wm_img, pos, wm_img)
+                except Exception as e:
+                    logger.error(f"[media] Failed to apply image watermark: {e}")
+
+            # --- Handle Text Watermark ---
+            if text:
+                font_size = (
+                    max(20, int(width * (scale / 100) * 0.4))
+                    if not image_wm_path
+                    else max(20, int(width * 0.04))
                 )
+
+                try:
+                    script = _detect_script(text)
+                    font_paths = _font_candidates(script)
+                    font = None
+                    for path in font_paths:
+                        if path.exists():
+                            font = ImageFont.truetype(str(path), font_size)
+                            break
+                    if not font:
+                        font = ImageFont.load_default()
+                except Exception:
+                    font = ImageFont.load_default()
+
+                left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+                text_width = max(1, right - left)
+                text_height = max(1, bottom - top)
+
+                margin = int(width * 0.02)
+
+                # If image watermark is present, we might want to place text below it or just skip
+                # For now, let's just place text in its own position or default bottom_right
+                if position == "top_left":
+                    x, y = margin, margin
+                elif position == "top_right":
+                    x, y = width - text_width - margin, margin
+                elif position == "bottom_left":
+                    x, y = margin, height - text_height - margin
+                elif position == "center":
+                    x, y = (width - text_width) // 2, (height - text_height) // 2
+                else:  # bottom_right
+                    x, y = width - text_width - margin, height - text_height - margin
+
+                # If both are present and in same position, offset text
+                if image_wm_path and position != "center":
+                    y += int(height * (scale / 100)) + 5
+
+                palette = {
+                    "white": (255, 255, 255),
+                    "black": (0, 0, 0),
+                    "red": (255, 60, 60),
+                    "blue": (80, 160, 255),
+                    "gold": (255, 200, 60),
+                }
+                fill_color = palette.get(color, palette["white"])
+                shadow_offset = max(1, int(font_size * 0.05))
+
+                alpha_val = int(opacity * 255)
+                main_fill = (*fill_color, alpha_val)
+                shadow_fill = (0, 0, 0, int(alpha_val * 0.75))
+
+                def draw_text_effect(
+                    target_draw: ImageDraw.ImageDraw, px: int, py: int, st: str
+                ) -> None:
+                    if st in ("soft_shadow", "pattern_grid", "pattern_diagonal", "outline"):
+                        target_draw.text(
+                            (px + shadow_offset, py + shadow_offset),
+                            text,
+                            font=font,
+                            fill=shadow_fill,
+                        )
+                    if st == "outline":
+                        target_draw.text(
+                            (px - shadow_offset, py), text, font=font, fill=shadow_fill
+                        )
+                        target_draw.text(
+                            (px + shadow_offset, py), text, font=font, fill=shadow_fill
+                        )
+                        target_draw.text(
+                            (px, py - shadow_offset), text, font=font, fill=shadow_fill
+                        )
+                        target_draw.text(
+                            (px, py + shadow_offset), text, font=font, fill=shadow_fill
+                        )
+                    target_draw.text((px, py), text, font=font, fill=main_fill)
+
+                if style in ("pattern_grid", "pattern_diagonal"):
+                    step_x = max(text_width + margin * 2, int(width * 0.2))
+                    step_y = max(text_height + margin * 2, int(height * 0.15))
+                    offset = step_x // 2 if style == "pattern_diagonal" else 0
+                    yy = -step_y
+                    row = 0
+                    while yy < height + step_y:
+                        xx = -step_x + (offset if row % 2 else 0)
+                        while xx < width + step_x:
+                            draw_text_effect(draw, xx, yy, style)
+                            xx += step_x
+                        yy += step_y
+                        row += 1
+                else:
+                    draw_text_effect(
+                        draw,
+                        x,
+                        y,
+                        style if style in ("soft_shadow", "outline", "clean") else "soft_shadow",
+                    )
 
             out = Image.alpha_composite(img, overlay)
 

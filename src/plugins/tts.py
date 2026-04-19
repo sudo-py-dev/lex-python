@@ -100,7 +100,7 @@ class TTSPlugin(Plugin):
     priority = 100
 
     async def setup(self, client: Client, ctx) -> None:
-        logger.info("[tts] Plugin initialized")
+        logger.debug("[tts] Plugin initialized")
 
 
 @bot.on_message(filters.command("tts") & (filters.group | filters.private))

@@ -124,14 +124,12 @@ class Translator:
         if not text:
             return text
 
-        # Replace tokens with regex for flexibility
         def replace_token(match: re.Match) -> str:
             idx = match.group(1)
             return mapping.get(PLACEHOLDER_TOKEN.format(idx), match.group(0)) or match.group(0)
 
         result = PLACEHOLDER_RESTORE.sub(replace_token, text)
 
-        # Clean common translation artifacts
         for original in mapping.values():
             result = result.replace(f"{original}_", original)
             result = result.replace(f"{original} ", original + " ")
@@ -230,8 +228,6 @@ class StringScanner(ast.NodeVisitor):
         self._in_logger = old
 
     def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
-        """Visit f-string (JoinedStr) nodes to extract string parts."""
-        # Skip f-strings inside logger calls
         if self._in_logger:
             return
 
@@ -364,7 +360,6 @@ def translate_job(mgr: LocaleManager, job: dict, progress: Progress, task_id: in
     data = job["data"]
     missing = job["missing"]
 
-    # Remove extra keys
     for k in job["extra"]:
         del data[k]
 
@@ -378,7 +373,6 @@ def translate_job(mgr: LocaleManager, job: dict, progress: Progress, task_id: in
     to_translate = [mgr.en_data[k] for k in missing]
     results: list[str] = []
 
-    # Process in chunks
     for i in range(0, len(to_translate), CHUNK_SIZE):
         chunk = to_translate[i : i + CHUNK_SIZE]
         progress.update(
@@ -389,13 +383,10 @@ def translate_job(mgr: LocaleManager, job: dict, progress: Progress, task_id: in
         if batch:
             results.extend(batch)
         else:
-            # Fallback to single translations
             for text in chunk:
                 results.append(translator.translate_single(text))
 
         progress.update(task_id, advance=len(chunk))
-
-    # Update data with translations
     for i, key in enumerate(missing):
         data[key] = results[i]
 
@@ -478,7 +469,6 @@ def sort_all_locales(mgr: LocaleManager, target_langs: list[str], dry_run: bool 
         if not data:
             continue
 
-        # Check if already sorted by comparing key order
         expected_order = [k for k in mgr.en_data if k in data]
         current_order = [k for k in data if k in mgr.en_data]
 
@@ -527,13 +517,11 @@ def main() -> None:
 
     mgr = LocaleManager(args.verbose)
 
-    # Handle stats/list command early
     if args.list:
         all_langs = sorted([f.stem for f in LOCALES_DIR.glob("*.json") if f.name != "en.json"])
         display_stats(mgr, all_langs or list(DEFAULT_LANGS.keys()))
         return
 
-    # Handle create new locales
     if args.create:
         new_langs = [lang.strip() for lang in args.create.split(",")]
         created = 0
@@ -552,7 +540,6 @@ def main() -> None:
             )
         return
 
-    # Handle non-translation commands
     if args.scan:
         scan_unlocalized(mgr)
         return
@@ -561,7 +548,6 @@ def main() -> None:
         find_unused_keys(mgr)
         return
 
-    # Determine target languages
     if args.langs:
         target_langs = [lang.strip() for lang in args.langs.split(",")]
     else:
@@ -569,12 +555,9 @@ def main() -> None:
             DEFAULT_LANGS.keys()
         )
 
-    # Handle stats for specific langs
     if args.list:
         display_stats(mgr, target_langs)
         return
-
-    # Header
     console.print(
         Panel(
             f"[bold blue]Locale Translation Tool[/]\n"
@@ -583,7 +566,6 @@ def main() -> None:
         )
     )
 
-    # Sort-only mode - now sorts all locales
     if args.sort:
         if args.dry_run:
             console.print("[cyan]Dry-run mode - no files will be modified.\n")
@@ -591,7 +573,6 @@ def main() -> None:
         sort_all_locales(mgr, target_langs, args.dry_run)
         return
 
-    # Build work plan
     force_keys = set(args.keys.split(",")) if args.keys else set()
     plan = build_work_plan(mgr, target_langs, args.force, force_keys, args.prune)
 
@@ -599,22 +580,17 @@ def main() -> None:
         console.print("[green]✓ All locales are already up to date.")
         return
 
-    # Check mode
     if args.check:
         display_check_results(plan)
         return
-
-    # Handle dry-run mode for translations
     if args.dry_run:
         console.print("[cyan]Dry-run mode - no files will be modified.\n")
         display_check_results(plan)
         return
 
-    # Execute translations
     total_missing = sum(len(j["missing"]) for j in plan)
 
     if total_missing == 0 and any(j["extra"] for j in plan):
-        # Only pruning needed
         for job in plan:
             data = job["data"]
             for k in job["extra"]:
@@ -623,7 +599,6 @@ def main() -> None:
             console.print(f"[green]✓ {job['name'].upper()}: Pruned {len(job['extra'])} extra keys.")
         return
 
-    # Progress bar setup
     progress_cols = [
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -637,7 +612,6 @@ def main() -> None:
         for job in plan:
             translate_job(mgr, job, progress, task_id)
 
-    # Summary
     table = Table(title="Translation Summary")
     table.add_column("Language", style="cyan")
     table.add_column("Translated", style="green")

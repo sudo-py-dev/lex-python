@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 from PIL import Image, UnidentifiedImageError
 from pyrogram import Client, filters
-from pyrogram.enums import ButtonStyle
+from pyrogram.enums import ButtonStyle, ParseMode
 from pyrogram.errors import BadRequest, FloodWait, Forbidden, RPCError
 from pyrogram.types import (
     InlineKeyboardButton,
@@ -52,8 +52,12 @@ if TYPE_CHECKING:
 @dataclass(slots=True)
 class WatermarkOptions:
     text: str
+    image: str | None
     color: str
     style: str
+    position: str
+    opacity: float
+    size: int
     image_enabled: bool
     video_enabled: bool
     video_quality: str
@@ -167,7 +171,7 @@ class ChannelsPlugin(Plugin):
             )
 
         processed = False
-        if plan.is_media and message.photo and wm.image_enabled and wm.text:
+        if plan.is_media and message.photo and wm.image_enabled and (wm.text or wm.image):
             logger.debug(f"[channels] Attempting image watermark message={message.id}")
             if message.media_group_id:
                 logger.debug(f"[channels] Deferring album watermark message={message.id}")
@@ -175,7 +179,10 @@ class ChannelsPlugin(Plugin):
                 return
 
             processed = await self._handle_watermarking(
-                message, plan.target_content or message.caption or "", wm, reply_markup=kb
+                message,
+                plan.target_content or (message.caption.html if message.caption else ""),
+                wm,
+                reply_markup=kb,
             )
 
         if not processed and (
@@ -187,7 +194,10 @@ class ChannelsPlugin(Plugin):
         ):
             logger.debug(f"[channels] Attempting video watermark message={message.id}")
             processed = await self._handle_video_watermarking(
-                message, plan.target_content or message.caption or "", wm, reply_markup=kb
+                message,
+                plan.target_content or (message.caption.html if message.caption else ""),
+                wm,
+                reply_markup=kb,
             )
 
         if not processed and (plan.target_content is not None or kb is not None):
@@ -219,7 +229,7 @@ class ChannelsPlugin(Plugin):
             if not settings:
                 return
             wm = self._get_watermark_options(settings)
-            if not ((wm.image_enabled or wm.video_enabled) and wm.text):
+            if not ((wm.image_enabled and (wm.text or wm.image)) or (wm.video_enabled and wm.text)):
                 logger.debug(
                     f"[channels] Album watermark skipped media_group={media_group_id} "
                     f"(image_enabled={wm.image_enabled}, video_enabled={wm.video_enabled}, has_text={bool(wm.text)})"
@@ -233,12 +243,9 @@ class ChannelsPlugin(Plugin):
                 async with self._processing_lock:
                     trigger = min(group, key=lambda m: m.id)
                     caption_host = next((m for m in group if m.caption), None) or trigger
-                    final_caption = (
-                        self._calculate_target_content(
-                            settings, caption_host, is_media=True, is_caption_host=True
-                        )
-                        or caption_host.caption
-                    )
+                    final_caption = self._calculate_target_content(
+                        settings, caption_host, is_media=True, is_caption_host=True
+                    ) or (caption_host.caption.html if caption_host.caption else "")
 
                     photo_items = self._select_album_photos(group, caption_host)
                     if not photo_items:
@@ -279,8 +286,12 @@ class ChannelsPlugin(Plugin):
         cfg = parse_watermark_config(settings.watermarkText)
         return WatermarkOptions(
             text=cfg.text,
+            image=settings.watermarkImage,
             color=cfg.color,
             style=cfg.style,
+            position=settings.watermarkPosition or "bottom_right",
+            opacity=settings.watermarkOpacity if settings.watermarkOpacity is not None else 0.7,
+            size=settings.watermarkSize or 10,
             image_enabled=cfg.image_enabled,
             video_enabled=cfg.video_enabled,
             video_quality=cfg.video_quality,
@@ -321,11 +332,19 @@ class ChannelsPlugin(Plugin):
         if not (settings.signatureEnabled and settings.signatureText and is_caption_host):
             return None
 
-        current = (message.caption or "") if is_media else (message.text or "")
+        current = (
+            (message.caption.html if message.caption else "")
+            if is_media
+            else (message.text.html if message.text else "")
+        )
         limit = 1024 if is_media else 4096
-        sig = f"\n\n{settings.signatureText}"
 
-        if sig not in current and len(current) + len(sig) <= limit:
+        sig_text = settings.signatureText
+        sig = f"\n\n{sig_text}"
+
+        # Note: HTML tags increase string length but Telegram limits apply to the text after parsing.
+        # However, for simplicity and safety, we check the final HTML length.
+        if sig_text not in current and len(current) + len(sig) <= limit * 2:  # Loose limit for HTML
             return f"{current}{sig}"
 
         return None
@@ -386,8 +405,11 @@ class ChannelsPlugin(Plugin):
         """
         Applies signature and/or buttons to the message.
         """
-        entities = message.caption_entities if is_media else message.entities
-        text = new_content or ((message.caption or "") if is_media else (message.text or ""))
+        text = new_content or (
+            (message.caption.html if message.caption else "")
+            if is_media
+            else (message.text.html if message.text else "")
+        )
         kb = reply_markup
 
         async def do_edit() -> None:
@@ -398,15 +420,13 @@ class ChannelsPlugin(Plugin):
             if is_media:
                 await message.edit_caption(
                     caption=text,
-                    caption_entities=entities,
-                    parse_mode=None,
+                    parse_mode="HTML",
                     reply_markup=kb,
                 )
             else:
                 await message.edit_text(
                     text=text,
-                    entities=entities,
-                    parse_mode=None,
+                    parse_mode="HTML",
                     reply_markup=kb,
                 )
 
@@ -498,12 +518,30 @@ class ChannelsPlugin(Plugin):
                 logger.error(f"Downloaded file is not a valid image for message {message.id}")
                 return False
 
+            # Handle potential file_id for watermark image
+            wm_img_local_path = None
+            if wm.image:
+                if os.path.exists(wm.image):
+                    wm_img_local_path = wm.image
+                else:
+                    # Treat as file_id
+                    wm_img_local_path = self._safe_temp_media_path(temp_dir, "wm_image", ".png")
+                    try:
+                        await bot.download_media(wm.image, file_name=wm_img_local_path)
+                    except Exception as e:
+                        logger.error(f"Failed to download watermark image {wm.image}: {e}")
+                        wm_img_local_path = None
+
             if not apply_watermark(
                 photo_path,
                 wm.text,
                 output_path,
                 color=wm.color,
                 style=wm.style,
+                image_wm_path=wm_img_local_path,
+                position=wm.position,
+                opacity=wm.opacity,
+                scale=wm.size,
             ):
                 logger.debug(
                     f"[channels] Image watermark renderer returned false message={message.id}"
@@ -523,8 +561,7 @@ class ChannelsPlugin(Plugin):
                     media=InputMediaPhoto(
                         media=output_path,
                         caption=final_caption,
-                        caption_entities=message.caption_entities,
-                        parse_mode=None,
+                        parse_mode=ParseMode.HTML,
                     ),
                     reply_markup=reply_markup,
                 )
@@ -625,8 +662,7 @@ class ChannelsPlugin(Plugin):
                     media=InputMediaVideo(
                         media=output_path,
                         caption=final_caption,
-                        caption_entities=message.caption_entities,
-                        parse_mode=None,
+                        parse_mode=ParseMode.HTML,
                     ),
                     reply_markup=reply_markup,
                 )
@@ -780,7 +816,17 @@ async def channel_service_handler(client: Client, message: Message) -> None:
 
 @bot.on_message(
     filters.private
-    & is_waiting_for_input(["reactions", "watermarkText", "signatureText", "buttonsText"]),
+    & is_waiting_for_input(
+        [
+            "reactions",
+            "watermarkText",
+            "signatureText",
+            "buttonsText",
+            "watermarkImage",
+            "watermarkOpacity",
+            "watermarkSize",
+        ]
+    ),
     group=-50,
 )
 @safe_handler
@@ -790,9 +836,14 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
     field = state["field"]
     user_id = message.from_user.id
     ctx = get_context()
-    value = message.text or ""
+    obj = message.text or message.caption
+    value = (getattr(obj, "html", str(obj)) if obj else "").strip()
 
-    from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb, channel_watermark_kb
+    from src.plugins.admin_panel.handlers.callbacks.common import _render_channel_watermark_panel
+    from src.plugins.admin_panel.handlers.keyboards import (
+        channel_buttons_kb,
+        channel_settings_kb,
+    )
 
     if field == "reactions":
         import emoji
@@ -827,10 +878,51 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
             ),
         )
     elif field == "signatureText":
-        await update_chat_setting(ctx, channel_id, "signatureText", str(value))
+        await update_chat_setting(
+            ctx, channel_id, "signatureText", str(message.text.html if message.text else "")
+        )
+    elif field == "watermarkOpacity":
+        try:
+            val = float(message.text) / 100.0
+            if 0.05 <= val <= 1.0:
+                await update_chat_setting(ctx, channel_id, "watermarkOpacity", val)
+        except (ValueError, TypeError):
+            pass
+    elif field == "watermarkSize":
+        try:
+            val = int(message.text)
+            if 5 <= val <= 50:
+                await update_chat_setting(ctx, channel_id, "watermarkSize", val)
+        except (ValueError, TypeError):
+            pass
+    elif field == "watermarkImage":
+        file_size = 0
+        file_id = None
+        if message.photo:
+            file_id = message.photo.file_id
+            file_size = message.photo.file_size
+        elif message.document and message.document.mime_type.startswith("image/"):
+            file_id = message.document.file_id
+            file_size = message.document.file_size
+
+        if file_id:
+            limit_bytes = config.WATERMARK_IMAGE_MAX_SIZE_MB * 1024 * 1024
+            if file_size > limit_bytes:
+                from src.utils.i18n import at
+
+                await message.reply(
+                    await at(
+                        user_id,
+                        "panel.error_file_too_large",
+                        size=config.WATERMARK_IMAGE_MAX_SIZE_MB,
+                    )
+                )
+                return
+            await update_chat_setting(ctx, channel_id, "watermarkImage", file_id)
     elif field == "buttonsText":
-        if "|" in str(value):
-            label, url = map(str.strip, str(value).split("|", 1))
+        val = str(message.text or "")
+        if "|" in val:
+            label, url = map(str.strip, val.split("|", 1))
             if not (url.startswith("http://") or url.startswith("https://")):
                 url = f"https://{url}"
             s = await get_chat_settings(ctx, channel_id)
@@ -854,46 +946,21 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
     s = await get_chat_settings(ctx, channel_id)
     title = s.title or f"Channel {channel_id}"
 
-    if field == "watermarkText":
-        from src.plugins.admin_panel.handlers.keyboards import channel_watermark_kb
-        from src.utils.media import (
-            build_watermark_config,
-            parse_watermark_config,
-        )
+    if field.startswith("watermark"):
+        prompt_msg_id = state.get("prompt_msg_id")
+        target_msg = await client.get_messages(message.chat.id, prompt_msg_id)
+        if target_msg:
+            await _render_channel_watermark_panel(target_msg, ctx, channel_id, user_id, user_id)
+        # Manually clear cache since we didn't call finalize_input_capture for the edit
+        from src.utils.local_cache import get_cache
 
-        cfg = parse_watermark_config(s.watermarkText)
-        main_text = await at(
-            user_id,
-            "panel.channel_watermark_text",
-            image_status=await at(
-                user_id, "panel.status_enabled" if cfg.image_enabled else "panel.status_disabled"
-            ),
-            text=cfg.text or "-",
-            color=await at(user_id, f"panel.wm_color_{cfg.color}"),
-            style=await at(user_id, f"panel.wm_style_{cfg.style}"),
-            video_status=await at(
-                user_id, "panel.status_enabled" if cfg.video_enabled else "panel.status_disabled"
-            ),
-            video_quality=await at(user_id, f"panel.wm_quality_{cfg.video_quality}"),
-            video_motion=await at(user_id, f"panel.wm_motion_{cfg.video_motion}"),
-            video_available=await at(
-                user_id,
-                "panel.wm_video_available_yes"
-                if config.ENABLE_VIDEO_WATERMARK
-                else "panel.wm_video_available_no",
-            ),
-            video_limit_note=(
-                await at(
-                    user_id, "panel.wm_video_limit_note", size_mb=config.VIDEO_WATERMARK_MAX_SIZE_MB
-                )
-                if config.ENABLE_VIDEO_WATERMARK
-                else ""
-            ),
-        )
-        kb = await channel_watermark_kb(ctx, channel_id, user_id)
-    elif field == "buttonsText":
-        from src.plugins.admin_panel.handlers.keyboards import channel_buttons_kb
+        await get_cache().delete(f"panel_input:{user_id}")
+        with contextlib.suppress(Exception):
+            await message.delete()
+        return
 
+    s = await get_chat_settings(ctx, channel_id)
+    if field == "buttonsText":
         buttons_raw = s.buttons or "[]"
         try:
             rows = json.loads(buttons_raw)
@@ -901,25 +968,11 @@ async def channel_content_input_handler(client: Client, message: Message) -> Non
         except Exception:
             btn_count = 0
 
-        text = await at(user_id, "panel.channel_buttons_text", count=btn_count)
+        main_text = await at(user_id, "panel.channel_buttons_text", count=btn_count)
         kb = await channel_buttons_kb(ctx, channel_id, user_id)
-        main_text = text
     else:
-        status = await at(
-            user_id, "panel.status_enabled" if s.isActive else "panel.status_disabled"
-        )
-        main_text = await at(
-            user_id,
-            "panel.channel_settings_text",
-            title=title,
-            id=channel_id,
-            status=status,
-            reactions=s.reactions or "👍",
-            signature=s.signatureText or await at(user_id, "panel.not_set"),
-            sign_pos=(s.signaturePosition or "below").upper(),
-        )
-        from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb
-
+        title = s.title or f"Channel {channel_id}"
+        main_text = await at(user_id, "panel.channel_settings_text", title=title, id=channel_id)
         kb = await channel_settings_kb(ctx, channel_id, user_id)
 
     await finalize_input_capture(

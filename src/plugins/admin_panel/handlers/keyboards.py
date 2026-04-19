@@ -1173,6 +1173,51 @@ async def channel_watermark_kb(ctx, channel_id: int, user_id: int) -> InlineKeyb
                 callback_data=f"panel:toggle_wm_image:{channel_id}",
             )
         ],
+        # Image Management
+        [
+            InlineKeyboardButton(
+                await at(user_id, "panel.btn_set_wm_image"),
+                callback_data=f"panel:input:watermarkImage:{channel_id}",
+            ),
+            InlineKeyboardButton(
+                await at(user_id, "panel.btn_clear_wm_image"),
+                callback_data=f"panel:clear_wm_image:{channel_id}",
+            ),
+        ],
+        # Position & Layout
+        [
+            InlineKeyboardButton(
+                await at(
+                    user_id,
+                    "panel.btn_wm_position",
+                    value=await at(
+                        user_id, f"panel.wm_location_{s.watermarkPosition or 'bottom_right'}"
+                    ),
+                ),
+                callback_data=f"panel:cycle_wm:position:{channel_id}",
+            ),
+        ],
+        # Opacity & Size
+        [
+            InlineKeyboardButton(
+                await at(
+                    user_id,
+                    "panel.btn_wm_opacity",
+                    value=int(
+                        (s.watermarkOpacity if s.watermarkOpacity is not None else 0.7) * 100
+                    ),
+                ),
+                callback_data=f"panel:input:watermarkOpacity:{channel_id}",
+            ),
+            InlineKeyboardButton(
+                await at(
+                    user_id,
+                    "panel.btn_wm_size",
+                    value=s.watermarkSize or 10,
+                ),
+                callback_data=f"panel:input:watermarkSize:{channel_id}",
+            ),
+        ],
     ]
 
     if config.ENABLE_VIDEO_WATERMARK:

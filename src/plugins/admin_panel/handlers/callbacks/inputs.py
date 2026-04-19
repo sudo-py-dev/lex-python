@@ -31,7 +31,15 @@ async def on_panel_input(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
 
     logger.debug(f"Admin Panel: input action triggered for field {field} by user {user_id}")
 
-    is_channel_field = field in ("reactions", "watermarkText", "signatureText", "buttonsText")
+    is_channel_field = field in (
+        "reactions",
+        "watermarkText",
+        "signatureText",
+        "buttonsText",
+        "watermarkImage",
+        "watermarkOpacity",
+        "watermarkSize",
+    )
     validate_chat_id = int(target_id_str) if is_channel_field and target_id_str else chat_id
 
     chat_type = await resolve_chat_type(ctx, validate_chat_id)

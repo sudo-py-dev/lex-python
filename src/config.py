@@ -43,6 +43,9 @@ class Config:
     VIDEO_WATERMARK_MAX_SIZE_MB: int = field(
         default_factory=lambda: int(environ.get("VIDEO_WATERMARK_MAX_SIZE_MB", "50"))
     )
+    WATERMARK_IMAGE_MAX_SIZE_MB: int = field(
+        default_factory=lambda: int(environ.get("WATERMARK_IMAGE_MAX_SIZE_MB", "5"))
+    )
 
     # AI Content Guard (Groq)
     AI_GUARD_MODEL: str = field(

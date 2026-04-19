@@ -74,6 +74,14 @@ class VideoMotion(StrEnum):
     SCROLL_RL = "scroll_rl"
 
 
+class WatermarkPosition(StrEnum):
+    TOP_LEFT = "top_left"
+    TOP_RIGHT = "top_right"
+    BOTTOM_LEFT = "bottom_left"
+    BOTTOM_RIGHT = "bottom_right"
+    CENTER = "center"
+
+
 def cycle_action[T: str | Enum](
     current_action: T | None,
     allowed_actions: list[T],
@@ -238,5 +246,14 @@ VIDEO_MOTIONS = [
     VideoMotion.SCROLL_LR,
     VideoMotion.SCROLL_RL,
 ]
+
+WATERMARK_POSITIONS = [
+    WatermarkPosition.TOP_LEFT,
+    WatermarkPosition.TOP_RIGHT,
+    WatermarkPosition.BOTTOM_LEFT,
+    WatermarkPosition.BOTTOM_RIGHT,
+    WatermarkPosition.CENTER,
+]
+
 
 BUTTON_STYLES = list(ButtonStyle)

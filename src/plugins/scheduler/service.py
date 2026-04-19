@@ -273,7 +273,7 @@ async def run_group_cleaner(chat_id: int) -> None:
                 )
                 await bot.send_message(chat_id, summary)
 
-            cleaner.lastRunDate = datetime.now(UTC)
+            cleaner.lastRunDate = datetime.now(UTC).replace(tzinfo=None)
             session.add(cleaner)
             await session.commit()
         except Exception as e:
