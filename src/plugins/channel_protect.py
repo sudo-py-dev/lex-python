@@ -21,7 +21,7 @@ from src.utils.allowlist_cache import (
 )
 from src.utils.decorators import admin_permission_required, safe_handler
 from src.utils.i18n import at
-from src.utils.permissions import Permission, is_admin
+from src.utils.permissions import Permission
 
 
 class ChannelProtectPlugin(Plugin):

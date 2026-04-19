@@ -177,7 +177,9 @@ async def sync_shabbat_times_task() -> None:
         logger.info("Scheduler: No active Shabbat locks found")
         return
 
-    logger.info(f"Scheduler: Fetching Shabbat times for {len(unique_timezones)} unique timezones...")
+    logger.info(
+        f"Scheduler: Fetching Shabbat times for {len(unique_timezones)} unique timezones..."
+    )
     shabbat_times = await get_shabbat_events_batch(list(unique_timezones))
 
     scheduled_count = 0

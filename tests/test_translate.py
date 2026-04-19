@@ -685,10 +685,10 @@ class TestFStringDetection:
 
     def test_finds_fstring_literals(self) -> None:
         """Test scanner finds string parts in f-strings."""
-        code = '''
+        code = """
 name = "World"
 msg = f"Hello there {name}, this is a long message that should be found in fstring"
-'''
+"""
         scanner = translate.StringScanner(set(), set(), code, "test.py")
         tree = translate.ast.parse(code)
         scanner.visit(tree)

@@ -360,7 +360,6 @@ async def on_channel_toggle_wm_image(client: Client, callback: CallbackQuery):
     await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, user_id)
     await callback.answer(await at(user_id, "panel.setting_updated"))
 
-
     await _render_channel_watermark_panel(callback, ctx, channel_id, user_id, user_id)
     await callback.answer(await at(user_id, "panel.setting_updated"))
 

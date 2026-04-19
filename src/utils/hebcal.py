@@ -11,17 +11,18 @@ from src.utils.local_cache import get_cache
 
 # Cache TTL for Shabbat times
 _SHABBAT_CACHE_TTL_NORMAL = 12 * 60 * 60  # 12 hours - normal days
-_SHABBAT_CACHE_TTL_SHABBAT = 60 * 60    # 1 hour - Friday/Shabbat for real-time accuracy
+_SHABBAT_CACHE_TTL_SHABBAT = 60 * 60  # 1 hour - Friday/Shabbat for real-time accuracy
 
 
 def _get_shabbat_cache_ttl(tzid: str) -> int:
     """Get appropriate cache TTL based on current day.
-    
+
     Use short TTL (1 hour) on Friday (Yom Shishi) and Shabbat
     for real-time accuracy. Use long TTL (12 hours) on other days.
     """
     try:
         from zoneinfo import ZoneInfo
+
         target_tz = ZoneInfo(tzid)
         now = datetime.now(target_tz)
         # weekday(): 0=Monday, 4=Friday, 5=Saturday
@@ -106,7 +107,9 @@ async def get_shabbat_events(
             }
             ttl = _get_shabbat_cache_ttl(tzid)
             await cache.setex(cache_key, ttl, json.dumps(cache_data))
-            logger.debug(f"Shabbat times for {tzid} cached for {ttl}s ({'short' if ttl < 3600 else 'long'})")
+            logger.debug(
+                f"Shabbat times for {tzid} cached for {ttl}s ({'short' if ttl < 3600 else 'long'})"
+            )
         except Exception as e:
             logger.debug(f"Cache write error for {tzid}: {e}")
 
@@ -215,7 +218,9 @@ async def _fetch_single_timezone(
             }
             ttl = _get_shabbat_cache_ttl(tzid)
             await cache.setex(cache_key, ttl, json.dumps(cache_data))
-            logger.debug(f"Cached Shabbat times for {tzid} ({'short' if ttl < 3600 else 'long'} TTL)")
+            logger.debug(
+                f"Cached Shabbat times for {tzid} ({'short' if ttl < 3600 else 'long'} TTL)"
+            )
         except Exception as e:
             logger.debug(f"Cache write error for {tzid}: {e}")
 

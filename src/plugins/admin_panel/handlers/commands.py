@@ -17,6 +17,12 @@ from .keyboards import main_menu_kb, my_groups_kb
 @admin_panel_context
 async def settings_handler(client: Client, message: Message, ap_ctx: AdminPanelContext) -> None:
     if not ap_ctx.is_pm:
+        import asyncio
+
+        from src.utils.admin_cache import sync_admins_from_telegram
+
+        asyncio.create_task(sync_admins_from_telegram(client, ap_ctx.chat_id))
+
         me = await client.get_me()
         url = f"https://t.me/{me.username}?start=settings_{ap_ctx.chat_id}"
         kb = InlineKeyboardMarkup(

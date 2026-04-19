@@ -106,7 +106,11 @@ def safe_handler(func: Handler) -> Handler:
                 if hasattr(arg, "chat") and hasattr(arg.chat, "id"):
                     chat_id = arg.chat.id
                     break
-                if hasattr(arg, "message") and hasattr(arg.message, "chat") and hasattr(arg.message.chat, "id"):
+                if (
+                    hasattr(arg, "message")
+                    and hasattr(arg.message, "chat")
+                    and hasattr(arg.message.chat, "id")
+                ):
                     chat_id = arg.message.chat.id
                     break
 

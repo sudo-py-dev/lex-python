@@ -58,9 +58,12 @@ async def is_whitelisted(client: Client, chat_id: int | None, user_id: int | Non
         from src.db.repositories.chats import get_chat_settings
 
         settings = await get_chat_settings(get_context(), chat_id)
-        if settings and settings.linkedChatId == user_id:
-            if await is_admin(client, user_id, client.me.id):
-                return True
+        if (
+            settings
+            and settings.linkedChatId == user_id
+            and await is_admin(client, user_id, client.me.id)
+        ):
+            return True
 
     from .approved_cache import is_approved as cached_is_approved
 

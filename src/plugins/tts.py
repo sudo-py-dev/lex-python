@@ -1,12 +1,11 @@
 import os
-import shutil
 import tempfile
-import asyncio
+
 import edge_tts
+from langdetect import DetectorFactory, detect
+from loguru import logger
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from langdetect import detect, DetectorFactory
-from loguru import logger
 
 from src.core.bot import bot
 from src.core.plugin import Plugin, register
@@ -101,7 +100,7 @@ class TTSPlugin(Plugin):
     priority = 100
 
     async def setup(self, client: Client, ctx) -> None:
-        logger.info("[tts] Plugin initialized with expansive multi-language support")
+        logger.info("[tts] Plugin initialized")
 
 
 @bot.on_message(filters.command("tts") & (filters.group | filters.private))
@@ -133,41 +132,26 @@ async def tts_handler(client: Client, message: Message):
         voice = VOICE_MAPPING.get(lang, "en-US-GuyNeural")
         logger.debug(f"[tts] Text length: {len(text)}, Detected lang: {lang}, Using voice: {voice}")
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            input_path = os.path.join(tmp_dir, "input.mp3")
-            output_path = os.path.join(tmp_dir, "voice.ogg")
+        tmp_dir = os.getenv("TMPDIR", "/app/tmp")
+        if not os.path.exists(tmp_dir):
+            tmp_dir = None
 
+        with tempfile.NamedTemporaryFile(dir=tmp_dir, suffix=".mp3", delete=True) as temp_file:
             communicate = edge_tts.Communicate(text, voice)
-            await communicate.save(input_path)
 
-            ffmpeg_bin = shutil.which("ffmpeg")
-            if ffmpeg_bin:
-                cmd = [
-                    ffmpeg_bin,
-                    "-y",
-                    "-i",
-                    input_path,
-                    "-c:a",
-                    "libopus",
-                    "-b:a",
-                    "32k",
-                    "-application",
-                    "voip",
-                    output_path,
-                ]
-                proc = await asyncio.create_subprocess_exec(
-                    *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-                )
-                await proc.communicate()
-            else:
-                logger.warning("[tts] ffmpeg not found, sending raw MP3 (might not show as voice)")
-                output_path = input_path
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    temp_file.write(chunk["data"])
 
-            await message.reply_voice(output_path)
+            temp_file.flush()
+
+            await message.reply_voice(temp_file.name)
             await status_msg.delete()
 
-    except Exception as e:
-        logger.exception(f"[tts] Generation failed for lang {lang if 'lang' in locals() else 'unknown'}")
+    except Exception:
+        logger.exception(
+            f"[tts] Generation failed for lang {lang if 'lang' in locals() else 'unknown'}"
+        )
         await status_msg.edit_text(await at(message.chat.id, "tts.error_generic"))
 
 

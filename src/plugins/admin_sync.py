@@ -1,4 +1,4 @@
-from pyrogram import Client, ContinuePropagation, StopPropagation, filters
+from pyrogram import Client, ContinuePropagation, filters
 from pyrogram.enums import ChatMemberStatus, ChatType
 from pyrogram.types import ChatMemberUpdated, Message
 
@@ -6,13 +6,12 @@ from src.core.bot import bot
 from src.core.context import get_context
 from src.db.repositories.admins import remove_admin, upsert_admin
 from src.utils.admin_cache import invalidate_cache
-from src.utils.decorators import safe_handler
 
 _REGISTERED_CHATS = set()
 
 
 async def ensure_chat_identity(ctx, chat):
-    """Ensure the chat type and title are correctly persisted in the database."""
+    """Ensure the chat type and title/activation are correctly persisted in the database."""
     if chat.id in _REGISTERED_CHATS:
         return
 
@@ -27,9 +26,15 @@ async def ensure_chat_identity(ctx, chat):
         settings.chatType != chat_type
         or settings.title != chat.title
         or settings.linkedChatId != linked_id
+        or not settings.isActive
     ):
         await update_settings(
-            ctx, chat.id, chatType=chat_type, title=chat.title, linkedChatId=linked_id
+            ctx,
+            chat.id,
+            chatType=chat_type,
+            title=chat.title,
+            linkedChatId=linked_id,
+            isActive=True,
         )
 
     _REGISTERED_CHATS.add(chat.id)
@@ -62,10 +67,10 @@ async def on_chat_member_updated(client: Client, update: ChatMemberUpdated):
 
     is_now_admin = new_status in {ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}
     was_previously_admin = old_status in {ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER}
-    has_left = new_status in {ChatMemberStatus.LEFT, ChatMemberStatus.BANNED, None}
 
     if user_id == client.me.id:
         from src.db.repositories.chats import get_chat_settings, update_settings
+        from src.utils.admin_cache import sync_admins_from_telegram
 
         # Ensure Identity & Activation
         settings = await get_chat_settings(ctx, chat_id)
@@ -78,6 +83,13 @@ async def on_chat_member_updated(client: Client, update: ChatMemberUpdated):
         # Update isActive status
         if settings.isActive != is_active:
             await update_settings(ctx, chat_id, isActive=is_active)
+
+        # Trigger full admin sync if bot is now an admin (newly added or promoted)
+        if is_now_admin:
+            import asyncio
+
+            # Run in background to not block the update handler
+            asyncio.create_task(sync_admins_from_telegram(client, chat_id, force=True))
 
         # Update botPrivileges in ChatSettings
         if update.new_chat_member and update.new_chat_member.privileges:

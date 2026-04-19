@@ -74,9 +74,7 @@ async def on_select_chat(client: Client, callback: CallbackQuery):
     from src.utils.admin_cache import is_admin
 
     if not await is_admin(client, new_chat_id, user_id):
-        await callback.answer(
-            await at(user_id, "error.no_membership_admin"), show_alert=True
-        )
+        await callback.answer(await at(user_id, "error.no_membership_admin"), show_alert=True)
         return
 
     is_pm = callback.message.chat.type == ChatType.PRIVATE
@@ -106,9 +104,7 @@ async def on_select_channel(client: Client, callback: CallbackQuery):
     from src.utils.admin_cache import is_admin
 
     if not await is_admin(client, channel_id, user_id):
-        await callback.answer(
-            await at(user_id, "error.no_membership_admin"), show_alert=True
-        )
+        await callback.answer(await at(user_id, "error.no_membership_admin"), show_alert=True)
         return
 
     from src.plugins.admin_panel.handlers.keyboards import channel_settings_kb
