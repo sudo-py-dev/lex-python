@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections import defaultdict
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 from loguru import logger
@@ -138,6 +139,11 @@ async def sync_admins_from_telegram(client: Client, chat_id: int, force: bool = 
                     # Also update bot_privs cache
                     await cache.setex(f"bot_privs:{chat_id}", _TTL, privs or {})
 
+            # Update lastAdminsUpdate timestamp
+            from src.db.repositories.chats import update_chat_setting
+
+            await update_chat_setting(ctx, chat_id, "lastAdminsUpdate", datetime.now(UTC))
+
             # Update global list cache
             await cache.set(CacheKeys.admins(chat_id), json.dumps(list(admin_ids)), ttl=_TTL)
             logger.debug(f"Admin cache/DB refreshed for chat {chat_id}: {len(admin_ids)} admins")
@@ -149,46 +155,63 @@ async def sync_admins_from_telegram(client: Client, chat_id: int, force: bool = 
             return set()
 
 
+async def _ensure_synced(client: Client, chat_id: int) -> None:
+    """Helper to ensure admins are synced if cache is older than 24h."""
+    from src.db.repositories.chats import get_chat_settings
+
+    settings = await get_chat_settings(get_context(), chat_id)
+    if not settings.lastAdminsUpdate or (
+        settings.lastAdminsUpdate < datetime.now(UTC) - timedelta(hours=24)
+    ):
+        await sync_admins_from_telegram(client, chat_id, force=True)
+
+
 async def is_admin(client: Client, chat_id: int | None, user_id: int | None) -> bool:
     """Check if user is admin using 3-tier logic: Cache -> DB -> API."""
-    if chat_id is None or user_id is None:
+    if not chat_id or not user_id:
         return False
     if chat_id > 0:
         return chat_id == user_id
 
-    # 1. Tier: Local Cache (Fastest)
+    await _ensure_synced(client, chat_id)
+
+    # 1. Tier: Local Cache
     r = get_cache()
     cached_list = await r.get(CacheKeys.admins(chat_id))
-    if cached_list:
-        try:
-            admin_list = json.loads(cached_list)
-            if user_id in admin_list:
-                return True
-        except json.JSONDecodeError:
-            pass
+    if cached_list and user_id in json.loads(cached_list):
+        return True
 
     # 2. Tier: Database
-    ctx = get_context()
-    db_admin = await get_admin_from_db(ctx, chat_id, user_id)
+    db_admin = await get_admin_from_db(get_context(), chat_id, user_id)
     if db_admin:
-        # Repopulate detailed cache
-        cache = get_cache()
-        privs = {}
-        if db_admin.privileges:
-            try:
-                privs = json.loads(db_admin.privileges)
-            except json.JSONDecodeError:
-                privs = {}
-        await cache.setex(
+        privs = json.loads(db_admin.privileges) if db_admin.privileges else {}
+        await r.setex(
             f"admin_detail:{chat_id}:{user_id}",
             _TTL,
             "owner" if db_admin.status == "owner" else privs,
         )
         return True
 
-    # 3. Tier: API Fallback (Refreshes everything)
-    admin_ids = await sync_admins_from_telegram(client, chat_id)
-    return user_id in admin_ids
+    # 3. Tier: API Fallback
+    return user_id in await sync_admins_from_telegram(client, chat_id)
+
+
+async def is_owner(client: Client, chat_id: int | None, user_id: int | None) -> bool:
+    """Check if user is the owner of the chat."""
+    if not chat_id or not user_id:
+        return False
+    if chat_id > 0:
+        return chat_id == user_id
+
+    await _ensure_synced(client, chat_id)
+
+    cache = get_cache()
+    cached = await cache.get(f"admin_detail:{chat_id}:{user_id}")
+    if cached == "owner":
+        return True
+
+    db_admin = await get_admin_from_db(get_context(), chat_id, user_id)
+    return bool(db_admin and db_admin.status == "owner")
 
 
 async def get_chat_admins(client: Client, chat_id: int) -> list[int]:
@@ -261,6 +284,9 @@ async def check_user_permission(
     # 1. Tier: Local Cache
     cache = get_cache()
     cache_key = f"admin_detail:{chat_id}:{user_id}"
+
+    await _ensure_synced(client, chat_id)
+
     cached = await cache.get(cache_key)
 
     if cached == "owner":

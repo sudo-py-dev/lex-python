@@ -11,12 +11,14 @@ from .admin_cache import (
 from .admin_cache import check_user_permission as fast_check_user_permission
 from .admin_cache import has_permission as fast_has_permission
 from .admin_cache import is_admin as fast_is_admin
+from .admin_cache import is_owner as fast_is_owner
 
 __all__ = [
     "Permission",
     "RESTRICTED_PERMISSIONS",
     "UNRESTRICTED_PERMISSIONS",
     "is_admin",
+    "is_owner",
     "is_whitelisted",
     "check_user_permission",
     "has_permission",
@@ -27,16 +29,20 @@ __all__ = [
 
 async def is_admin(client: Client, chat_id: int | None, user_id: int | None) -> bool:
     """Check if user is admin. Redirects to unified 3-tier cache."""
-    if chat_id is None or user_id is None:
+    if not chat_id or not user_id:
         return False
+    return (
+        user_id == chat_id
+        or user_id == client.me.id
+        or await fast_is_admin(client, chat_id, user_id)
+    )
 
-    if user_id == chat_id:
-        return True
 
-    if user_id == client.me.id:
-        return True
-
-    return await fast_is_admin(client, chat_id, user_id)
+async def is_owner(client: Client, chat_id: int | None, user_id: int | None) -> bool:
+    """Check if user is the owner. Redirects to unified 3-tier cache."""
+    if not chat_id or not user_id:
+        return False
+    return user_id == chat_id or await fast_is_owner(client, chat_id, user_id)
 
 
 async def is_whitelisted(client: Client, chat_id: int | None, user_id: int | None) -> bool:

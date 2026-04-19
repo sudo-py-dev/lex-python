@@ -103,6 +103,7 @@ class ChatSettings(TimestampMixin, Base):
     isActive: Mapped[bool] = mapped_column(default=True, server_default=true())
     botPrivileges: Mapped[str | None] = mapped_column(Text, nullable=True)
     linkedChatId: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    lastAdminsUpdate: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     reactionsEnabled: Mapped[bool] = mapped_column(default=False, server_default=false())
     reactions: Mapped[str] = mapped_column(Text, default="👍", server_default=sa_text("'👍'"))

@@ -6,7 +6,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from src.core.bot import bot
 from src.core.context import get_context
 from src.utils.i18n import at
-from src.utils.permissions import is_admin
+from src.utils.permissions import is_admin, is_owner
 
 from ..decorators import AdminPanelContext, admin_panel_context
 from ..repository import resolve_chat_type, set_active_chat
@@ -50,8 +50,8 @@ async def open_settings_panel(
         chat_type_str = chat_type if isinstance(chat_type, str) else chat_type.name.lower()
         await set_active_chat(ctx, user_id, chat_id, chat_type=chat_type_str)
 
-    logger.debug(f"Verifying admin status for {user_id} in {chat_id}")
-    if chat_id >= 0 or not await is_admin(client, chat_id, user_id):
+    logger.debug(f"Verifying owner status for {user_id} in {chat_id}")
+    if chat_id >= 0 or not await is_owner(client, chat_id, user_id):
         await message.reply(await at(user_id, "panel.error_not_admin"))
         if is_pm:
             kb = await my_groups_kb(ctx, client, user_id)

@@ -145,11 +145,6 @@ async def get_user_admin_chats(
     async def check(s: ChatSettings):
         async with sem:
             cid = int(s.id)
-            if check_admin:
-                from src.utils.admin_cache import is_admin as cached_is_admin
-
-                if not await cached_is_admin(client, cid, user_id):
-                    return
             if s.title:
                 return results.append((cid, s.title))
             try:
