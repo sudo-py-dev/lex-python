@@ -332,19 +332,19 @@ class ChannelsPlugin(Plugin):
         if not (settings.signatureEnabled and settings.signatureText and is_caption_host):
             return None
 
-        current = (
-            (message.caption.html if message.caption else "")
-            if is_media
-            else (message.text.html if message.text else "")
-        )
+        current = ""
+        if is_media:
+            if message.caption:
+                current = getattr(message.caption, "html", message.caption)
+        else:
+            if message.text:
+                current = getattr(message.text, "html", message.text)
         limit = 1024 if is_media else 4096
 
         sig_text = settings.signatureText
         sig = f"\n\n{sig_text}"
 
-        # Note: HTML tags increase string length but Telegram limits apply to the text after parsing.
-        # However, for simplicity and safety, we check the final HTML length.
-        if sig_text not in current and len(current) + len(sig) <= limit * 2:  # Loose limit for HTML
+        if sig_text not in current and len(current) + len(sig) <= limit * 2:
             return f"{current}{sig}"
 
         return None
