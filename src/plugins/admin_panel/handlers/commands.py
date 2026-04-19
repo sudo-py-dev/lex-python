@@ -6,7 +6,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 from src.core.bot import bot
 from src.core.context import get_context
 from src.utils.i18n import at
-from src.utils.permissions import is_admin, is_owner
+from src.utils.permissions import is_owner
 
 from ..decorators import AdminPanelContext, admin_panel_context
 from ..repository import resolve_chat_type, set_active_chat
