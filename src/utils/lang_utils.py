@@ -5,117 +5,99 @@ import emoji
 from src.core.context import AppContext
 from src.utils.i18n import at, t
 
-LANG_EMOJIS = {
-    "af": ":South_Africa:",
-    "ar": ":Saudi_Arabia:",
-    "bg": ":Bulgaria:",
-    "bn": ":Bangladesh:",
-    "ca": ":Spain:",
-    "cs": ":Czechia:",
-    "cy": ":Wales:",
-    "da": ":Denmark:",
-    "de": ":Germany:",
-    "el": ":Greece:",
-    "en": ":United_States:",
-    "es": ":Spain:",
-    "et": ":Estonia:",
-    "fa": ":Iran:",
-    "fi": ":Finland:",
-    "fr": ":France:",
-    "gu": ":India:",
-    "he": ":Israel:",
-    "hi": ":India:",
-    "hr": ":Croatia:",
-    "hu": ":Hungary:",
-    "id": ":Indonesia:",
-    "it": ":Italy:",
-    "ja": ":Japan:",
-    "kn": ":India:",
-    "ko": ":South_Korea:",
-    "lt": ":Lithuania:",
-    "lv": ":Latvia:",
-    "mk": ":North_Macedonia:",
-    "ml": ":India:",
-    "mr": ":India:",
-    "ne": ":Nepal:",
-    "nl": ":Netherlands:",
-    "no": ":Norway:",
-    "pa": ":India:",
-    "pl": ":Poland:",
-    "pt": ":Portugal:",
-    "ro": ":Romania:",
-    "ru": ":Russia:",
-    "sk": ":Slovakia:",
-    "sl": ":Slovenia:",
-    "so": ":Somalia:",
-    "sq": ":Albania:",
-    "sv": ":Sweden:",
-    "sw": ":Tanzania:",
-    "ta": ":India:",
-    "te": ":India:",
-    "th": ":Thailand:",
-    "tl": ":Philippines:",
-    "tr": ":Turkey:",
-    "uk": ":Ukraine:",
-    "ur": ":Pakistan:",
-    "vi": ":Vietnam:",
-    "zh": ":China:",
-    "zh-cn": ":China:",
-    "zh-tw": ":Taiwan:",
+LANG_DATA = {
+    "af": {"name": "Afrikaans", "emoji": ":South_Africa:"},
+    "ar": {"name": "العربية", "emoji": ":Saudi_Arabia:"},
+    "bg": {"name": "Български", "emoji": ":Bulgaria:"},
+    "bn": {"name": "বাংলা", "emoji": ":Bangladesh:"},
+    "ca": {"name": "Català", "emoji": ":Spain:"},
+    "cs": {"name": "Čeština", "emoji": ":Czechia:"},
+    "cy": {"name": "Cymraeg", "emoji": ":Wales:"},
+    "da": {"name": "Dansk", "emoji": ":Denmark:"},
+    "de": {"name": "Deutsch", "emoji": ":Germany:"},
+    "el": {"name": "Ελληνικά", "emoji": ":Greece:"},
+    "en": {"name": "English", "emoji": ":United_States:"},
+    "es": {"name": "Español", "emoji": ":Spain:"},
+    "et": {"name": "Eesti", "emoji": ":Estonia:"},
+    "fa": {"name": "فارسی", "emoji": ":Iran:"},
+    "fi": {"name": "Suomi", "emoji": ":Finland:"},
+    "fr": {"name": "Français", "emoji": ":France:"},
+    "gu": {"name": "ગુજરાતી", "emoji": ":India:"},
+    "he": {"name": "עברית", "emoji": ":Israel:"},
+    "hi": {"name": "हिन्दी", "emoji": ":India:"},
+    "hr": {"name": "Hrvatski", "emoji": ":Croatia:"},
+    "hu": {"name": "Magyar", "emoji": ":Hungary:"},
+    "id": {"name": "Bahasa Indonesia", "emoji": ":Indonesia:"},
+    "it": {"name": "Italiano", "emoji": ":Italy:"},
+    "ja": {"name": "日本語", "emoji": ":Japan:"},
+    "kn": {"name": "ಕನ್ನಡ", "emoji": ":India:"},
+    "ko": {"name": "한국어", "emoji": ":South_Korea:"},
+    "lt": {"name": "Lietuvių", "emoji": ":Lithuania:"},
+    "lv": {"name": "Latviešu", "emoji": ":Latvia:"},
+    "mk": {"name": "Македонски", "emoji": ":North_Macedonia:"},
+    "ml": {"name": "മലയാളം", "emoji": ":India:"},
+    "mr": {"name": "मराठी", "emoji": ":India:"},
+    "ne": {"name": "नेपाली", "emoji": ":Nepal:"},
+    "nl": {"name": "Nederlands", "emoji": ":Netherlands:"},
+    "no": {"name": "Norsk", "emoji": ":Norway:"},
+    "pa": {"name": "ਪੰਜਾਬੀ", "emoji": ":India:"},
+    "pl": {"name": "Polski", "emoji": ":Poland:"},
+    "pt": {"name": "Português", "emoji": ":Portugal:"},
+    "ro": {"name": "Română", "emoji": ":Romania:"},
+    "ru": {"name": "Русский", "emoji": ":Russia:"},
+    "sk": {"name": "Slovenčina", "emoji": ":Slovakia:"},
+    "sl": {"name": "Slovenščina", "emoji": ":Slovenia:"},
+    "so": {"name": "Soomaali", "emoji": ":Somalia:"},
+    "sq": {"name": "Shqip", "emoji": ":Albania:"},
+    "sv": {"name": "Svenska", "emoji": ":Sweden:"},
+    "sw": {"name": "Kiswahili", "emoji": ":Tanzania:"},
+    "ta": {"name": "தமிழ்", "emoji": ":India:"},
+    "te": {"name": "తెలుగు", "emoji": ":India:"},
+    "th": {"name": "ไทย", "emoji": ":Thailand:"},
+    "tl": {"name": "Tagalog", "emoji": ":Philippines:"},
+    "tr": {"name": "Türkçe", "emoji": ":Turkey:"},
+    "uk": {"name": "Українська", "emoji": ":Ukraine:"},
+    "ur": {"name": "اردו", "emoji": ":Pakistan:"},
+    "vi": {"name": "Tiếng Việt", "emoji": ":Vietnam:"},
+    "zh": {"name": "中文", "emoji": ":China:"},
+    "zh-cn": {"name": "简体中文", "emoji": ":China:"},
+    "zh-tw": {"name": "繁體中文", "emoji": ":Taiwan:"},
 }
 
 
 async def get_lang_info(
     ctx: AppContext,
     code: str,
-    target_chat_id: int | None = None,
-    target_user_id: int | None = None,
-    native: bool = False,
 ) -> tuple[str, str]:
     """
-    Get localized language name and emoji for a given language code.
+    Get native language name and emoji for a given language code.
 
     Args:
         ctx: App context.
         code: The language code to get info for (e.g., 'en', 'zh-cn').
-        target_chat_id: Chat ID for localization context.
-        target_user_id: User ID for localization context.
-        native: If True, returns the name in its native language.
 
     Returns:
-        tuple[str, str]: (localized_name, emoji_character)
+        tuple[str, str]: (native_name, emoji_character)
     """
-    key_code = code.replace("-", "_")
+    data = LANG_DATA.get(code)
+    if not data:
+        emoji_char = emoji.emojize(":globe_with_meridians:", language="alias")
+        return code.upper(), emoji_char
 
-    shortcode = LANG_EMOJIS.get(code, ":globe_with_meridians:")
-    emoji_char = emoji.emojize(shortcode, language="alias")
-
-    key = f"lang.{key_code}"
-
-    if native:
-        name = t(code, key)
-    else:
-        name = await at(target_chat_id, key, user_id=target_user_id)
-
-    if name == key:
-        name = code.upper()
-
-    return name, emoji_char
+    emoji_char = emoji.emojize(data["emoji"], language="alias")
+    return data["name"], emoji_char
 
 
 async def get_all_langs_info(
     ctx: AppContext,
     codes: list[str] | None = None,
-    target_chat_id: int | None = None,
-    target_user_id: int | None = None,
-    native: bool = False,
 ) -> dict[str, tuple[str, str]]:
     """Batch version of get_lang_info."""
     if codes is None:
-        codes = list(LANG_EMOJIS.keys())
+        codes = list(LANG_DATA.keys())
 
     results = {}
     for code in codes:
-        results[code] = await get_lang_info(ctx, code, target_chat_id, target_user_id, native)
+        results[code] = await get_lang_info(ctx, code)
 
     return results

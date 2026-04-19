@@ -119,7 +119,7 @@ async def set_lang_handler(client: Client, message: Message) -> None:
 
     from src.utils.lang_utils import get_lang_info
 
-    name, flag = await get_lang_info(ctx, lang, target_chat_id=message.chat.id)
+    name, flag = await get_lang_info(ctx, lang)
     display_lang = f"{name} {flag}"
 
     await set_chat_lang(ctx, message.chat.id, lang)
@@ -167,12 +167,7 @@ async def language_picker_kb(
         q = query.strip().lower()
         filtered_langs = []
         for lang in langs:
-            name, _ = await get_lang_info(
-                ctx,
-                lang,
-                target_chat_id=at_id if scope == "chat" else None,
-                target_user_id=at_id if scope == "user" else None,
-            )
+            name, _ = await get_lang_info(ctx, lang)
             if q in lang.lower() or q in name.lower():
                 filtered_langs.append(lang)
         langs = filtered_langs
@@ -225,13 +220,7 @@ async def language_picker_kb(
         )
     row = []
     for lang in chunk:
-        name, flag = await get_lang_info(
-            ctx,
-            lang,
-            target_chat_id=at_id if scope == "chat" else None,
-            target_user_id=at_id if scope == "user" else None,
-            native=False,
-        )
+        name, flag = await get_lang_info(ctx, lang)
 
         if mode == "block":
             is_active = lang in current_blocked

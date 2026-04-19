@@ -176,7 +176,7 @@ async def on_lang_toggle(_: Client, callback: CallbackQuery, ap_ctx: AdminPanelC
     config = await get_lang_blocks(ap_ctx.ctx, chat_id)
     blocks = set(config["blocked"])
 
-    name, emoji_char = await get_lang_info(ap_ctx.ctx, code, target_chat_id=chat_id)
+    name, emoji_char = await get_lang_info(ap_ctx.ctx, code)
     display_name = f"{name} {emoji_char}"
 
     if code in blocks:
