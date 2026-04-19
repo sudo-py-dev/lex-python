@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "İstenmeyen Yazılım",
   "tmute.success": "🔇 {mention}, {duration} için geçici olarak sessize alındı.",
   "tts.error_generic": "❌ **TTS Hatası**: Sesli mesaj oluşturulamadı.",
+  "tts.error_rate_limit": "⏳ **Lütfen bekleyin**: Bu komutu {seconds} saniye içinde tekrar kullanabilirsiniz.",
   "tts.error_too_long": "❌ **Metin çok uzun**: TTS için maksimum uzunluk {limit} karakterdir.",
   "tts.generating": "🎙️ **Konuşmaya dönüştürülüyor...**",
   "tts.no_text": "❌ **Metin yok**: Lütfen konuşmaya dönüştürmek için bir miktar metin sağlayın.",

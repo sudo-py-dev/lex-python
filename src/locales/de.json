@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Unerwünschte Software",
   "tmute.success": "🔇 {mention} wurde für {duration} vorübergehend stummgeschaltet.",
   "tts.error_generic": "❌ **TTS-Fehler**: Sprachnachricht konnte nicht generiert werden.",
+  "tts.error_rate_limit": "⏳ **Bitte warten**: Sie können diesen Befehl in {seconds}s erneut verwenden.",
   "tts.error_too_long": "❌ **Text zu lang**: Die maximale Länge für TTS beträgt {limit} Zeichen.",
   "tts.generating": "🎙️ **In Sprache umwandeln...**",
   "tts.no_text": "❌ **Kein Text**: Bitte geben Sie Text ein, der in Sprache umgewandelt werden soll.",

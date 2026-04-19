@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Ongewenste software",
   "tmute.success": "🔇 {mention} is tijdelijk gedempt voor {duration}.",
   "tts.error_generic": "❌ **TTS-fout**: Kan geen spraakbericht genereren.",
+  "tts.error_rate_limit": "⏳ **Een ogenblik geduld**: je kunt deze opdracht over {seconds}s opnieuw gebruiken.",
   "tts.error_too_long": "❌ **Tekst te lang**: de maximale lengte voor TTS is {limit} tekens.",
   "tts.generating": "🎙️ **Converteren naar spraak...**",
   "tts.no_text": "❌ **Geen tekst**: geef wat tekst op die u naar spraak wilt converteren.",

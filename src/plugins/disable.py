@@ -1,4 +1,4 @@
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import Message
 from sqlalchemy import select
 
@@ -235,7 +235,7 @@ async def disable_interceptor(client: Client, message: Message) -> None:
     if command in NON_DISABLEABLE:
         return
     if await is_command_disabled(ctx, message.chat.id, command):
-        message.stop_propagation()
+        raise StopPropagation
 
 
 register(DisablePlugin())

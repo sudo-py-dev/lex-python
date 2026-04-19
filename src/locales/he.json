@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "תוכנה לא רצויה",
   "tmute.success": "🔇 {mention} הושתק זמנית עבור {duration}.",
   "tts.error_too_long": "❌ **הטקסט ארוך מדי**: המגבלה לדיבור היא {limit} תווים.",
+  "tts.error_rate_limit": "⏳ **אנא המתן**: תוכל להשתמש בפקודה זו שוב בעוד {seconds} שניות.",
   "tts.error_generic": "❌ **שגיאת TTS**: נכשל ביצירת הודעת קולית.",
   "tts.generating": "🎙️ **ממיר לדיבור...**",
   "tts.no_text": "❌ **אין טקסט**: אנא ספק טקסט להמרה לדיבור.",

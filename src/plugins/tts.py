@@ -10,7 +10,7 @@ from loguru import logger
 
 from src.core.bot import bot
 from src.core.plugin import Plugin, register
-from src.utils.decorators import safe_handler
+from src.utils.decorators import safe_handler, user_rate_limit
 from src.utils.i18n import at
 
 DetectorFactory.seed = 0
@@ -105,6 +105,7 @@ class TTSPlugin(Plugin):
 
 
 @bot.on_message(filters.command("tts") & (filters.group | filters.private))
+@user_rate_limit(seconds=60.0)
 @safe_handler
 async def tts_handler(client: Client, message: Message):
     text = ""

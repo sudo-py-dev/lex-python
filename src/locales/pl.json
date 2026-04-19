@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Niechciane oprogramowanie",
   "tmute.success": "🔇 {mention} został tymczasowo wyciszony przez {duration}.",
   "tts.error_generic": "❌ **Błąd TTS**: Nie udało się wygenerować wiadomości głosowej.",
+  "tts.error_rate_limit": "⏳ **Proszę czekać**: Możesz użyć tego polecenia ponownie za {seconds}s.",
   "tts.error_too_long": "❌ **Tekst za długi**: Maksymalna długość TTS to {limit} znaków.",
   "tts.generating": "🎙️ **Konwersja na mowę...**",
   "tts.no_text": "❌ **Brak tekstu**: Podaj tekst, który chcesz przekonwertować na mowę.",

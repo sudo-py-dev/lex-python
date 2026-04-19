@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Software indesejado",
   "tmute.success": "🔇 {mention} foi temporariamente silenciado por {duration}.",
   "tts.error_generic": "❌ **Erro TTS**: Falha ao gerar mensagem de voz.",
+  "tts.error_rate_limit": "⏳ **Aguarde**: Você pode usar este comando novamente em {seconds}s.",
   "tts.error_too_long": "❌ **Texto muito longo**: O comprimento máximo para TTS é de {limit} caracteres.",
   "tts.generating": "🎙️ **Convertendo para fala...**",
   "tts.no_text": "❌ **Sem texto**: Forneça algum texto para converter em fala.",

@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Unwanted Software",
   "tmute.success": "🔇 {mention} has been muted for {duration}.",
   "tts.error_too_long": "❌ **Text too long**: Maximum length for TTS is {limit} characters.",
+  "tts.error_rate_limit": "⏳ **Please wait**: You can use this command again in {seconds}s.",
   "tts.error_generic": "❌ **TTS Error**: Failed to generate voice message.",
   "tts.generating": "🎙️ **Converting to speech...**",
   "tts.no_text": "❌ **No text**: Please provide some text to convert to speech.",

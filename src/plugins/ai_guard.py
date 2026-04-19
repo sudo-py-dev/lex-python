@@ -4,7 +4,7 @@ import json
 from collections import defaultdict
 
 from loguru import logger
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import Message
 
 from src.config import config
@@ -82,7 +82,7 @@ async def ai_guard_handler(client: Client, message: Message):
                 log_tag="AI_GUARD",
                 violation_key="ai_guard.spam_detected",
             )
-            await message.stop_propagation()
+            raise StopPropagation
     except AIServiceError as e:
         if "authentication" in str(e).lower():
             await update_ai_guard_settings(
@@ -156,7 +156,7 @@ async def ai_image_guard_handler(client: Client, message: Message):
                 log_tag="AI_IMAGE_GUARD",
                 violation_key="ai_guard.spam_detected",
             )
-            await message.stop_propagation()
+            raise StopPropagation
     except Exception as e:
         logger.debug(f"AI Vision Fail: {e}")
 

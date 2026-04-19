@@ -2,7 +2,7 @@ import json
 
 from langdetect import detect_langs
 from loguru import logger
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import Message
 from sqlalchemy import select
 
@@ -285,7 +285,7 @@ async def lang_block_interceptor(client: Client, message: Message) -> None:
         lang=violated_lang.upper(),
     )
     if acted:
-        await message.stop_propagation()
+        raise StopPropagation
 
 
 # --- Admin Panel Input Handlers ---

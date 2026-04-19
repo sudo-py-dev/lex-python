@@ -197,6 +197,36 @@ def rate_limit(seconds: float = 2.0) -> Callable[[Handler], Handler]:
     return decorator
 
 
+def user_rate_limit(seconds: float = 60.0) -> Callable[[Handler], Handler]:
+    """Per-user rate limiter. Replies with a cooldown message if the user is on cooldown."""
+    _last_call: dict[int, float] = {}
+
+    def decorator(func: Handler) -> Handler:
+        @functools.wraps(func)
+        async def wrapper(client: Client, message: Message, **kwargs: Any) -> None:
+            sender_id = get_sender_id(message)
+            if sender_id is None:
+                return
+
+            now = time.monotonic()
+            last_call = _last_call.get(sender_id, 0.0)
+            elapsed = now - last_call
+
+            if elapsed < seconds:
+                remaining = int(seconds - elapsed)
+                await message.reply(
+                    await at(message.chat.id, "tts.error_rate_limit", seconds=remaining)
+                )
+                return
+
+            _last_call[sender_id] = now
+            await func(client, message, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def callback_admin_only(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
     """For callback query handlers — deny non-admins with an alert."""
 

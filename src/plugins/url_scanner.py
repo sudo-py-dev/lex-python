@@ -1,5 +1,5 @@
 from loguru import logger
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
 
@@ -88,7 +88,7 @@ async def url_scanner_handler(client: Client, message: Message) -> None:
             type=threat_text,
         )
         if acted:
-            await message.stop_propagation()
+            raise StopPropagation
 
 
 # --- Admin Panel Input Handlers ---

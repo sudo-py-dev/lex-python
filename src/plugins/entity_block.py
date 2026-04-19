@@ -1,6 +1,6 @@
 import json
 
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import InlineKeyboardMarkup, Message
 from sqlalchemy import select
 
@@ -171,7 +171,7 @@ async def entity_block_interceptor(client: Client, message: Message) -> None:
             "entityblock.violation",
             type=lbl,
         ):
-            await message.stop_propagation()
+            raise StopPropagation
 
 
 register(EntityBlockPlugin())

@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Perangkat Lunak yang Tidak Diinginkan",
   "tmute.success": "🔇 {mention} telah dinonaktifkan sementara untuk {duration}.",
   "tts.error_generic": "❌ **Kesalahan TTS**: Gagal membuat pesan suara.",
+  "tts.error_rate_limit": "⏳ **Harap tunggu**: Anda dapat menggunakan perintah ini lagi dalam {seconds}s.",
   "tts.error_too_long": "❌ **Teks ​​terlalu panjang**: Panjang maksimum TTS adalah {limit} karakter.",
   "tts.generating": "🎙️ **Mengonversi ke ucapan...**",
   "tts.no_text": "❌ **Tanpa teks**: Berikan beberapa teks untuk diubah menjadi ucapan.",

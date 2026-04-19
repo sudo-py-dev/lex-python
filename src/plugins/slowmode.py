@@ -1,6 +1,6 @@
 import contextlib
 
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import Message
 
 from src.core.bot import bot
@@ -103,7 +103,7 @@ async def slowmode_interceptor(client: Client, message: Message) -> None:
     if await ctx.cache.get(key):
         with contextlib.suppress(Exception):
             await message.delete()
-        await message.stop_propagation()
+        raise StopPropagation
     else:
         await ctx.cache.set(key, "1", ttl=interval)
 

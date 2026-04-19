@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "不需要的软件",
   "tmute.success": "🔇 {mention} 已暂时静音 {duration}。",
   "tts.error_generic": "❌ **TTS 错误**：无法生成语音消息。",
+  "tts.error_rate_limit": "⏳ **请稍候**：您可以在{seconds}秒后再次使用此命令。",
   "tts.error_too_long": "❌ **文本太长**：TTS 的最大长度为 {limit} 个字符。",
   "tts.generating": "🎙️ **转换为语音...**",
   "tts.no_text": "❌ **无文本**：请提供一些文本以转换为语音。",

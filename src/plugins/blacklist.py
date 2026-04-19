@@ -1,7 +1,7 @@
 import fnmatch
 import re
 
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import InlineKeyboardMarkup, Message
 
 from src.core.bot import bot
@@ -125,7 +125,7 @@ async def blacklist_interceptor(client: Client, message: Message) -> None:
         "blacklist.violation_notice",
         pattern=match.pattern,
     ):
-        await message.stop_propagation()
+        raise StopPropagation
 
 
 # --- Admin Panel Input Handlers ---

@@ -2,7 +2,7 @@ import contextlib
 import json
 import re
 
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from src.core.bot import bot
@@ -181,7 +181,7 @@ async def filters_interceptor(client: Client, message: Message) -> None:
                 await TelegramFormatter.send_parsed(
                     client, message.chat.id, p, reply_to_message_id=message.id
                 )
-            await message.stop_propagation()
+            raise StopPropagation
             break
 
 

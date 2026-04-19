@@ -1,7 +1,7 @@
 import contextlib
 import re
 
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.types import Message
 
 from src.core.bot import bot
@@ -136,7 +136,7 @@ async def sticker_interceptor(client: Client, message: Message) -> None:
             set_name=message.sticker.set_name,
         )
         if acted:
-            await message.stop_propagation()
+            raise StopPropagation
 
 
 @bot.on_message(

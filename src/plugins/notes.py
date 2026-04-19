@@ -1,4 +1,4 @@
-from pyrogram import Client, filters
+from pyrogram import Client, StopPropagation, filters
 from pyrogram.errors import Forbidden, RPCError, UserIsBlocked
 from pyrogram.types import Message
 from sqlalchemy import func, select
@@ -153,7 +153,7 @@ async def hash_note_handler(client: Client, message: Message) -> None:
     if n:
         await send_note(client, message, n)
         if not n.isPrivate:
-            await message.stop_propagation()
+            raise StopPropagation
 
 
 @bot.on_message(filters.private & filters.regex(r"^/start note_(-?\d+)_(.+)$"), group=1)

@@ -865,6 +865,7 @@
   "threat_types.UNWANTED_SOFTWARE": "Logiciels indésirables",
   "tmute.success": "🔇 {mention} a été temporairement désactivé pour {duration}.",
   "tts.error_generic": "❌ **Erreur TTS** : échec de la génération du message vocal.",
+  "tts.error_rate_limit": "⏳ **Veuillez patienter** : Vous pouvez réutiliser cette commande dans {seconds}s.",
   "tts.error_too_long": "❌ **Texte trop long** : la longueur maximale du TTS est de {limit} caractères.",
   "tts.generating": "🎙️ **Conversion à la parole...**",
   "tts.no_text": "❌ **Pas de texte** : veuillez fournir du texte à convertir en parole.",
